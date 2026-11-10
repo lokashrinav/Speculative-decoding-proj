@@ -1,0 +1,96 @@
+== host
+tron33.umiacs.umd.edu
+Tue Nov 10 07:57:10 PM UTC 2026
+== gpu
+Tue Nov 10 14:57:10 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 595.91.07              Driver Version: 595.91.07      CUDA Version: 13.2     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A4000               Off |   00000000:01:00.0 Off |                  Off |
+| 41%   41C    P8             20W /  140W |       1MiB /  16376MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+== qos
+                     Name     MaxWall                        MaxTRES MaxJobsPU                      MaxTRESPU 
+------------------------- ----------- ------------------------------ --------- ------------------------------ 
+                  default  3-00:00:00       cpu=4,gres/gpu=1,mem=32G                                          
+                     high  1-00:00:00     cpu=16,gres/gpu=4,mem=128G                                          
+                   medium  2-00:00:00       cpu=8,gres/gpu=2,mem=64G                                          
+== partition
+NODELIST GRES CPUS MEMORY TIMELIMIT STATE
+tron[46-50,52,54-61] gpu:rtxa5000:8 48 255225+ infinite mixed-
+tron[29,44-45] gpu:rtxa4000:4 16 126218 infinite drained
+tron[06,09-10,14,20-26,30-32,34-39,42-43] gpu:rtxa4000:4 16 126214+ infinite mixed
+tron[51,53] gpu:rtxa5000:8 48 255232 infinite mixed
+tron[07-08,11-13,15-19,27-28,33,40-41] gpu:rtxa4000:4 16 126214+ infinite allocated
+== assoc
+     class                                 default,high,medium                                                                                   
+== cpu/mem
+4
+               total        used        free      shared  buff/cache   available
+Mem:             125          31           5           8          98          94
+== disk
+Filesystem                                   Size  Used Avail Use% Mounted on
+data.isilon.umiacs.umd.edu:/ifs/class/homes   30T  655G   30T   3% /fs/classhomes
+/dev/mapper/vol00-scratch0                   142G  1.1G  141G   1% /scratch0
+/dev/mapper/vol01-scratch1                   3.5T  239G  3.3T   7% /scratch1
+/dev/mapper/vol00-tmp                         49G  873M   48G   2% /tmp
+== class-projects
+fall2026
+cmsc498z
+cmsc838b
+== software
+Python 3.9.25
+/usr/bin/which: no conda in (/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin)
+/usr/bin/which: no mamba in (/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin)
+/usr/bin/which: no uv in (/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin)
+/usr/bin/pip3
+/usr/bin/tmux
+/usr/bin/git
+alpine/2.26      guile/2.2.7        ninja/1.12.1       Python3/3.14.5       
+autogen/5.18.16  guile/3.0.10       nodejs/22.8.0      Python3/3.14.6       
+c-ares/1.19.0    hdf5/1.12.3        nodejs/24.22.1     Python3/3.14.7       
+clang/19.1.7     htop/3.3.0         nodejs/26.12.1     Python3/3.14.8       
+cloog/0.18.4     isl/0.27           npth/1.7           Python3/3.15.2       
+fdk-aac/2.0.3    libpng/1.5.30      Python3/3.8.19     R/4.6.2              
+ffmpeg/6.1       LibRaw/0.21.2      Python3/3.9.19     ruby/3.3.1           
+ffmpeg/7.1       libtheora/1.1.1    Python3/3.10.4     sage/10.3            
+fftw/3.3.10      libvorbis/1.3.7    Python3/3.10.14    SDL2/2.30.1          
+fio/3.37         libvpx/1.14.0      Python3/3.11.9     sqlite/3.45.3        
+flac/1.4.3       libyaml/0.2.5      Python3/3.11.11    tokyocabinet/1.4.48  
+fribidi/1.0.13   llvm/19.1.7        Python3/3.12.3     unrar/7.0.9          
+gcc/14.2.0       mariadb/10.6.19    Python3/3.13.1     wireshark/4.0.3      
+gcc/15.1.0       mariadb/11.4.3     Python3/3.13.2     x264/20240327        
+gcc/16.1.0       mpc/1.3.1          Python3/3.13.5     x265/3.5             
+gcc/16.2.0       mpfr/4.2.1         Python3/3.13.7     yasm/1.3.0           
+gmp/6.3.0        mutt/1.14.2        Python3/3.14.0     zeromq/4.3.5         
+gperf/3.1        mutt/2.2.13        Python3/3.14.2     
+guile/2.0.14     nasm/2.15.05       Python3/3.14.4     
+cuda/3.2.16              hugo/0.53                            openjdk/12        
+cuda/4.2.9               intel-oneapi/2022/ccl                openjdk/13        
+cuda/5.0.35              intel-oneapi/2022/compiler(default)  openjdk/14        
+cuda/5.5.11              intel-oneapi/2022/compiler-rt        openjdk/15        
+cuda/5.5.22              intel-oneapi/2022/dal                openjdk/16        
+cuda/6.0.37              intel-oneapi/2022/debugger           openjdk/17        
+cuda/6.5.14              intel-oneapi/2022/dpct               openjdk/18        
+cuda/7.0.28              intel-oneapi/2022/dpl                openjdk/19        
+cuda/7.5.18              intel-oneapi/2022/icc                openjdk/20        
+cuda/8.0.27rc2           intel-oneapi/2022/ipp                openjdk/21        
+cuda/8.0.44              intel-oneapi/2022/ippcp              openjdk/22        
+== network
+https://huggingface.co 200
+https://pypi.org 200
+https://github.com 200
+https://download.pytorch.org 403
