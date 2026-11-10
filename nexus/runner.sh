@@ -5,7 +5,6 @@
 # Stop it by pushing a file named nexus/STOP, or with: tmux kill-session -t specdec
 BRANCH=nexus-jobs
 cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
-git config core.sshCommand "ssh -i $HOME/.ssh/specdec_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 git config user.name "nexus-runner"
 git config user.email "nexus-runner@users.noreply.github.com"
 LOGDIR="$HOME/specdec-slurm"
