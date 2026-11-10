@@ -79,3 +79,6 @@ Python 3.12.3
 ++ hash -r
 + python -m pip install -q -e '/fs/classhomes/sloka/specdec-code/baseline-4b[local]' accelerate
 + tail -5
++ python -
++ nvidia-smi --query-gpu=name,memory.total --format=csv
++ du -sh /fs/classhomes/sloka/specdec-env
