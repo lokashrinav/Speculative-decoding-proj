@@ -323,7 +323,13 @@ def _run_transformers(args: argparse.Namespace) -> None:
         ordinary_tpot = statistics.mean(r[block_size].time_per_output_token for r in responses)
         secondary_tpot = statistics.mean(r[block_size].time_per_output_token for r in secondary_responses)
         print(f"Speedup vs ordinary DFlash: {ordinary_tpot / secondary_tpot:.2f}")
-        print(f"Greedy token checks passed for all {len(responses)} turns.")
+        from . import validation
+        if validation.MISMATCHES:
+            print(f"Greedy token mismatches: {len(validation.MISMATCHES)} checks failed over {len(responses)} turns.")
+            for m in validation.MISMATCHES:
+                print(f"  {m}")
+        else:
+            print(f"Greedy token checks passed for all {len(responses)} turns.")
 
 
 def _run_mlx(args: argparse.Namespace) -> None:

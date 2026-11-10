@@ -1,6 +1,13 @@
 """Optional, untimed comparison with independent target-only generation."""
 
+import os
+import sys
+
 import torch
+
+# With DFLASH_MISMATCH=warn a mismatch is recorded and reported, not raised, so a
+# benchmark can finish and report how often speculative output differs.
+MISMATCHES: list[str] = []
 
 
 def assert_same_tokens(actual: torch.Tensor, expected: torch.Tensor, label: str) -> None:
@@ -9,10 +16,15 @@ def assert_same_tokens(actual: torch.Tensor, expected: torch.Tensor, label: str)
     common = min(actual.shape[1], expected.shape[1])
     differences = (actual[:, :common] != expected[:, :common]).nonzero()
     position = int(differences[0, 1]) if differences.numel() else common
-    raise RuntimeError(
+    message = (
         f"{label}: greedy token mismatch at position {position}; "
         f"sequence lengths {actual.shape[1]} vs {expected.shape[1]}"
     )
+    if os.environ.get("DFLASH_MISMATCH") == "warn":
+        MISMATCHES.append(message)
+        print(f"WARNING: {message}", file=sys.stderr)
+        return
+    raise RuntimeError(message)
 
 
 @torch.inference_mode()
