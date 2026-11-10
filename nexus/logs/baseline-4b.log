@@ -1,0 +1,81 @@
++ ENV=/fs/classhomes/sloka/specdec-env
++ CODE=/fs/classhomes/sloka/specdec-code/baseline-4b
++ export HF_HOME=/fs/classhomes/sloka/hf-cache
++ HF_HOME=/fs/classhomes/sloka/hf-cache
++ export PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 TOKENIZERS_PARALLELISM=false
++ PIP_NO_CACHE_DIR=1
++ PIP_DISABLE_PIP_VERSION_CHECK=1
++ TOKENIZERS_PARALLELISM=false
++ cd /fs/classhomes/sloka
++ module load Python3/3.12.3
++ local _mlredir=0
++ '[' -n '' ']'
++ case " $@ " in
++ '[' 0 -eq 0 ']'
++ _module_raw load Python3/3.12.3
+++ /usr/bin/tclsh /usr/share/Modules/libexec/modulecmd.tcl bash load Python3/3.12.3
++ eval 'LD_RUN_PATH=/opt/local/stow/Python3-3.12.3/lib; export LD_RUN_PATH;
+CPATH=/opt/local/stow/Python3-3.12.3/include; export CPATH;
+__MODULES_SHARE_MANPATH=:1; export __MODULES_SHARE_MANPATH;
+MANPATH=/opt/local/stow/Python3-3.12.3/share/man:/usr/share/man::/opt/puppetlabs/puppet/share/man; export MANPATH;
+LIBRARY_PATH=/opt/local/stow/Python3-3.12.3/lib; export LIBRARY_PATH;
+PATH=/opt/local/stow/Python3-3.12.3/bin:/opt/local/bin:/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin; export PATH;
+_LMFILES_=/opt/local/stow/.modulefiles/Python3/3.12.3; export _LMFILES_;
+LOADEDMODULES=Python3/3.12.3; export LOADEDMODULES;
+PKG_CONFIG_PATH=/opt/local/stow/Python3-3.12.3/lib/pkgconfig; export PKG_CONFIG_PATH;
+test 0;'
+++ LD_RUN_PATH=/opt/local/stow/Python3-3.12.3/lib
+++ export LD_RUN_PATH
+++ CPATH=/opt/local/stow/Python3-3.12.3/include
+++ export CPATH
+++ __MODULES_SHARE_MANPATH=:1
+++ export __MODULES_SHARE_MANPATH
+++ MANPATH=/opt/local/stow/Python3-3.12.3/share/man:/usr/share/man::/opt/puppetlabs/puppet/share/man
+++ export MANPATH
+++ LIBRARY_PATH=/opt/local/stow/Python3-3.12.3/lib
+++ export LIBRARY_PATH
+++ PATH=/opt/local/stow/Python3-3.12.3/bin:/opt/local/bin:/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin
+++ export PATH
+++ _LMFILES_=/opt/local/stow/.modulefiles/Python3/3.12.3
+++ export _LMFILES_
+++ LOADEDMODULES=Python3/3.12.3
+++ export LOADEDMODULES
+++ PKG_CONFIG_PATH=/opt/local/stow/Python3-3.12.3/lib/pkgconfig
+++ export PKG_CONFIG_PATH
+++ test 0
++ _mlstatus=0
++ return 0
++ python3 --version
+Python 3.12.3
++ rm -rf /fs/classhomes/sloka/specdec-code/baseline-4b
+++ dirname /fs/classhomes/sloka/specdec-code/baseline-4b
++ mkdir -p /fs/classhomes/sloka/specdec-code
++ git clone -q --depth 1 -b nexus-jobs https://github.com/lokashrinav/Speculative-decoding-proj.git /fs/classhomes/sloka/specdec-code/baseline-4b
++ '[' -x /fs/classhomes/sloka/specdec-env/bin/python ']'
++ python3 -m venv /fs/classhomes/sloka/specdec-env
++ source /fs/classhomes/sloka/specdec-env/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/fs/classhomes/sloka/specdec-env
+++ VIRTUAL_ENV=/fs/classhomes/sloka/specdec-env
+++ _OLD_VIRTUAL_PATH=/opt/local/stow/Python3-3.12.3/bin:/opt/local/bin:/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin
+++ PATH=/fs/classhomes/sloka/specdec-env/bin:/opt/local/stow/Python3-3.12.3/bin:/opt/local/bin:/usr/share/Modules/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(specdec-env) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(specdec-env) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ python -m pip install -q -e '/fs/classhomes/sloka/specdec-code/baseline-4b[local]' accelerate
++ tail -5
