@@ -85,3 +85,12 @@ Python 3.12.3
 + cd /fs/classhomes/sloka/specdec-code/baseline-4b
 + COMMON='--model Qwen/Qwen3-4B --draft z-lab/Qwen3-4B-DFlash-b16 --block-size 16 --max-new-tokens 256 --temperature 0 --reasoning off'
 + python -m dflash.cli benchmark transformers --model Qwen/Qwen3-4B --draft z-lab/Qwen3-4B-DFlash-b16 --block-size 16 --max-new-tokens 256 --temperature 0 --reasoning off --dataset gsm8k --max-samples 64
++ echo 'exit 0'
++ tail -c 4000 /fs/classhomes/sloka/specdec-runner/nexus/results/baseline-4b/dflash_gsm8k_64.err
++ rm -f /fs/classhomes/sloka/specdec-runner/nexus/results/baseline-4b/dflash_gsm8k_64.err
++ python -m dflash.cli benchmark transformers --model Qwen/Qwen3-4B --draft z-lab/Qwen3-4B-DFlash-b16 --block-size 16 --max-new-tokens 256 --temperature 0 --reasoning off --secondary-model Qwen/Qwen3-0.6B --dataset gsm8k --max-samples 16
++ echo 'exit 1'
++ tail -c 4000 /fs/classhomes/sloka/specdec-runner/nexus/results/baseline-4b/secondary_gsm8k_16.err
++ rm -f /fs/classhomes/sloka/specdec-runner/nexus/results/baseline-4b/secondary_gsm8k_16.err
++ du -sh /fs/classhomes/sloka/hf-cache /fs/classhomes/sloka/specdec-env
++ quota -s
