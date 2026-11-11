@@ -1,0 +1,57 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "math500",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,self-keep1,self-keep2,self-keepconfidence",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/redraft-self-4b/math500"
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 119.42366144559612,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.967964174991388,
+   "rounds": 2903,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "self-keep1": {
+   "tokens_per_second": 111.84093074397376,
+   "speed_vs_first_variant": 0.9365056253523368,
+   "tokens_per_round": 7.448402497245685,
+   "rounds": 2723,
+   "rounds_with_alternative": 2083,
+   "alternative_wins": 298,
+   "alternative_extra_tokens": 938,
+   "outputs_differing_from_first_variant": 44
+  },
+  "self-keep2": {
+   "tokens_per_second": 111.36738118708864,
+   "speed_vs_first_variant": 0.9325403344614622,
+   "tokens_per_round": 7.416087751371115,
+   "rounds": 2735,
+   "rounds_with_alternative": 2280,
+   "alternative_wins": 294,
+   "alternative_extra_tokens": 903,
+   "outputs_differing_from_first_variant": 48
+  },
+  "self-keepconfidence": {
+   "tokens_per_second": 109.26600640622402,
+   "speed_vs_first_variant": 0.9149443676703929,
+   "tokens_per_round": 7.409937888198757,
+   "rounds": 2737,
+   "rounds_with_alternative": 2506,
+   "alternative_wins": 354,
+   "alternative_extra_tokens": 1022,
+   "outputs_differing_from_first_variant": 48
+  }
+ }
+}
