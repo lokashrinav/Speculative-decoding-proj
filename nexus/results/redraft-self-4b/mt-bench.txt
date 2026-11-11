@@ -1,0 +1,6 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   58.33 tok/s  x1.000  tokens/round  3.34  alt tried 0/10062  alt won 0  extra tokens 0  outputs differing 0/160
+self-keep1               54.38 tok/s  x0.932  tokens/round  3.57  alt tried 8431/9370  alt won 844  extra tokens 1812  outputs differing 95/160
+self-keep2               53.33 tok/s  x0.914  tokens/round  3.51  alt tried 9006/9526  alt won 646  extra tokens 1362  outputs differing 102/160
+self-keepconfidence      52.93 tok/s  x0.907  tokens/round  3.55  alt tried 9028/9442  alt won 845  extra tokens 1775  outputs differing 95/160
+exit 0
