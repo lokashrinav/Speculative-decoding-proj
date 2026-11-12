@@ -126,14 +126,15 @@ class Resample:
         self.generator = None
 
     def start(self, first_drafter: nn.Module) -> None:
-        self.generator = torch.Generator(device="cpu").manual_seed(self.seed)
+        self.generator = None
 
     def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
         s = round_state
-        probabilities = s.draft_logits[0, 1:].float().softmax(dim=-1).cpu()
+        if self.generator is None:
+            self.generator = torch.Generator(device=s.draft_logits.device).manual_seed(self.seed)
+        probabilities = s.draft_logits[0, 1:].float().softmax(dim=-1)
         alternative = s.block_ids.clone()
-        sampled = torch.multinomial(probabilities, 1, generator=self.generator)[:, 0]
-        alternative[0, 2:] = sampled.to(alternative.device)
+        alternative[0, 2:] = torch.multinomial(probabilities, 1, generator=self.generator)[:, 0]
         return alternative
 
 
