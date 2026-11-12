@@ -159,3 +159,56 @@ def test_keep_rule_is_validated():
         SelfRedraft(keep=0)
     with pytest.raises(ValueError):
         SelfRedraft(keep="most")
+
+
+@pytest.mark.parametrize("seed", [17, 3])
+@pytest.mark.parametrize("budget", [5, 11, 40])
+@pytest.mark.parametrize("block_size", [4, 8, 16])
+@pytest.mark.parametrize("condition", ["runner_up", "random", "soft"])
+def test_diagnostic_conditions_are_lossless(seed, budget, block_size, condition):
+    target, draft = make_models(seed)
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    ours = dflash_generate_redraft(
+        draft, target, prompt, budget, None,
+        improver=SelfRedraft(keep=1, condition=condition), block_size=block_size,
+    )
+    check_greedy_output(target, prompt, ours, budget, None)
+
+
+@pytest.mark.parametrize("budget", [5, 11, 40])
+@pytest.mark.parametrize("block_size", [4, 8, 16])
+def test_resample_and_gate_are_lossless_and_logged(budget, block_size):
+    from dflash.redraft import Gated, Resample, confidence_features
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    log, timers = [], {}
+    ours = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=Resample(seed=1),
+        block_size=block_size, round_log=log, timers=timers,
+    )
+    check_greedy_output(target, prompt, ours, budget, None)
+    for block_len, split, first, alternative, confidence in log:
+        assert block_len == block_size and len(confidence) == block_size - 1
+        assert 0 <= first < block_len and -1 <= alternative < block_len
+    assert timers["draft"] > 0 and timers.get("verify_one", 0) + timers.get("verify_two", 0) > 0
+
+    width = 2 * (block_size - 1)
+    for bias, expect_fire in ((100.0, True), (-100.0, False)):
+        gate = Gated(SelfRedraft(keep=1), [0.0] * width, bias)
+        gated = dflash_generate_redraft(
+            draft, target, prompt, budget, None, improver=gate, block_size=block_size,
+        )
+        check_greedy_output(target, prompt, gated, budget, None)
+        if budget > block_size:
+            assert (gate.fired > 0) == expect_fire
+    features = confidence_features(torch.randn(1, block_size - 1, 32))
+    assert features.shape == (width,)
+    assert abs(float(features[block_size - 1 :].sum() + features[: block_size - 1].prod()) - 1.0) < 1e-5
+
+
+def test_conditions_are_validated():
+    with pytest.raises(ValueError):
+        SelfRedraft(keep=2, condition="soft")
+    with pytest.raises(ValueError):
+        SelfRedraft(keep=1, condition="other")

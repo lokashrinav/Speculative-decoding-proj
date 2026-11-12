@@ -42,16 +42,33 @@ class SelfRedraft:
     position where the first draft is most likely to be rejected first.
     """
 
-    def __init__(self, model: nn.Module | None = None, keep: int | str = "confidence"):
+    def __init__(
+        self, model: nn.Module | None = None, keep: int | str = "confidence",
+        condition: str = "draft", seed: int = 0,
+    ):
         if not (keep == "confidence" or (isinstance(keep, int) and keep >= 1)):
             raise ValueError("keep must be a positive integer or 'confidence'")
+        if condition not in ("draft", "runner_up", "random", "soft"):
+            raise ValueError("condition must be 'draft', 'runner_up', 'random' or 'soft'")
+        if condition != "draft" and keep != 1:
+            raise ValueError("conditions other than 'draft' change slot 1 only, so they need keep=1")
         self.model = model
         self.keep = keep
+        # What the second pass is shown at slot 1 (used to find out which part of
+        # the draft carries the useful information):
+        #   draft      the first draft's own token
+        #   runner_up  the first draft's second choice, which also becomes the alternative's token
+        #   random     a random token (the alternative still keeps the draft's token)
+        #   soft       the probability-weighted mix of all candidate embeddings
+        self.condition = condition
+        self.seed = seed
+        self.generator = None
         self.cache = None
 
     def start(self, first_drafter: nn.Module) -> None:
         """Called once per generation."""
         self.cache = None if self.model is None else _make_cache(self.model.config)
+        self.generator = torch.Generator().manual_seed(self.seed)
 
     def _keep_length(self, draft_logits: torch.Tensor, block_len: int) -> int:
         most = block_len - 2  # leave at least one position to redraft
@@ -69,10 +86,20 @@ class SelfRedraft:
         keep = self._keep_length(s.draft_logits, block_len)
         visible = s.block_ids.clone()
         visible[:, keep + 1 :] = s.first_drafter.mask_token_id
+        alternative = s.block_ids.clone()
+        if self.condition == "runner_up":
+            visible[:, 1] = s.draft_logits[:, 0].topk(2, dim=-1).indices[:, 1]
+            alternative[:, 1] = visible[:, 1]
+        elif self.condition == "random":
+            vocab = s.draft_logits.shape[-1]
+            visible[:, 1] = torch.randint(vocab, (1,), generator=self.generator).item()
         drafter = s.first_drafter if self.model is None else self.model
-        noise = _raw_input_embeddings(
-            s.target, visible, float(_draft_value(drafter.config, "input_embedding_scale", 1.0)),
-        )
+        scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+        noise = _raw_input_embeddings(s.target, visible, scale)
+        if self.condition == "soft":
+            weights = s.target.get_input_embeddings().weight
+            probabilities = s.draft_logits[:, 0].float().softmax(dim=-1).to(weights.dtype)
+            noise[:, 1] = (probabilities @ weights) * scale
         if self.model is None:
             # The first drafter's cache already holds the context for this round.
             cache, context = s.draft_cache, s.context_features[:, :0]
@@ -86,9 +113,64 @@ class SelfRedraft:
         )[:, 1 - block_len :, :]
         _crop_to(cache, s.start)
         logits = drafter.compute_logits(hidden, _output_head(s.target))
-        alternative = s.block_ids.clone()
         alternative[:, keep + 1 :] = logits.argmax(dim=-1)[:, keep:]
         return alternative
+
+
+class Resample:
+    """A second draft with no second pass: keep slot 1, sample the other slots
+    from the probabilities the first pass already produced."""
+
+    def __init__(self, seed: int = 0):
+        self.seed = seed
+        self.generator = None
+
+    def start(self, first_drafter: nn.Module) -> None:
+        self.generator = torch.Generator(device="cpu").manual_seed(self.seed)
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        s = round_state
+        probabilities = s.draft_logits[0, 1:].float().softmax(dim=-1).cpu()
+        alternative = s.block_ids.clone()
+        sampled = torch.multinomial(probabilities, 1, generator=self.generator)[:, 0]
+        alternative[0, 2:] = sampled.to(alternative.device)
+        return alternative
+
+
+def confidence_features(draft_logits: torch.Tensor) -> torch.Tensor:
+    """Per-round numbers a gate can use, all from the first draft alone:
+    the confidence of each draft token, then for each slot the chance that the
+    first rejection happens exactly there."""
+    confidence = draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
+    survive = confidence.cumprod(dim=0)
+    first_rejection = torch.cat((1.0 - confidence[:1], survive[:-1] * (1.0 - confidence[1:])))
+    return torch.cat((confidence, first_rejection))
+
+
+class Gated:
+    """Run the inner improver only in rounds where a linear score of the first
+    draft's confidences says the second draft is likely to win."""
+
+    def __init__(self, inner, weights: list[float], bias: float, threshold: float = 0.0):
+        self.inner = inner
+        self.weights = torch.tensor(weights, dtype=torch.float32)
+        self.bias = bias
+        self.threshold = threshold
+        self.fired = 0
+
+    def start(self, first_drafter: nn.Module) -> None:
+        self.inner.start(first_drafter)
+        self.fired = 0
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        features = confidence_features(round_state.draft_logits)
+        if features.shape[0] != self.weights.shape[0]:
+            return None  # short final block
+        score = float(features @ self.weights.to(features.device)) + self.bias
+        if score <= self.threshold:
+            return None
+        self.fired += 1
+        return self.inner(round_state)
 
 
 def _leading_matches(proposed: torch.Tensor, verified: torch.Tensor) -> int:
@@ -105,10 +187,16 @@ def dflash_generate_redraft(
     improver=None,
     block_size: int | None = None,
     return_stats: bool = False,
+    round_log: list | None = None,
+    timers: dict | None = None,
 ):
     """Greedy DFlash decoding that verifies the first draft and an improved draft together.
 
     With ``improver=None`` this is ordinary DFlash and produces the same tokens.
+    round_log, if given, receives one entry per full round:
+    [block length, split (0 if no alternative), tokens accepted from the first
+    draft, tokens accepted from the alternative (-1 if none), confidences].
+    timers, if given, accumulates seconds spent in each part of a round.
     """
     if isinstance(model, DFlash2DraftModel):
         raise ValueError("Two-draft decoding supports the original DFlash drafter only")
@@ -158,6 +246,7 @@ def dflash_generate_redraft(
             noise = _raw_input_embeddings(
                 target, block_ids, float(_draft_value(model.config, "input_embedding_scale", 1.0)),
             )
+            clock = _cuda_time() if timers is not None else None
             hidden = model(
                 target_hidden=context_features, noise_embedding=noise,
                 position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
@@ -166,6 +255,10 @@ def dflash_generate_redraft(
             _crop_to(draft_cache, start)
             draft_logits = model.compute_logits(hidden, _output_head(target))
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
+            if timers is not None:
+                now = _cuda_time()
+                timers["draft"] = timers.get("draft", 0.0) + now - clock
+                clock = now
             if improver is not None and block_len > 2:
                 alternative = improver(SimpleNamespace(
                     block_ids=block_ids, draft_logits=draft_logits, start=start,
@@ -173,6 +266,9 @@ def dflash_generate_redraft(
                     accepted_ids=output_ids[:, :start], first_drafter=model,
                     draft_cache=draft_cache, target=target,
                 ))
+
+            if timers is not None and improver is not None:
+                timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
 
         # The two drafts share everything before `split`; only the alternative's
         # tokens from `split` onward are added to the verification pass.
@@ -199,15 +295,22 @@ def dflash_generate_redraft(
             # Alternative tokens must not see the first draft's tokens after the split.
             visible[first_extra_row:, cached + num_pending + split : cached + first_extra_row] = False
             attention_mask = visible[None, None]
+        clock = _cuda_time() if timers is not None else None
         output = target(
             torch.cat(verify_ids, dim=1), position_ids=torch.cat(verify_positions, dim=1),
             past_key_values=target_cache, use_cache=True,
             output_hidden_states=block_len > 1, attention_mask=attention_mask,
         )
         verified = output.logits.argmax(dim=-1)
+        if timers is not None:
+            kind = "two" if alternative is not None else "one"
+            timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock
+            timers["rounds_" + kind] = timers.get("rounds_" + kind, 0) + 1
+            timers["rows_" + kind] = timers.get("rows_" + kind, 0) + num_pending + block_len + extra
 
         first_rows = torch.arange(num_pending, num_pending + block_len, device=device)
         accepted = _leading_matches(block_ids[:, 1:], verified[:, first_rows[:-1]])
+        first_accepted, alternative_accepted = accepted, -1
         winner_ids, winner_rows, alternative_won = block_ids, first_rows, False
         if alternative is not None:
             alternative_rows = torch.cat((
@@ -220,6 +323,13 @@ def dflash_generate_redraft(
                 alternative_extra_tokens += alternative_accepted - accepted
                 accepted, alternative_won = alternative_accepted, True
                 winner_ids, winner_rows = alternative, alternative_rows
+
+        if round_log is not None and block_len == block_size:
+            confidence = draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
+            round_log.append([
+                block_len, split if alternative is not None else 0, first_accepted,
+                alternative_accepted, [round(c, 3) for c in confidence.tolist()],
+            ])
 
         bonus = verified[0, winner_rows[accepted]]
         output_ids[:, start : start + accepted + 1] = winner_ids[:, : accepted + 1]
