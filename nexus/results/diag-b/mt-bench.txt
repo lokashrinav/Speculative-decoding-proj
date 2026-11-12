@@ -1,0 +1,14 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   58.38 tok/s  x1.000  tokens/round  3.34  alt tried 0/10062  alt won 0  extra tokens 0  outputs differing 0/160
+self-keep1               54.43 tok/s  x0.932  tokens/round  3.57  alt tried 8431/9370  alt won 844  extra tokens 1812  outputs differing 95/160
+runnerup                 55.34 tok/s  x0.948  tokens/round  3.65  alt tried 9144/9178  alt won 1026  extra tokens 2263  outputs differing 99/160
+randomcond               52.34 tok/s  x0.897  tokens/round  3.42  alt tried 8308/9853  alt won 282  extra tokens 610  outputs differing 92/160
+softcond                 54.31 tok/s  x0.930  tokens/round  3.58  alt tried 8373/9334  alt won 742  extra tokens 1605  outputs differing 101/160
+resample                 30.14 tok/s  x0.516  tokens/round  3.45  alt tried 9437/9738  alt won 498  extra tokens 705  outputs differing 99/160
+timing dflash               draft 8.29 ms  improve 0.00 ms  verify one draft 49.58 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing self-keep1           draft 8.31 ms  improve 8.07 ms  verify one draft 49.63 ms (15.1 rows)  verify two drafts 49.26 ms (27.2 rows)
+timing runnerup             draft 8.31 ms  improve 8.22 ms  verify one draft 49.22 ms (3.2 rows)  verify two drafts 49.22 ms (30.7 rows)
+timing randomcond           draft 8.24 ms  improve 8.03 ms  verify one draft 49.27 ms (15.1 rows)  verify two drafts 48.91 ms (27.2 rows)
+timing softcond             draft 8.26 ms  improve 8.16 ms  verify one draft 49.32 ms (14.8 rows)  verify two drafts 48.95 ms (27.1 rows)
+timing resample             draft 8.43 ms  improve 54.96 ms  verify one draft 50.27 ms (12.6 rows)  verify two drafts 50.11 ms (28.1 rows)
+exit 0

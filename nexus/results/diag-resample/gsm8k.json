@@ -1,0 +1,80 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "gsm8k",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,resample,self-keep1",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/diag-resample/gsm8k",
+  "analysis_samples": 80
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 99.78932549227493,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 5.75904732446644,
+   "rounds": 3233,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "resample": {
+   "tokens_per_second": 101.10747755211503,
+   "speed_vs_first_variant": 1.0132093493300758,
+   "tokens_per_round": 5.97879177377892,
+   "rounds": 3112,
+   "rounds_with_alternative": 2808,
+   "alternative_wins": 230,
+   "alternative_extra_tokens": 442,
+   "outputs_differing_from_first_variant": 40
+  },
+  "self-keep1": {
+   "tokens_per_second": 93.1288615881421,
+   "speed_vs_first_variant": 0.9332547457227934,
+   "tokens_per_round": 6.124133377352261,
+   "rounds": 3029,
+   "rounds_with_alternative": 2551,
+   "alternative_wins": 348,
+   "alternative_extra_tokens": 1036,
+   "outputs_differing_from_first_variant": 44
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 3233,
+   "draft": 8.341980418216286,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 49.77221792189884,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.785648004948964,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "resample": {
+   "rounds": 3112,
+   "draft": 8.390833833045386,
+   "improve_per_round": 0.2873830151909383,
+   "verify_one_draft": 50.13238607850661,
+   "verify_two_drafts": 49.72702011275649,
+   "rows_one_draft": 14.618421052631579,
+   "rows_two_drafts": 26.497863247863247,
+   "rounds_two_drafts": 2808
+  },
+  "self-keep1": {
+   "rounds": 3029,
+   "draft": 8.35618543702729,
+   "improve_per_round": 8.107518643963578,
+   "verify_one_draft": 49.81040767448561,
+   "verify_two_drafts": 49.57621098707402,
+   "rows_one_draft": 15.675732217573222,
+   "rows_two_drafts": 25.911015288122304,
+   "rounds_two_drafts": 2551
+  }
+ }
+}

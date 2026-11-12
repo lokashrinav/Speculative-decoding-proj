@@ -1,0 +1,8 @@
+dataset=gsm8k turns=80 max_new_tokens=256 block=16
+dflash                   99.79 tok/s  x1.000  tokens/round  5.76  alt tried 0/3233  alt won 0  extra tokens 0  outputs differing 0/80
+resample                101.11 tok/s  x1.013  tokens/round  5.98  alt tried 2808/3112  alt won 230  extra tokens 442  outputs differing 40/80
+self-keep1               93.13 tok/s  x0.933  tokens/round  6.12  alt tried 2551/3029  alt won 348  extra tokens 1036  outputs differing 44/80
+timing dflash               draft 8.34 ms  improve 0.00 ms  verify one draft 49.77 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing resample             draft 8.39 ms  improve 0.29 ms  verify one draft 50.13 ms (14.6 rows)  verify two drafts 49.73 ms (26.5 rows)
+timing self-keep1           draft 8.36 ms  improve 8.11 ms  verify one draft 49.81 ms (15.7 rows)  verify two drafts 49.58 ms (25.9 rows)
+exit 0
