@@ -1,0 +1,8 @@
+dataset=humaneval turns=80 max_new_tokens=256 block=16
+dflash                  105.06 tok/s  x1.000  tokens/round  6.19  alt tried 0/3273  alt won 0  extra tokens 0  outputs differing 0/80
+resample                104.92 tok/s  x0.999  tokens/round  6.33  alt tried 2782/3204  alt won 259  extra tokens 553  outputs differing 45/80
+self-keep1               96.72 tok/s  x0.921  tokens/round  6.51  alt tried 2507/3124  alt won 396  extra tokens 1156  outputs differing 47/80
+timing dflash               draft 8.41 ms  improve 0.00 ms  verify one draft 50.20 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing resample             draft 8.43 ms  improve 0.29 ms  verify one draft 50.25 ms (14.6 rows)  verify two drafts 50.02 ms (26.5 rows)
+timing self-keep1           draft 8.42 ms  improve 8.13 ms  verify one draft 50.28 ms (15.1 rows)  verify two drafts 50.03 ms (25.9 rows)
+exit 0
