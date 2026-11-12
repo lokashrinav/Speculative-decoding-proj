@@ -1,0 +1,140 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "math500",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,self-keep1,runnerup,randomcond,softcond,resample",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/diag-a/math500",
+  "analysis_samples": 80
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 121.85268837903035,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.967964174991388,
+   "rounds": 2903,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "self-keep1": {
+   "tokens_per_second": 114.03027189294944,
+   "speed_vs_first_variant": 0.935804317572799,
+   "tokens_per_round": 7.448402497245685,
+   "rounds": 2723,
+   "rounds_with_alternative": 2083,
+   "alternative_wins": 298,
+   "alternative_extra_tokens": 938,
+   "outputs_differing_from_first_variant": 44
+  },
+  "runnerup": {
+   "tokens_per_second": 110.29719889174649,
+   "speed_vs_first_variant": 0.9051683664841288,
+   "tokens_per_round": 7.222222222222222,
+   "rounds": 2808,
+   "rounds_with_alternative": 2795,
+   "alternative_wins": 185,
+   "alternative_extra_tokens": 711,
+   "outputs_differing_from_first_variant": 47
+  },
+  "randomcond": {
+   "tokens_per_second": 110.06986022486917,
+   "speed_vs_first_variant": 0.9033026820261039,
+   "tokens_per_round": 7.192471590909091,
+   "rounds": 2816,
+   "rounds_with_alternative": 1985,
+   "alternative_wins": 141,
+   "alternative_extra_tokens": 372,
+   "outputs_differing_from_first_variant": 48
+  },
+  "softcond": {
+   "tokens_per_second": 113.83038498806366,
+   "speed_vs_first_variant": 0.9341639195845001,
+   "tokens_per_round": 7.453877251010658,
+   "rounds": 2721,
+   "rounds_with_alternative": 2058,
+   "alternative_wins": 282,
+   "alternative_extra_tokens": 852,
+   "outputs_differing_from_first_variant": 43
+  },
+  "resample": {
+   "tokens_per_second": 62.92294922186565,
+   "speed_vs_first_variant": 0.5163853999358627,
+   "tokens_per_round": 7.168376370711001,
+   "rounds": 2827,
+   "rounds_with_alternative": 2418,
+   "alternative_wins": 214,
+   "alternative_extra_tokens": 384,
+   "outputs_differing_from_first_variant": 53
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 2903,
+   "draft": 8.218626784468073,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 48.91670683076104,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.634171546675853,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "self-keep1": {
+   "rounds": 2723,
+   "draft": 8.237133906135664,
+   "improve_per_round": 7.98244171752278,
+   "verify_one_draft": 49.072844190959586,
+   "verify_two_drafts": 48.778995880709566,
+   "rows_one_draft": 15.4859375,
+   "rows_two_drafts": 25.521843494959192,
+   "rounds_two_drafts": 2083
+  },
+  "runnerup": {
+   "rounds": 2808,
+   "draft": 8.241398486028826,
+   "improve_per_round": 8.136448594661923,
+   "verify_one_draft": 48.71215427724215,
+   "verify_two_drafts": 48.706770126003114,
+   "rows_one_draft": 3.076923076923077,
+   "rows_two_drafts": 30.537030411449017,
+   "rounds_two_drafts": 2795
+  },
+  "randomcond": {
+   "rounds": 2816,
+   "draft": 8.2680737354663,
+   "improve_per_round": 8.056561542947417,
+   "verify_one_draft": 49.28076879662673,
+   "verify_two_drafts": 49.00042399018064,
+   "rows_one_draft": 15.524669073405535,
+   "rows_two_drafts": 25.784382871536526,
+   "rounds_two_drafts": 1985
+  },
+  "softcond": {
+   "rounds": 2721,
+   "draft": 8.32624817664096,
+   "improve_per_round": 8.204784567403863,
+   "verify_one_draft": 49.70408040190152,
+   "verify_two_drafts": 49.42191242189685,
+   "rows_one_draft": 15.512820512820513,
+   "rows_two_drafts": 25.413022351797864,
+   "rounds_two_drafts": 2058
+  },
+  "resample": {
+   "rounds": 2827,
+   "draft": 8.409104406007417,
+   "improve_per_round": 54.579434994948144,
+   "verify_one_draft": 50.26369081231741,
+   "verify_two_drafts": 49.974398387247824,
+   "rows_one_draft": 14.875305623471883,
+   "rows_two_drafts": 26.45326716294458,
+   "rounds_two_drafts": 2418
+  }
+ }
+}
