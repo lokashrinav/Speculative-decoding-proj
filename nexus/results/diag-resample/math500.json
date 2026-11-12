@@ -1,0 +1,80 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "math500",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,resample,self-keep1",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/diag-resample/math500",
+  "analysis_samples": 80
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 118.68047190594491,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.967964174991388,
+   "rounds": 2903,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "resample": {
+   "tokens_per_second": 118.71776835071836,
+   "speed_vs_first_variant": 1.0003142593231598,
+   "tokens_per_round": 7.131338028169014,
+   "rounds": 2840,
+   "rounds_with_alternative": 2431,
+   "alternative_wins": 192,
+   "alternative_extra_tokens": 321,
+   "outputs_differing_from_first_variant": 44
+  },
+  "self-keep1": {
+   "tokens_per_second": 111.06596548772904,
+   "speed_vs_first_variant": 0.9358402751865496,
+   "tokens_per_round": 7.448402497245685,
+   "rounds": 2723,
+   "rounds_with_alternative": 2083,
+   "alternative_wins": 298,
+   "alternative_extra_tokens": 938,
+   "outputs_differing_from_first_variant": 44
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 2903,
+   "draft": 8.534940963471774,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 50.89138802882031,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.634171546675853,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "resample": {
+   "rounds": 2840,
+   "draft": 8.596714552242677,
+   "improve_per_round": 0.2935288054212718,
+   "verify_one_draft": 51.29973113668905,
+   "verify_two_drafts": 50.93207436217993,
+   "rows_one_draft": 14.841075794621027,
+   "rows_two_drafts": 26.388728918140682,
+   "rounds_two_drafts": 2431
+  },
+  "self-keep1": {
+   "rounds": 2723,
+   "draft": 8.580124497843213,
+   "improve_per_round": 8.303322241714431,
+   "verify_one_draft": 51.272154333855724,
+   "verify_two_drafts": 50.918486854575654,
+   "rows_one_draft": 15.4859375,
+   "rows_two_drafts": 25.521843494959192,
+   "rounds_two_drafts": 2083
+  }
+ }
+}

@@ -1,0 +1,8 @@
+dataset=math500 turns=80 max_new_tokens=256 block=16
+dflash                  118.68 tok/s  x1.000  tokens/round  6.97  alt tried 0/2903  alt won 0  extra tokens 0  outputs differing 0/80
+resample                118.72 tok/s  x1.000  tokens/round  7.13  alt tried 2431/2840  alt won 192  extra tokens 321  outputs differing 44/80
+self-keep1              111.07 tok/s  x0.936  tokens/round  7.45  alt tried 2083/2723  alt won 298  extra tokens 938  outputs differing 44/80
+timing dflash               draft 8.53 ms  improve 0.00 ms  verify one draft 50.89 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing resample             draft 8.60 ms  improve 0.29 ms  verify one draft 51.30 ms (14.8 rows)  verify two drafts 50.93 ms (26.4 rows)
+timing self-keep1           draft 8.58 ms  improve 8.30 ms  verify one draft 51.27 ms (15.5 rows)  verify two drafts 50.92 ms (25.5 rows)
+exit 0
