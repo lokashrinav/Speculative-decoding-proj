@@ -238,6 +238,8 @@ EDITOR_SETTINGS = [
     dict(read_tokens="first", first_slot=2),
     dict(read_tokens="none", first_slot=1),
     dict(read_tokens="all", read_states=False, first_slot=1),
+    dict(read_tokens="all", first_slot=1, normalize=True, confidence=True),
+    dict(read_tokens="none", first_slot=1, normalize=True, confidence=True),
 ]
 
 
@@ -311,3 +313,40 @@ def test_editor_shortcut_matches_full_output_head():
         short = improver._logits(state, editor.coefficients(states, embeddings))
         assert improver.folded is not None
         assert torch.allclose(full, short, atol=1e-9)
+
+
+def test_editor_with_confidence_shortcut_and_margin():
+    """The rescaled editor that reads the first pass's confidence: same shortcut, and a
+    large margin leaves the draft exactly as it was."""
+    from types import SimpleNamespace
+
+    from dflash.draft_editor import DraftEditor, EditorImprover, draft_confidence
+    from dflash.model import _output_head, _raw_input_embeddings
+
+    target, draft = make_models()
+    torch.manual_seed(3)
+    editor = DraftEditor(16, rank=8, block_size=16, heads=2, normalize=True, confidence=True).double().eval()
+    torch.nn.init.normal_(editor.up, std=1.0)
+    states = torch.randn(1, 8, 16, dtype=torch.float64)
+    block = torch.randint(1, 30, (1, 8))
+    head = _output_head(target)
+    logits = draft.compute_logits(states[:, 1:], head)
+    block[:, 1:] = logits.argmax(dim=-1)
+    state = SimpleNamespace(block_ids=block, draft_states=states, target=target, first_drafter=draft, draft_logits=logits)
+    embeddings = _raw_input_embeddings(target, block, 1.0)
+    confidence = draft_confidence(logits).double()
+    full = draft.compute_logits(editor(states, embeddings, confidence), head)
+    improver = EditorImprover(editor)
+    short = improver._logits(state, editor.coefficients(states, embeddings, confidence))
+    assert torch.allclose(full, short, atol=1e-9)
+    assert torch.equal(improver(state)[:, 1:], full.argmax(dim=-1))
+    assert not torch.equal(improver(state), block)
+    assert torch.equal(EditorImprover(editor, margin=1e9)(state), block)
+
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    plain = dflash_generate_redraft(draft, target, prompt, 40, None, return_stats=True)
+    careful = dflash_generate_redraft(
+        draft, target, prompt, 40, None, improver=EditorImprover(editor, margin=1e9), return_stats=True,
+    )
+    assert careful.rounds_edited == 0 and careful.rounds == plain.rounds
+    assert torch.equal(careful.output_ids, plain.output_ids)
