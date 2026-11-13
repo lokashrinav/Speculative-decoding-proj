@@ -22,7 +22,7 @@ from dflash.benchmark import (
     stop_token_ids,
 )
 from dflash.draft_editor import EditorImprover, load_editor
-from dflash.pair_editor import BigramImprover, BigramTable
+from dflash.pair_editor import BigramImprover, BigramTable, PairImprover, load_pair_editor
 from dflash.redraft import Gated, Resample, SelfRedraft, dflash_generate_redraft
 
 
@@ -94,6 +94,20 @@ def make_improver(name, second_model=None):
             _second_models[path] = BigramTable.load(path, "cuda:0" if torch.cuda.is_available() else "cpu")
         return BigramImprover(_second_models[path], top_k=int(parts[2]), weight=float(parts[3]),
                               smoothing=float(parts[4]), margin=float(parts[5]) if len(parts) > 5 else 0.0)
+    if name.startswith("pair:"):
+        # pair:FILE[:TABLE]  the left-to-right editor with a trained judge (and the counted
+        # token-pair table if the judge was trained with it); its edited draft replaces the first draft
+        parts = name.split(":")
+        on_gpu = torch.cuda.is_available()
+        device = "cuda:0" if on_gpu else "cpu"
+        if parts[1] not in _second_models:
+            _second_models[parts[1]] = load_pair_editor(parts[1], device, torch.bfloat16 if on_gpu else torch.float32)
+        table = None
+        if len(parts) > 2:
+            if parts[2] not in _second_models:
+                _second_models[parts[2]] = BigramTable.load(parts[2], device)
+            table = _second_models[parts[2]]
+        return PairImprover(_second_models[parts[1]], table)
     if name.startswith("gated:"):
         with open(name.split(":", 1)[1]) as handle:
             gate = json.load(handle)

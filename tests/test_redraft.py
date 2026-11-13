@@ -376,3 +376,37 @@ def test_left_to_right_bigram_editor_is_lossless(budget, block_size):
     )
     assert same.rounds_edited == 0 and same.rounds == plain.rounds
     assert torch.equal(same.output_ids, plain.output_ids)
+
+
+@pytest.mark.parametrize("budget", [5, 40])
+@pytest.mark.parametrize("block_size", [4, 16])
+@pytest.mark.parametrize("bigram_weight", [0.0, 0.5])
+def test_left_to_right_pair_editor_is_lossless_and_starts_as_identity(budget, block_size, bigram_weight):
+    from dflash.pair_editor import BigramTable, PairEditor, PairImprover
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    vocabulary = target.get_input_embeddings().weight.shape[0]
+    generator = torch.Generator().manual_seed(4)
+    table = BigramTable.count([(torch.randint(0, vocabulary, (80,), generator=generator), 4) for _ in range(20)], vocabulary)
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, block_size=block_size, return_stats=True)
+    editor = PairEditor(16, rank=8, top_k=8, bigram_weight=bigram_weight).double().eval()
+    untrained = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=PairImprover(editor, table), block_size=block_size, return_stats=True,
+    )
+    check_greedy_output(target, prompt, untrained.output_ids, budget, None)
+    if bigram_weight == 0:
+        assert untrained.rounds_edited == 0 and untrained.rounds == plain.rounds
+        assert torch.equal(untrained.output_ids, plain.output_ids)
+    torch.manual_seed(6)
+    torch.nn.init.normal_(editor.up, std=1.0)
+    edited = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=PairImprover(editor, table), block_size=block_size, return_stats=True,
+    )
+    check_greedy_output(target, prompt, edited.output_ids, budget, None)
+    assert edited.rounds_with_alternative == 0
+    careful = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=PairImprover(editor, table, margin=1e9),
+        block_size=block_size, return_stats=True,
+    )
+    assert careful.rounds_edited == 0 and torch.equal(careful.output_ids, plain.output_ids)

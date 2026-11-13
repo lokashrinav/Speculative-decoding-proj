@@ -109,3 +109,143 @@ class BigramImprover:
         edited = s.block_ids.clone()
         edited[0, 1:] = walk(first, pair, top.indices)
         return edited
+
+
+class PairEditor(torch.nn.Module):
+    """A learned judge for the left-to-right editor.
+
+    For a draft position, the token chosen just before it, and each candidate, it adds
+    a correction to the first pass's logit for that candidate. As in the first editor,
+    the correction is a low-rank shift of the drafter's hidden state read through the
+    frozen output head; here the shift depends on the token just chosen. It starts at
+    zero, so an untrained editor leaves the draft exactly as it was.
+    bigram_weight: also add the counted BigramTable association with this weight."""
+
+    def __init__(self, hidden_size, rank=256, block_size=16, read_states=True, top_k=16,
+                 bigram_weight=0.0, smoothing=10.0):
+        super().__init__()
+        nn = torch.nn
+        self.config = dict(hidden_size=hidden_size, rank=rank, block_size=block_size, read_states=read_states,
+                           top_k=top_k, bigram_weight=bigram_weight, smoothing=smoothing)
+        self.read_states, self.top_k, self.bigram_weight, self.smoothing = read_states, top_k, bigram_weight, smoothing
+        self.margin = 0.0
+        self.state_norm = nn.LayerNorm(hidden_size)
+        self.state_in = nn.Linear(hidden_size, rank, bias=False)
+        self.token_norm = nn.LayerNorm(hidden_size)
+        self.token_in = nn.Linear(hidden_size, rank, bias=False)
+        self.confidence_in = nn.Linear(4, rank)
+        self.position = nn.Parameter(torch.zeros(block_size, rank))
+        self.mix = nn.Sequential(nn.LayerNorm(rank), nn.Linear(rank, 2 * rank), nn.GELU(),
+                                 nn.Linear(2 * rank, rank), nn.LayerNorm(rank))
+        self.up = nn.Parameter(torch.zeros(hidden_size, rank))
+
+    def context(self, states, previous_embeddings, confidence, first_position):
+        """What the editor knows when it decides a position: the drafter's state there, how
+        sure the first pass was, and the token chosen just before.
+        states: (rows, positions, hidden). previous_embeddings: (rows, positions, hidden), or
+        (rows, positions, A, hidden) to try A possible previous tokens at once."""
+        x = self.position[first_position : first_position + states.shape[1]] + self.confidence_in(
+            confidence.to(self.position.dtype))
+        if self.read_states:
+            x = x + self.state_in(self.state_norm(states))
+        token = self.token_in(self.token_norm(previous_embeddings))
+        if token.dim() == x.dim() + 1:
+            x = x[:, :, None, :]
+        return self.mix(x + token)
+
+    def correction(self, context, candidate_rows):
+        """Logit corrections for the candidates. candidate_rows: (rows, positions, K, hidden),
+        the frozen output head's rows for the candidates. Returns (rows, positions, K), or
+        (rows, positions, A, K) when the context covers A possible previous tokens."""
+        shift = context @ self.up.t()
+        if shift.dim() == candidate_rows.dim():
+            return shift @ candidate_rows.transpose(-1, -2)
+        return (candidate_rows @ shift[..., None])[..., 0]
+
+    def forced_scores(self, states, confidence, top_values, top_tokens, previous_tokens, embed, head_rows,
+                      multiplier=1.0, table=None):
+        """Scores of each position's candidates when the token before it is known
+        (for training: the true previous token). states and confidence include the anchor position."""
+        context = self.context(states[:, 1:], embed(previous_tokens), confidence[:, 1:], 1)
+        scores = top_values + self.correction(context, head_rows(top_tokens)).float() * multiplier
+        if table is not None and self.bigram_weight:
+            scores = scores + self.bigram_weight * table.association(previous_tokens, top_tokens, self.smoothing)
+        return scores
+
+    def scores(self, states, confidence, top_values, top_tokens, anchor, embed, head_rows, multiplier=1.0, table=None):
+        """Everything the walk needs. Returns first: (rows, K), the first position's candidates
+        given the anchor, and pair: (rows, positions - 1, K, K), see walk()."""
+        rows = head_rows(top_tokens)
+        context = self.context(states[:, 1:2], embed(anchor)[:, None], confidence[:, 1:2], 1)
+        first = top_values[:, 0] + self.correction(context, rows[:, :1])[:, 0].float() * multiplier
+        context = self.context(states[:, 2:], embed(top_tokens[:, :-1]), confidence[:, 2:], 2)
+        pair = top_values[:, 1:, None, :] + self.correction(context, rows[:, 1:]).float() * multiplier
+        if table is not None and self.bigram_weight:
+            first = first + self.bigram_weight * table.association(anchor, top_tokens[:, 0], self.smoothing)
+            following = top_tokens[:, 1:, None, :].expand(-1, -1, top_tokens.shape[-1], -1)
+            pair = pair + self.bigram_weight * table.association(top_tokens[:, :-1], following, self.smoothing)
+        return first, pair
+
+
+def walk_rows(first, pair, top_tokens, margin=0.0):
+    """walk() for many blocks at once, on the device. A draft token (candidate 0) is
+    changed only if another candidate beats it by more than the margin."""
+    choice = (first + margin * torch.nn.functional.one_hot(torch.zeros((), dtype=torch.long, device=first.device),
+                                                           first.shape[-1])).argmax(dim=1)
+    picks = [choice]
+    if pair.shape[1]:
+        bonus = torch.zeros(pair.shape[-1], device=pair.device)
+        bonus[0] = margin
+        best = (pair + bonus).argmax(dim=-1)
+        for slot in range(best.shape[1]):
+            choice = best[:, slot].gather(1, choice[:, None])[:, 0]
+            picks.append(choice)
+    return top_tokens.gather(2, torch.stack(picks, dim=1)[..., None])[..., 0]
+
+
+def save_pair_editor(editor, path, margin=0.0):
+    torch.save({"config": editor.config, "margin": float(margin),
+                "state": {k: v.detach().cpu() for k, v in editor.state_dict().items()}}, path)
+
+
+def load_pair_editor(path, device, dtype):
+    saved = torch.load(path, map_location="cpu")
+    editor = PairEditor(**saved["config"])
+    editor.load_state_dict(saved["state"])
+    editor.margin = float(saved.get("margin", 0.0))
+    return editor.to(device=device, dtype=dtype).eval()
+
+
+class PairImprover:
+    """Plug-in for dflash_generate_redraft: the left-to-right editor with a trained PairEditor
+    as judge. The edited draft replaces the first draft."""
+
+    def __init__(self, editor, table=None, margin=None, replace=True):
+        self.editor, self.table, self.replace = editor, table, replace
+        self.margin = float(editor.margin) if margin is None else float(margin)
+
+    def start(self, first_drafter):
+        pass
+
+    def __call__(self, round_state):
+        from .draft_editor import draft_confidence
+        from .model import _draft_value, _output_head, _raw_input_embeddings
+
+        s = round_state
+        logits = s.draft_logits.float()
+        positions = logits.shape[1]
+        if positions < 1 or s.block_ids.shape[1] != positions + 1:
+            return None
+        if self.table is not None and self.table.keys.device != logits.device:
+            self.table = self.table.to(logits.device)
+        dtype = s.draft_states.dtype
+        top = logits.topk(min(self.editor.top_k, logits.shape[-1]), dim=-1)
+        head = _output_head(s.target)
+        first, pair = self.editor.scores(
+            s.draft_states, draft_confidence(s.draft_logits).to(dtype), top.values, top.indices, s.block_ids[:, 0],
+            lambda ids: _raw_input_embeddings(s.target, ids, 1.0).to(dtype), lambda ids: head.weight[ids].to(dtype),
+            float(_draft_value(s.first_drafter.config, "output_multiplier", 1.0)), self.table,
+        )
+        edited = s.block_ids.clone()
+        edited[:, 1:] = walk_rows(first, pair, top.indices, self.margin)
+        return edited
