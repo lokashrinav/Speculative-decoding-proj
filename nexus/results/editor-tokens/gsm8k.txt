@@ -1,0 +1,7 @@
+dataset=gsm8k turns=80 max_new_tokens=256 block=16
+dflash                   97.76 tok/s  x1.000  tokens/round  5.76  edited 0/3233  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt   91.30 tok/s  x0.934  tokens/round  5.53  edited 3083/3367  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt  101.61 tok/s  x1.039  tokens/round  6.18  edited 0/3016  second draft tried 2760  won 459  extra tokens 921  outputs differing 44/80
+timing dflash               draft 8.52 ms  improve 0.00 ms  verify one draft 50.84 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt draft 8.52 ms  improve 1.42 ms  verify one draft 50.83 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt draft 8.54 ms  improve 1.46 ms  verify one draft 50.88 ms (15.3 rows)  verify two drafts 50.63 ms (26.1 rows)

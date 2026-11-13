@@ -1,0 +1,83 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "gsm8k",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt,editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/editor-tokens/gsm8k",
+  "analysis_samples": 40
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 97.75518153572222,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 5.75904732446644,
+   "rounds": 3233,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt": {
+   "tokens_per_second": 91.29746924182228,
+   "speed_vs_first_variant": 0.933939948834936,
+   "tokens_per_round": 5.52984852984853,
+   "rounds": 3367,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 3083,
+   "outputs_differing_from_first_variant": 0
+  },
+  "editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt": {
+   "tokens_per_second": 101.61324962685578,
+   "speed_vs_first_variant": 1.0394666352261208,
+   "tokens_per_round": 6.175729442970822,
+   "rounds": 3016,
+   "rounds_with_alternative": 2760,
+   "alternative_wins": 459,
+   "alternative_extra_tokens": 921,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 44
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 1543,
+   "draft": 8.51618919711094,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 50.83717628788355,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.811406351263772,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt": {
+   "rounds": 1624,
+   "draft": 8.518413643426092,
+   "improve_per_round": 1.4172129610007436,
+   "verify_one_draft": 50.825809095894435,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.81527093596059,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt": {
+   "rounds": 1468,
+   "draft": 8.538437017546688,
+   "improve_per_round": 1.457900292943016,
+   "verify_one_draft": 50.87862374881903,
+   "verify_two_drafts": 50.634640482121675,
+   "rows_one_draft": 15.3,
+   "rows_two_drafts": 26.132047477744806,
+   "rounds_two_drafts": 1348
+  }
+ }
+}
