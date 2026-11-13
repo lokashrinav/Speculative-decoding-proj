@@ -1,0 +1,7 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   57.95 tok/s  x1.000  tokens/round  3.34  alt tried 0/10062  alt won 0  extra tokens 0  outputs differing 0/160
+self-keep1               54.00 tok/s  x0.932  tokens/round  3.57  alt tried 8431/9370  alt won 844  extra tokens 1812  outputs differing 95/160
+ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-control:keep0   53.70 tok/s  x0.927  tokens/round  3.57  alt tried 8604/9371  alt won 851  extra tokens 1891  outputs differing 99/160
+timing dflash               draft 8.41 ms  improve 0.00 ms  verify one draft 50.29 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing self-keep1           draft 8.41 ms  improve 8.18 ms  verify one draft 50.37 ms (15.3 rows)  verify two drafts 49.99 ms (27.1 rows)
+timing ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-control:keep0 draft 8.44 ms  improve 8.52 ms  verify one draft 50.43 ms (14.3 rows)  verify two drafts 50.17 ms (26.3 rows)
