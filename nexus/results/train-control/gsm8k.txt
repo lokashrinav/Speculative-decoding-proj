@@ -1,0 +1,7 @@
+dataset=gsm8k turns=80 max_new_tokens=256 block=16
+dflash                   98.81 tok/s  x1.000  tokens/round  5.76  alt tried 0/3233  alt won 0  extra tokens 0  outputs differing 0/80
+self-keep1               92.31 tok/s  x0.934  tokens/round  6.12  alt tried 2551/3029  alt won 348  extra tokens 1036  outputs differing 44/80
+ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-control:keep0   96.88 tok/s  x0.980  tokens/round  6.47  alt tried 2574/2877  alt won 596  extra tokens 1853  outputs differing 45/80
+timing dflash               draft 8.47 ms  improve 0.00 ms  verify one draft 50.49 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing self-keep1           draft 8.36 ms  improve 8.12 ms  verify one draft 50.00 ms (15.9 rows)  verify two drafts 49.63 ms (25.8 rows)
+timing ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-control:keep0 draft 8.38 ms  improve 8.47 ms  verify one draft 49.96 ms (15.9 rows)  verify two drafts 49.73 ms (26.2 rows)
