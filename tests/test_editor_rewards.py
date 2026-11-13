@@ -76,3 +76,62 @@ def test_parse_variants():
     assert variants["a"]["loss"] == "ce" and variants["a"]["mix"] == 0.5
     assert variants["b"]["width"] == 512 and variants["b"]["states"] == 0 and variants["b"]["loss"] == "eal"
     assert variants["c"]["lr"] == 1e-3
+
+
+def _random_table(vocabulary=40, seed=0):
+    from dflash.pair_editor import BigramTable
+
+    generator = torch.Generator().manual_seed(seed)
+    sequences = [(torch.randint(0, vocabulary, (60,), generator=generator), 5) for _ in range(30)]
+    return BigramTable.count(sequences, vocabulary)
+
+
+def test_bigram_association_matches_counts():
+    table = _random_table()
+    previous, candidate = 3, 7
+    pair = sum(1 for key in [previous * 40 + candidate] if key in set(table.keys.tolist()))
+    count = float(table.counts[table.keys.tolist().index(previous * 40 + candidate)]) if pair else 0.0
+    prior = (float(table.unigram[candidate]) + 1.0) / (table.total + 40)
+    expected = math.log((count + 10.0 * prior) / (float(table.previous[previous]) + 10.0)) - math.log(prior)
+    got = table.association(torch.tensor([previous]), torch.tensor([[candidate, 1]]), 10.0)[0, 0].item()
+    assert abs(got - expected) < 1e-5
+
+
+def test_left_to_right_editor_matches_a_step_by_step_walk():
+    """The decoding-time editor scores all candidate pairs at once; it must choose
+    exactly what a plain step-by-step walk chooses."""
+    from types import SimpleNamespace
+
+    from dflash.pair_editor import BigramImprover
+
+    table = _random_table()
+    generator = torch.Generator().manual_seed(1)
+    for positions in (1, 2, 15):
+        for k, weight, margin in ((4, 0.5, 0.0), (16, 1.0, 0.0), (8, 2.0, 0.7)):
+            logits = torch.randn(1, positions, 40, generator=generator) * 2
+            block = torch.cat((torch.randint(0, 40, (1, 1), generator=generator), logits.argmax(dim=-1)), dim=1)
+            improver = BigramImprover(table, top_k=k, weight=weight, smoothing=10.0, margin=margin)
+            edited = improver(SimpleNamespace(draft_logits=logits, block_ids=block))
+            previous, expected = block[0, :1], []
+            top = logits[0].topk(k, dim=-1)
+            for slot in range(positions):
+                score = top.values[slot] + weight * table.association(previous, top.indices[slot][None], 10.0)[0]
+                score[0] += margin
+                previous = top.indices[slot][score.argmax()][None]
+                expected.append(int(previous))
+            assert edited[0, 1:].tolist() == expected
+            assert edited[0, 0] == block[0, 0]
+    untouched = BigramImprover(table, weight=0.0)(SimpleNamespace(draft_logits=logits, block_ids=block))
+    assert torch.equal(untouched, block)
+    careful = BigramImprover(table, weight=5.0, margin=1e9)(SimpleNamespace(draft_logits=logits, block_ids=block))
+    assert torch.equal(careful, block)
+
+
+def test_bigram_table_round_trip(tmp_path):
+    from dflash.pair_editor import BigramTable
+
+    table = _random_table()
+    table.save(tmp_path / "table.pt")
+    again = BigramTable.load(tmp_path / "table.pt")
+    previous, candidates = torch.tensor([1, 2]), torch.tensor([[3, 4], [5, 6]])
+    assert torch.equal(table.association(previous, candidates, 10.0), again.association(previous, candidates, 10.0))

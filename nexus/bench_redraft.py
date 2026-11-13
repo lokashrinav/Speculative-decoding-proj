@@ -22,6 +22,7 @@ from dflash.benchmark import (
     stop_token_ids,
 )
 from dflash.draft_editor import EditorImprover, load_editor
+from dflash.pair_editor import BigramImprover, BigramTable
 from dflash.redraft import Gated, Resample, SelfRedraft, dflash_generate_redraft
 
 
@@ -84,6 +85,15 @@ def make_improver(name, second_model=None):
                 path, "cuda:0" if on_gpu else "cpu", torch.bfloat16 if on_gpu else torch.float32,
             )
         return EditorImprover(_second_models[path], replace=kind == "editor")
+    if name.startswith("bigram:"):
+        # bigram:FILE:K:WEIGHT:SMOOTHING[:MARGIN]  the left-to-right editor judged by counted token pairs;
+        # its edited draft replaces the first draft
+        parts = name.split(":")
+        path = parts[1]
+        if path not in _second_models:
+            _second_models[path] = BigramTable.load(path, "cuda:0" if torch.cuda.is_available() else "cpu")
+        return BigramImprover(_second_models[path], top_k=int(parts[2]), weight=float(parts[3]),
+                              smoothing=float(parts[4]), margin=float(parts[5]) if len(parts) > 5 else 0.0)
     if name.startswith("gated:"):
         with open(name.split(":", 1)[1]) as handle:
             gate = json.load(handle)

@@ -350,3 +350,29 @@ def test_editor_with_confidence_shortcut_and_margin():
     )
     assert careful.rounds_edited == 0 and careful.rounds == plain.rounds
     assert torch.equal(careful.output_ids, plain.output_ids)
+
+
+@pytest.mark.parametrize("budget", [5, 11, 40])
+@pytest.mark.parametrize("block_size", [4, 16])
+def test_left_to_right_bigram_editor_is_lossless(budget, block_size):
+    """Whatever the left-to-right editor picks, the output is still the target's own greedy text."""
+    from dflash.pair_editor import BigramImprover, BigramTable
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    vocabulary = target.get_input_embeddings().weight.shape[0]
+    generator = torch.Generator().manual_seed(4)
+    table = BigramTable.count([(torch.randint(0, vocabulary, (80,), generator=generator), 4) for _ in range(20)], vocabulary)
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, block_size=block_size, return_stats=True)
+    edited = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=BigramImprover(table, top_k=8, weight=3.0),
+        block_size=block_size, return_stats=True,
+    )
+    check_greedy_output(target, prompt, edited.output_ids, budget, None)
+    assert edited.rounds_with_alternative == 0
+    same = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=BigramImprover(table, weight=0.0),
+        block_size=block_size, return_stats=True,
+    )
+    assert same.rounds_edited == 0 and same.rounds == plain.rounds
+    assert torch.equal(same.output_ids, plain.output_ids)
