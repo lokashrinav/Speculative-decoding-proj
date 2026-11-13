@@ -1,0 +1,7 @@
+dataset=math500 turns=80 max_new_tokens=256 block=16
+dflash                  118.81 tok/s  x1.000  tokens/round  6.97  alt tried 0/2903  alt won 0  extra tokens 0  outputs differing 0/80
+self-keep1              111.32 tok/s  x0.937  tokens/round  7.45  alt tried 2083/2723  alt won 298  extra tokens 938  outputs differing 44/80
+ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit  114.85 tok/s  x0.967  tokens/round  7.72  alt tried 2151/2628  alt won 539  extra tokens 1781  outputs differing 49/80
+timing dflash               draft 8.46 ms  improve 0.00 ms  verify one draft 50.64 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing self-keep1           draft 8.49 ms  improve 8.20 ms  verify one draft 50.83 ms (15.3 rows)  verify two drafts 50.52 ms (25.4 rows)
+timing ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit draft 8.47 ms  improve 8.53 ms  verify one draft 50.70 ms (15.3 rows)  verify two drafts 50.43 ms (25.6 rows)
