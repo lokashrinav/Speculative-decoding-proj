@@ -1,0 +1,80 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "humaneval",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,self-keep1,ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/train-edit/humaneval",
+  "analysis_samples": 40
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 104.33254593952444,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.193400549954171,
+   "rounds": 3273,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "self-keep1": {
+   "tokens_per_second": 96.11679615092572,
+   "speed_vs_first_variant": 0.9212542000713669,
+   "tokens_per_round": 6.50640204865557,
+   "rounds": 3124,
+   "rounds_with_alternative": 2507,
+   "alternative_wins": 396,
+   "alternative_extra_tokens": 1156,
+   "outputs_differing_from_first_variant": 47
+  },
+  "ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit": {
+   "tokens_per_second": 99.78833301556766,
+   "speed_vs_first_variant": 0.9564449148342379,
+   "tokens_per_round": 6.793380140421264,
+   "rounds": 2991,
+   "rounds_with_alternative": 2560,
+   "alternative_wins": 605,
+   "alternative_extra_tokens": 1752,
+   "outputs_differing_from_first_variant": 43
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 1681,
+   "draft": 8.534674641578183,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 51.01951089028905,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.621058893515764,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "self-keep1": {
+   "rounds": 1593,
+   "draft": 8.49887790750041,
+   "improve_per_round": 8.190051461023332,
+   "verify_one_draft": 50.7317775058375,
+   "verify_two_drafts": 50.497682226842215,
+   "rows_one_draft": 14.977917981072554,
+   "rows_two_drafts": 25.815830721003135,
+   "rounds_two_drafts": 1276
+  },
+  "ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit": {
+   "rounds": 1504,
+   "draft": 8.472830250963291,
+   "improve_per_round": 8.488340329309489,
+   "verify_one_draft": 50.571926285178876,
+   "verify_two_drafts": 50.300662642944566,
+   "rows_one_draft": 14.971698113207546,
+   "rows_two_drafts": 26.16950464396285,
+   "rounds_two_drafts": 1292
+  }
+ }
+}

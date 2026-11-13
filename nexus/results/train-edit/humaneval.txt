@@ -1,0 +1,7 @@
+dataset=humaneval turns=80 max_new_tokens=256 block=16
+dflash                  104.33 tok/s  x1.000  tokens/round  6.19  alt tried 0/3273  alt won 0  extra tokens 0  outputs differing 0/80
+self-keep1               96.12 tok/s  x0.921  tokens/round  6.51  alt tried 2507/3124  alt won 396  extra tokens 1156  outputs differing 47/80
+ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit   99.79 tok/s  x0.956  tokens/round  6.79  alt tried 2560/2991  alt won 605  extra tokens 1752  outputs differing 43/80
+timing dflash               draft 8.53 ms  improve 0.00 ms  verify one draft 51.02 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing self-keep1           draft 8.50 ms  improve 8.19 ms  verify one draft 50.73 ms (15.0 rows)  verify two drafts 50.50 ms (25.8 rows)
+timing ckpt:/fs/classhomes/sloka/specdec-ckpt/v1-edit:edit draft 8.47 ms  improve 8.49 ms  verify one draft 50.57 ms (15.0 rows)  verify two drafts 50.30 ms (26.2 rows)
