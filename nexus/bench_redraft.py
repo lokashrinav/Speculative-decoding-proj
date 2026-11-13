@@ -21,7 +21,16 @@ from dflash.benchmark import (
     load_transformers_models,
     stop_token_ids,
 )
+from dflash.draft_editor import EditorImprover, load_editor
 from dflash.redraft import Gated, Resample, SelfRedraft, dflash_generate_redraft
+
+
+def short_name(name):
+    """A file-friendly label: the variant kind plus the checkpoint's own name."""
+    if ":" not in name:
+        return name
+    kind, rest = name.split(":", 1)
+    return kind + "_" + rest.split("/")[-1].replace(":", "_")
 
 
 _second_models = {}
@@ -65,6 +74,16 @@ def make_improver(name, second_model=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
+    if name.startswith("editor:") or name.startswith("editor+backup:"):
+        # editor:PATH         the small draft editor; its edited draft replaces the first draft
+        # editor+backup:PATH  same editor, but the first draft is kept and checked too (a control)
+        kind, path = name.split(":", 1)
+        if path not in _second_models:
+            on_gpu = torch.cuda.is_available()
+            _second_models[path] = load_editor(
+                path, "cuda:0" if on_gpu else "cpu", torch.bfloat16 if on_gpu else torch.float32,
+            )
+        return EditorImprover(_second_models[path], replace=kind == "editor")
     if name.startswith("gated:"):
         with open(name.split(":", 1)[1]) as handle:
             gate = json.load(handle)
@@ -145,6 +164,7 @@ def main():
                     "rounds_with_alternative": result.rounds_with_alternative,
                     "alternative_wins": result.alternative_wins,
                     "alternative_extra_tokens": result.alternative_extra_tokens,
+                    "rounds_edited": result.rounds_edited,
                 })
             generated = reference[0, input_ids.shape[1]:]
             messages.append({"role": "assistant", "content": tokenizer.decode(generated, skip_special_tokens=True)})
@@ -160,6 +180,7 @@ def main():
         tried = sum(r["rounds_with_alternative"] for r in rows)
         wins = sum(r["alternative_wins"] for r in rows)
         extra = sum(r["alternative_extra_tokens"] for r in rows)
+        edited = sum(r["rounds_edited"] for r in rows)
         base_tps = tps if base_tps is None else base_tps
         entry = {
             "tokens_per_second": tps,
@@ -169,12 +190,13 @@ def main():
             "rounds_with_alternative": tried,
             "alternative_wins": wins,
             "alternative_extra_tokens": extra,
+            "rounds_edited": edited,
             "outputs_differing_from_first_variant": mismatches[name],
         }
         summary["variants"][name] = entry
         lines.append(
             f"{name:22s} {tps:7.2f} tok/s  x{tps / base_tps:5.3f}  tokens/round {tokens / rounds:5.2f}  "
-            f"alt tried {tried}/{rounds}  alt won {wins}  extra tokens {extra}  "
+            f"edited {edited}/{rounds}  second draft tried {tried}  won {wins}  extra tokens {extra}  "
             f"outputs differing {mismatches[name]}/{turns}"
         )
     # Second pass over the first prompts with instrumentation switched on. Kept
@@ -204,7 +226,7 @@ def main():
                 f"verify two drafts {timing['verify_two_drafts']:.2f} ms ({timing['rows_two_drafts']:.1f} rows)"
             )
             if name != "dflash":
-                with open(f"{args.out}.rounds.{name.split('/')[-1].replace(':', '_')}.jsonl", "w") as handle:
+                with open(f"{args.out}.rounds.{short_name(name)}.jsonl", "w") as handle:
                     for entry in log:
                         handle.write(json.dumps(entry, separators=(",", ":")) + "\n")
 

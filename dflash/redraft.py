@@ -240,7 +240,7 @@ def dflash_generate_redraft(
         if stop_token_ids is not None else None
     )
     acceptance_lengths = []
-    rounds_with_alternative = alternative_wins = alternative_extra_tokens = 0
+    rounds_with_alternative = alternative_wins = alternative_extra_tokens = rounds_edited = 0
     start = num_input_tokens
     # Accepted tokens whose target cache entries were computed on the alternative
     # branch. They are fed again at the front of the next verification pass.
@@ -256,11 +256,12 @@ def dflash_generate_redraft(
                 target, block_ids, float(_draft_value(model.config, "input_embedding_scale", 1.0)),
             )
             clock = _cuda_time() if timers is not None else None
-            hidden = model(
+            draft_states = model(
                 target_hidden=context_features, noise_embedding=noise,
                 position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
                 past_key_values=draft_cache, use_cache=True,
-            )[:, 1 - block_len :, :]
+            )[:, -block_len:, :]
+            hidden = draft_states[:, 1:, :]
             _crop_to(draft_cache, start)
             draft_logits = model.compute_logits(hidden, _output_head(target))
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
@@ -273,11 +274,18 @@ def dflash_generate_redraft(
                     block_ids=block_ids, draft_logits=draft_logits, start=start,
                     position_ids=position_ids, context_features=context_features,
                     accepted_ids=output_ids[:, :start], first_drafter=model,
-                    draft_cache=draft_cache, target=target,
+                    draft_cache=draft_cache, target=target, draft_states=draft_states,
                 ))
 
             if timers is not None and improver is not None:
                 timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
+
+        # An improver that replaces the draft: the edited draft is the only one checked.
+        if alternative is not None and getattr(improver, "replace", False):
+            if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
+                rounds_edited += int(bool((alternative != block_ids).any()))
+                block_ids = alternative
+            alternative = None
 
         # The two drafts share everything before `split`; only the alternative's
         # tokens from `split` onward are added to the verification pass.
@@ -378,4 +386,5 @@ def dflash_generate_redraft(
         rounds_with_alternative=rounds_with_alternative,
         alternative_wins=alternative_wins,
         alternative_extra_tokens=alternative_extra_tokens,
+        rounds_edited=rounds_edited,
     )

@@ -230,3 +230,84 @@ def test_second_drafter_options_are_lossless(budget, block_size, options):
 def test_keep_zero_needs_separate_weights():
     with pytest.raises(ValueError):
         SelfRedraft(keep=0)
+
+
+EDITOR_SETTINGS = [
+    dict(read_tokens="all", first_slot=1),
+    dict(read_tokens="all", first_slot=2),
+    dict(read_tokens="first", first_slot=2),
+    dict(read_tokens="none", first_slot=1),
+    dict(read_tokens="all", read_states=False, first_slot=1),
+]
+
+
+@pytest.mark.parametrize("budget", [5, 11, 40])
+@pytest.mark.parametrize("block_size", [4, 8, 16])
+@pytest.mark.parametrize("settings", EDITOR_SETTINGS)
+@pytest.mark.parametrize("replace", [True, False])
+def test_editor_is_lossless_and_starts_as_identity(budget, block_size, settings, replace):
+    from dflash.draft_editor import DraftEditor, EditorImprover
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, block_size=block_size, return_stats=True)
+    editor = DraftEditor(16, rank=8, block_size=16, heads=2, **settings).double().eval()
+    untrained = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=EditorImprover(editor, replace=replace),
+        block_size=block_size, return_stats=True,
+    )
+    # A fresh editor adds nothing, so the draft is left exactly as it was.
+    assert untrained.rounds_with_alternative == 0 and untrained.rounds_edited == 0
+    assert torch.equal(untrained.output_ids, plain.output_ids)
+    assert untrained.rounds == plain.rounds
+    torch.manual_seed(5)
+    torch.nn.init.normal_(editor.up, std=1.0)
+    edited = dflash_generate_redraft(
+        draft, target, prompt, budget, None, improver=EditorImprover(editor, replace=replace),
+        block_size=block_size, return_stats=True,
+    )
+    check_greedy_output(target, prompt, edited.output_ids, budget, None)
+    if replace:
+        assert edited.rounds_with_alternative == 0
+
+
+def test_replacing_with_the_true_continuation_accepts_whole_blocks():
+    """A perfect editor in replace mode: every block is accepted in full."""
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3]])
+    reference = reference_output(target, draft, prompt, 40)
+    oracle = OracleImprover(reference)
+    oracle.replace = True
+    result = dflash_generate_redraft(
+        draft, target, prompt, 40, None, improver=oracle, block_size=8, return_stats=True,
+    )
+    assert torch.equal(result.output_ids, reference)
+    assert result.rounds_with_alternative == 0
+    assert result.rounds <= 40 // 8 + 2
+
+
+def test_editor_shortcut_matches_full_output_head():
+    """Reusing the first pass's logits plus a low-rank correction equals rerunning the output head."""
+    from types import SimpleNamespace
+
+    from dflash.draft_editor import DraftEditor, EditorImprover
+    from dflash.model import _output_head, _raw_input_embeddings
+
+    target, draft = make_models()
+    torch.manual_seed(2)
+    for first_slot in (1, 2):
+        editor = DraftEditor(16, rank=8, block_size=16, heads=2, first_slot=first_slot).double().eval()
+        torch.nn.init.normal_(editor.up, std=1.0)
+        states = torch.randn(1, 8, 16, dtype=torch.float64)
+        block = torch.randint(1, 30, (1, 8))
+        head = _output_head(target)
+        state = SimpleNamespace(
+            block_ids=block, draft_states=states, target=target, first_drafter=draft,
+            draft_logits=draft.compute_logits(states[:, 1:], head),
+        )
+        embeddings = _raw_input_embeddings(target, block, 1.0)
+        full = draft.compute_logits(editor(states, embeddings), head)
+        improver = EditorImprover(editor)
+        short = improver._logits(state, editor.coefficients(states, embeddings))
+        assert improver.folded is not None
+        assert torch.allclose(full, short, atol=1e-9)
