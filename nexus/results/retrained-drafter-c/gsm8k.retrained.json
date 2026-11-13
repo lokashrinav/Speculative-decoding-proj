@@ -1,0 +1,29 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "/fs/classhomes/sloka/specdec-ckpt/v1-control",
+  "second_draft": null,
+  "dataset": "gsm8k",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/retrained-drafter-c/gsm8k.retrained",
+  "analysis_samples": 0
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 103.70493666197791,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.060872395833333,
+   "rounds": 3072,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  }
+ }
+}
