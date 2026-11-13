@@ -212,3 +212,21 @@ def test_conditions_are_validated():
         SelfRedraft(keep=2, condition="soft")
     with pytest.raises(ValueError):
         SelfRedraft(keep=1, condition="other")
+
+
+@pytest.mark.parametrize("budget", [5, 11, 40])
+@pytest.mark.parametrize("block_size", [4, 8, 16])
+@pytest.mark.parametrize("options", [dict(keep=0), dict(keep=1, show_rest=True), dict(keep="confidence", show_rest=True)])
+def test_second_drafter_options_are_lossless(budget, block_size, options):
+    target, draft, second = make_models(second=True)
+    prompt = torch.tensor([[1, 2, 3]])
+    ours = dflash_generate_redraft(
+        draft, target, prompt, budget, None,
+        improver=SelfRedraft(model=second, **options), block_size=block_size,
+    )
+    check_greedy_output(target, prompt, ours, budget, None)
+
+
+def test_keep_zero_needs_separate_weights():
+    with pytest.raises(ValueError):
+        SelfRedraft(keep=0)

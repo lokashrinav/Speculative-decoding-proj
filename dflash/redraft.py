@@ -44,10 +44,14 @@ class SelfRedraft:
 
     def __init__(
         self, model: nn.Module | None = None, keep: int | str = "confidence",
-        condition: str = "draft", seed: int = 0,
+        condition: str = "draft", seed: int = 0, show_rest: bool = False,
     ):
-        if not (keep == "confidence" or (isinstance(keep, int) and keep >= 1)):
-            raise ValueError("keep must be a positive integer or 'confidence'")
+        # keep=0 shows the second drafter none of the draft. It only makes sense
+        # with separate weights (the same weights would repeat the first draft),
+        # and serves as the control for "does seeing the draft matter".
+        lowest = 1 if model is None else 0
+        if not (keep == "confidence" or (isinstance(keep, int) and keep >= lowest)):
+            raise ValueError("keep must be 'confidence' or an integer (at least 1 when reusing the first drafter)")
         if condition not in ("draft", "runner_up", "random", "soft"):
             raise ValueError("condition must be 'draft', 'runner_up', 'random' or 'soft'")
         if condition != "draft" and keep != 1:
@@ -61,6 +65,9 @@ class SelfRedraft:
         #   random     a random token (the alternative still keeps the draft's token)
         #   soft       the probability-weighted mix of all candidate embeddings
         self.condition = condition
+        # show_rest: instead of masking the slots after the kept ones, show the
+        # first draft's own tokens there, so the pass edits a complete draft.
+        self.show_rest = show_rest
         self.seed = seed
         self.generator = None
         self.cache = None
@@ -85,7 +92,8 @@ class SelfRedraft:
         block_len = s.block_ids.shape[1]
         keep = self._keep_length(s.draft_logits, block_len)
         visible = s.block_ids.clone()
-        visible[:, keep + 1 :] = s.first_drafter.mask_token_id
+        if not self.show_rest:
+            visible[:, keep + 1 :] = s.first_drafter.mask_token_id
         alternative = s.block_ids.clone()
         if self.condition == "runner_up":
             visible[:, 1] = s.draft_logits[:, 0].topk(2, dim=-1).indices[:, 1]

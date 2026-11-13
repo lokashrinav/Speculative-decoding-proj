@@ -24,6 +24,18 @@ from dflash.benchmark import (
 from dflash.redraft import Gated, Resample, SelfRedraft, dflash_generate_redraft
 
 
+_second_models = {}
+_draft_class = None
+
+
+def load_second(path):
+    if path not in _second_models:
+        _second_models[path] = _draft_class.from_pretrained(
+            path, attn_implementation="sdpa", dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+        ).to("cuda:0" if torch.cuda.is_available() else "cpu").eval()
+    return _second_models[path]
+
+
 def make_improver(name, second_model=None):
     """Variant names:
     dflash                 no second draft
@@ -45,6 +57,14 @@ def make_improver(name, second_model=None):
         return SelfRedraft(keep=1, condition="soft")
     if name == "resample":
         return Resample()
+    if name.startswith("ckpt:"):
+        # ckpt:PATH:MODE  a trained DFlash-architecture checkpoint as the second look.
+        # MODE: keep0 (sees no draft), keep1 (sees the first draft token), edit (sees the whole draft)
+        _, path, mode = name.split(":")
+        model = load_second(path)
+        if mode == "edit":
+            return SelfRedraft(model=model, keep=1, show_rest=True)
+        return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
     if name.startswith("gated:"):
         with open(name.split(":", 1)[1]) as handle:
             gate = json.load(handle)
@@ -77,6 +97,8 @@ def main():
     torch.manual_seed(0)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     target, draft, tokenizer = load_transformers_models(args.model, args.draft, device)
+    global _draft_class
+    _draft_class = type(draft)
     second = None
     if args.second_draft:
         second = type(draft).from_pretrained(
@@ -182,7 +204,7 @@ def main():
                 f"verify two drafts {timing['verify_two_drafts']:.2f} ms ({timing['rows_two_drafts']:.1f} rows)"
             )
             if name != "dflash":
-                with open(f"{args.out}.rounds.{name.replace(':', '_').replace('/', '_')}.jsonl", "w") as handle:
+                with open(f"{args.out}.rounds.{name.split('/')[-1].replace(':', '_')}.jsonl", "w") as handle:
                     for entry in log:
                         handle.write(json.dumps(entry, separators=(",", ":")) + "\n")
 
