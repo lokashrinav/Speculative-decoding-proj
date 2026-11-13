@@ -1,0 +1,7 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   57.26 tok/s  x1.000  tokens/round  3.34  edited 0/10062  second draft tried 0  won 0  extra tokens 0  outputs differing 0/160
+editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt   54.57 tok/s  x0.953  tokens/round  3.28  edited 9840/10248  second draft tried 0  won 0  extra tokens 0  outputs differing 1/160
+editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt   58.35 tok/s  x1.019  tokens/round  3.52  edited 0/9517  second draft tried 9112  won 826  extra tokens 1437  outputs differing 91/160
+timing dflash               draft 8.52 ms  improve 0.00 ms  verify one draft 50.92 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing editor:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt draft 8.51 ms  improve 1.31 ms  verify one draft 50.91 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing editor+backup:/fs/classhomes/sloka/specdec-ckpt/editor-v1-tokens.pt draft 8.53 ms  improve 1.34 ms  verify one draft 50.91 ms (13.4 rows)  verify two drafts 50.69 ms (27.0 rows)
