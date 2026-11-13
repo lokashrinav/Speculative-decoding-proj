@@ -1,0 +1,92 @@
+{
+ "variants": {
+  "pce": {
+   "loss": "pce",
+   "mix": 0.0,
+   "tokens": "all",
+   "states": 1,
+   "plain": 0,
+   "width": 256,
+   "layers": 2,
+   "kl": 0.0,
+   "lr": 0.001,
+   "editor_parameters": 3036928
+  },
+  "eal-tokens": {
+   "loss": "eal",
+   "mix": 0.0,
+   "tokens": "all",
+   "states": 0,
+   "plain": 0,
+   "width": 256,
+   "layers": 2,
+   "kl": 0.0,
+   "lr": 0.001,
+   "editor_parameters": 3036928
+  },
+  "eal-states": {
+   "loss": "eal",
+   "mix": 0.0,
+   "tokens": "none",
+   "states": 1,
+   "plain": 0,
+   "width": 256,
+   "layers": 2,
+   "kl": 0.0,
+   "lr": 0.001,
+   "editor_parameters": 3036928
+  },
+  "eal-big": {
+   "loss": "eal",
+   "mix": 0.0,
+   "tokens": "all",
+   "states": 1,
+   "plain": 0,
+   "width": 512,
+   "layers": 4,
+   "kl": 0.0,
+   "lr": 0.001,
+   "editor_parameters": 12366336
+  },
+  "eal-kl": {
+   "loss": "eal",
+   "mix": 0.0,
+   "tokens": "all",
+   "states": 1,
+   "plain": 0,
+   "width": 256,
+   "layers": 2,
+   "kl": 0.5,
+   "lr": 0.001,
+   "editor_parameters": 3036928
+  },
+  "eal-slow": {
+   "loss": "eal",
+   "mix": 0.0,
+   "tokens": "all",
+   "states": 1,
+   "plain": 0,
+   "width": 256,
+   "layers": 2,
+   "kl": 0.0,
+   "lr": 0.0003,
+   "editor_parameters": 3036928
+  }
+ },
+ "training_sequences": 19857,
+ "validation_sequences": 300,
+ "total_steps": 12000,
+ "validation": [],
+ "step": 600,
+ "hours": 0.052,
+ "loss": {
+  "pce": 2.270652157709133,
+  "eal-tokens": -5.125806314758925,
+  "eal-states": -4.435716431824737,
+  "eal-big": -4.6836432713460745,
+  "eal-kl": -4.531549772783919,
+  "eal-slow": -5.094144421409209
+ },
+ "problems": {},
+ "seconds_per_step": 0.3211
+}
