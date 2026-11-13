@@ -76,17 +76,464 @@
  "training_sequences": 19857,
  "validation_sequences": 300,
  "total_steps": 12000,
- "validation": [],
- "step": 2600,
- "hours": 0.224,
+ "validation": [
+  {
+   "rounds": 7194,
+   "tokens_per_round_first_draft": 6.569085348901862,
+   "editors": {
+    "pce": {
+     "gain_no_margin": -0.0032163866435312993,
+     "best_margin": 1.0,
+     "gain_best_margin": 0.0,
+     "gain_if_first_kept_as_backup": 0.008083287485716628,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.0032163866435312993,
+       "edited_better": 0.02543786488740617,
+       "edited_worse": 0.029329997219905476,
+       "drafts_changed": 0.4924937447873228,
+       "tokens_gained_per_round": 0.053099805393383374,
+       "tokens_lost_per_round": 0.07422852376980818
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -2.1160438444245422e-05,
+       "edited_better": 0.0,
+       "edited_worse": 0.00013900472616068947,
+       "drafts_changed": 0.005699193772588268,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.00013900472616068947
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "1.5": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "3.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "4.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "6.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      }
+     }
+    },
+    "eal-tokens": {
+     "gain_no_margin": -0.0025815734902027154,
+     "best_margin": 6.0,
+     "gain_best_margin": -0.0009310592915485749,
+     "gain_if_first_kept_as_backup": 0.0002750856997757456,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.0025815734902027154,
+       "edited_better": 0.0009730330831248262,
+       "edited_worse": 0.004726160689463442,
+       "drafts_changed": 0.022101751459549623,
+       "tokens_gained_per_round": 0.001807061440088963,
+       "tokens_lost_per_round": 0.018765638031693076
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.002073722967539937,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.004031137058659994,
+       "drafts_changed": 0.016541562413122046,
+       "tokens_gained_per_round": 0.0011120378092855157,
+       "tokens_lost_per_round": 0.014734500973033082
+      },
+      "1.0": {
+       "gain_edited_replaces_first": -0.0019044394599856407,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.0034751181540172366,
+       "drafts_changed": 0.014178482068390326,
+       "tokens_gained_per_round": 0.0011120378092855157,
+       "tokens_lost_per_round": 0.013622463163747567
+      },
+      "1.5": {
+       "gain_edited_replaces_first": -0.0017563163908755897,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.0030581039755351682,
+       "drafts_changed": 0.012093411175979984,
+       "tokens_gained_per_round": 0.0011120378092855157,
+       "tokens_lost_per_round": 0.01264943008062274
+      },
+      "2.0": {
+       "gain_edited_replaces_first": -0.0018621185830970388,
+       "edited_better": 0.00027800945232137893,
+       "edited_worse": 0.0030581039755351682,
+       "drafts_changed": 0.010147345009730331,
+       "tokens_gained_per_round": 0.0004170141784820684,
+       "tokens_lost_per_round": 0.01264943008062274
+      },
+      "3.0": {
+       "gain_edited_replaces_first": -0.0017139955139870988,
+       "edited_better": 0.00027800945232137893,
+       "edited_worse": 0.0026410897970531,
+       "drafts_changed": 0.00764525993883792,
+       "tokens_gained_per_round": 0.0004170141784820684,
+       "tokens_lost_per_round": 0.011676396997497914
+      },
+      "4.0": {
+       "gain_edited_replaces_first": -0.0015870328833212932,
+       "edited_better": 0.0,
+       "edited_worse": 0.0022240756185710315,
+       "drafts_changed": 0.0061162079510703364,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.010425354462051709
+      },
+      "6.0": {
+       "gain_edited_replaces_first": -0.0009310592915485749,
+       "edited_better": 0.0,
+       "edited_worse": 0.0012510425354462051,
+       "drafts_changed": 0.0037531276063386154,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0061162079510703364
+      }
+     }
+    },
+    "eal-states": {
+     "gain_no_margin": -0.00958567861526094,
+     "best_margin": 1.0,
+     "gain_best_margin": 0.0013119471835456586,
+     "gain_if_first_kept_as_backup": 0.02257818782005172,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.00958567861526094,
+       "edited_better": 0.06408117876007784,
+       "edited_worse": 0.08507089241034195,
+       "drafts_changed": 0.6666666666666666,
+       "tokens_gained_per_round": 0.14831804281345565,
+       "tokens_lost_per_round": 0.211287183764248
+      },
+      "0.5": {
+       "gain_edited_replaces_first": 0.0002116043844428983,
+       "edited_better": 0.017792604948568252,
+       "edited_worse": 0.023908812899638587,
+       "drafts_changed": 0.32249096469279953,
+       "tokens_gained_per_round": 0.04851264943008062,
+       "tokens_lost_per_round": 0.04712260216847373
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.0013119471835456586,
+       "edited_better": 0.006950236308034473,
+       "edited_worse": 0.005421184320266889,
+       "drafts_changed": 0.13247150403113706,
+       "tokens_gained_per_round": 0.0184876285793717,
+       "tokens_lost_per_round": 0.009869335557408952
+      },
+      "1.5": {
+       "gain_edited_replaces_first": 0.000444369207329931,
+       "edited_better": 0.0016680567139282735,
+       "edited_worse": 0.0008340283569641367,
+       "drafts_changed": 0.04475952182374201,
+       "tokens_gained_per_round": 0.004031137058659994,
+       "tokens_lost_per_round": 0.0011120378092855157
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 6.348131533284729e-05,
+       "edited_better": 0.00027800945232137893,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.010008340283569641,
+       "tokens_gained_per_round": 0.0004170141784820684,
+       "tokens_lost_per_round": 0.0
+      },
+      "3.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.00027800945232137893,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "4.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      },
+      "6.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      }
+     }
+    },
+    "eal-big": {
+     "gain_no_margin": -0.006538575479283937,
+     "best_margin": 1.0,
+     "gain_best_margin": 0.0011215032375471168,
+     "gain_if_first_kept_as_backup": 0.013965889373227736,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.006538575479283937,
+       "edited_better": 0.03211009174311927,
+       "edited_worse": 0.049068668334723384,
+       "drafts_changed": 0.4327217125382263,
+       "tokens_gained_per_round": 0.09174311926605505,
+       "tokens_lost_per_round": 0.1346955796497081
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.0008040966608827693,
+       "edited_better": 0.01556852932999722,
+       "edited_worse": 0.020850708924103418,
+       "drafts_changed": 0.25020850708924103,
+       "tokens_gained_per_round": 0.04642757853767028,
+       "tokens_lost_per_round": 0.05170975813177648
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.0011215032375471168,
+       "edited_better": 0.007506255212677231,
+       "edited_worse": 0.007506255212677231,
+       "drafts_changed": 0.1346955796497081,
+       "tokens_gained_per_round": 0.02363080344731721,
+       "tokens_lost_per_round": 0.01626355296080067
+      },
+      "1.5": {
+       "gain_edited_replaces_first": 0.0005713318379956256,
+       "edited_better": 0.003614122880177926,
+       "edited_worse": 0.0030581039755351682,
+       "drafts_changed": 0.0685293299972199,
+       "tokens_gained_per_round": 0.01028634973589102,
+       "tokens_lost_per_round": 0.006533222129552404
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 0.0007194549071056766,
+       "edited_better": 0.0026410897970531,
+       "edited_worse": 0.0013900472616068947,
+       "drafts_changed": 0.03502919099249374,
+       "tokens_gained_per_round": 0.008618293021962747,
+       "tokens_lost_per_round": 0.003892132332499305
+      },
+      "3.0": {
+       "gain_edited_replaces_first": 0.0007829362224385239,
+       "edited_better": 0.0009730330831248262,
+       "edited_worse": 0.00013900472616068947,
+       "drafts_changed": 0.00778426466499861,
+       "tokens_gained_per_round": 0.0052821795941062,
+       "tokens_lost_per_round": 0.00013900472616068947
+      },
+      "4.0": {
+       "gain_edited_replaces_first": 0.00031740657666423644,
+       "edited_better": 0.00027800945232137893,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0012510425354462051,
+       "tokens_gained_per_round": 0.002085070892410342,
+       "tokens_lost_per_round": 0.0
+      },
+      "6.0": {
+       "gain_edited_replaces_first": 0.0,
+       "edited_better": 0.0,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0,
+       "tokens_gained_per_round": 0.0,
+       "tokens_lost_per_round": 0.0
+      }
+     }
+    },
+    "eal-kl": {
+     "gain_no_margin": 0.0012696263066571678,
+     "best_margin": 0.5,
+     "gain_best_margin": 0.0014600702526557097,
+     "gain_if_first_kept_as_backup": 0.0030682635744212483,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": 0.0012696263066571678,
+       "edited_better": 0.006255212677231026,
+       "edited_worse": 0.0030581039755351682,
+       "drafts_changed": 0.17709202112871839,
+       "tokens_gained_per_round": 0.02015568529329997,
+       "tokens_lost_per_round": 0.011815401723658605
+      },
+      "0.5": {
+       "gain_edited_replaces_first": 0.0014600702526557097,
+       "edited_better": 0.004031137058659994,
+       "edited_worse": 0.0008340283569641367,
+       "drafts_changed": 0.015985543508479288,
+       "tokens_gained_per_round": 0.011676396997497914,
+       "tokens_lost_per_round": 0.002085070892410342
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.0012907867451013022,
+       "edited_better": 0.003197108701695858,
+       "edited_worse": 0.0005560189046427579,
+       "drafts_changed": 0.006255212677231026,
+       "tokens_gained_per_round": 0.009869335557408952,
+       "tokens_lost_per_round": 0.0013900472616068947
+      },
+      "1.5": {
+       "gain_edited_replaces_first": 0.0011003427991027603,
+       "edited_better": 0.0027800945232137894,
+       "edited_worse": 0.0005560189046427579,
+       "drafts_changed": 0.0050041701417848205,
+       "tokens_gained_per_round": 0.008618293021962747,
+       "tokens_lost_per_round": 0.0013900472616068947
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 0.0011638241144356076,
+       "edited_better": 0.0027800945232137894,
+       "edited_worse": 0.00027800945232137893,
+       "drafts_changed": 0.004309146510981373,
+       "tokens_gained_per_round": 0.008618293021962747,
+       "tokens_lost_per_round": 0.0009730330831248262
+      },
+      "3.0": {
+       "gain_edited_replaces_first": 0.001184984552879964,
+       "edited_better": 0.002363080344731721,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.003336113427856547,
+       "tokens_gained_per_round": 0.00778426466499861,
+       "tokens_lost_per_round": 0.0
+      },
+      "4.0": {
+       "gain_edited_replaces_first": 0.0006136527148843385,
+       "edited_better": 0.0013900472616068947,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.001807061440088963,
+       "tokens_gained_per_round": 0.004031137058659994,
+       "tokens_lost_per_round": 0.0
+      },
+      "6.0": {
+       "gain_edited_replaces_first": 0.0003385670151085929,
+       "edited_better": 0.0004170141784820684,
+       "edited_worse": 0.0,
+       "drafts_changed": 0.0006950236308034474,
+       "tokens_gained_per_round": 0.0022240756185710315,
+       "tokens_lost_per_round": 0.0
+      }
+     }
+    },
+    "eal-slow": {
+     "gain_no_margin": -0.001079182360658515,
+     "best_margin": 6.0,
+     "gain_best_margin": -0.0005078505226627783,
+     "gain_if_first_kept_as_backup": 0.000444369207329931,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.001079182360658515,
+       "edited_better": 0.0012510425354462051,
+       "edited_worse": 0.002363080344731721,
+       "drafts_changed": 0.013344453711426188,
+       "tokens_gained_per_round": 0.0029190992493744786,
+       "tokens_lost_per_round": 0.010008340283569641
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.0009522197299928203,
+       "edited_better": 0.0011120378092855157,
+       "edited_worse": 0.0019460661662496525,
+       "drafts_changed": 0.010425354462051709,
+       "tokens_gained_per_round": 0.002363080344731721,
+       "tokens_lost_per_round": 0.008618293021962747
+      },
+      "1.0": {
+       "gain_edited_replaces_first": -0.001079182360658515,
+       "edited_better": 0.0008340283569641367,
+       "edited_worse": 0.001807061440088963,
+       "drafts_changed": 0.009035307200444815,
+       "tokens_gained_per_round": 0.0012510425354462051,
+       "tokens_lost_per_round": 0.008340283569641367
+      },
+      "1.5": {
+       "gain_edited_replaces_first": -0.0009733801684370658,
+       "edited_better": 0.0006950236308034474,
+       "edited_worse": 0.0013900472616068947,
+       "drafts_changed": 0.006672226855713094,
+       "tokens_gained_per_round": 0.0009730330831248262,
+       "tokens_lost_per_round": 0.007367250486516541
+      },
+      "2.0": {
+       "gain_edited_replaces_first": -0.0007829362224385239,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.0012510425354462051,
+       "drafts_changed": 0.005977203224909647,
+       "tokens_gained_per_round": 0.0006950236308034474,
+       "tokens_lost_per_round": 0.005838198498748957
+      },
+      "3.0": {
+       "gain_edited_replaces_first": -0.0007617757839942785,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.0011120378092855157,
+       "drafts_changed": 0.0045871559633027525,
+       "tokens_gained_per_round": 0.0006950236308034474,
+       "tokens_lost_per_round": 0.005699193772588268
+      },
+      "4.0": {
+       "gain_edited_replaces_first": -0.000592492276439982,
+       "edited_better": 0.0005560189046427579,
+       "edited_worse": 0.0008340283569641367,
+       "drafts_changed": 0.0034751181540172366,
+       "tokens_gained_per_round": 0.0006950236308034474,
+       "tokens_lost_per_round": 0.0045871559633027525
+      },
+      "6.0": {
+       "gain_edited_replaces_first": -0.0005078505226627783,
+       "edited_better": 0.00027800945232137893,
+       "edited_worse": 0.0005560189046427579,
+       "drafts_changed": 0.001807061440088963,
+       "tokens_gained_per_round": 0.0004170141784820684,
+       "tokens_lost_per_round": 0.0037531276063386154
+      }
+     }
+    }
+   },
+   "step": 3000
+  }
+ ],
+ "step": 3400,
+ "hours": 0.309,
  "loss": {
-  "pce": 2.2679094159702955,
-  "eal-tokens": -5.436925991771334,
-  "eal-states": -4.735773855888484,
-  "eal-big": -5.087790380731676,
-  "eal-kl": -4.939464519827282,
-  "eal-slow": -5.450140337174262
+  "pce": 2.35849188534485,
+  "eal-tokens": -4.835765542253747,
+  "eal-states": -4.11248315189047,
+  "eal-big": -4.520391219299043,
+  "eal-kl": -4.3460897391456434,
+  "eal-slow": -4.867436638778907
  },
  "problems": {},
- "seconds_per_step": 0.3211
+ "seconds_per_step": 0.3211,
+ "best": {
+  "name": "eal-kl",
+  "path": "/fs/classhomes/sloka/specdec-ckpt/editor-v2-eal-kl.pt",
+  "margin": 0.5,
+  "gain_edited_replaces_first": 0.0014600702526557097,
+  "step": 3000
+ }
 }
