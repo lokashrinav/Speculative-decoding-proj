@@ -10,6 +10,8 @@ BigramTable is the simplest judge of which candidate fits: how often each token
 followed each other token in the target's own answers. It is counted, not learned.
 """
 
+from types import SimpleNamespace
+
 import torch
 
 
@@ -109,6 +111,15 @@ class BigramImprover:
         return edited
 
 
+def top_confidence(top_values):
+    """A cheap reading of how sure the first pass was, from the candidates' logits alone:
+    how far the best candidate is ahead of the 2nd, 4th, 8th and last one.
+    top_values: (..., K) sorted from best to worst. Returns (..., 4)."""
+    last = top_values.shape[-1] - 1
+    picks = [min(1, last), min(3, last), min(7, last), last]
+    return (top_values[..., :1] - top_values[..., picks]) / 5.0
+
+
 class PairEditor(torch.nn.Module):
     """A learned judge for the left-to-right editor.
 
@@ -120,11 +131,14 @@ class PairEditor(torch.nn.Module):
     bigram_weight: also add the counted BigramTable association with this weight."""
 
     def __init__(self, hidden_size, rank=256, block_size=16, read_states=True, top_k=16,
-                 bigram_weight=0.0, smoothing=10.0):
+                 bigram_weight=0.0, smoothing=10.0, confidence="full"):
         super().__init__()
         nn = torch.nn
+        if confidence not in ("full", "fast"):
+            raise ValueError("confidence must be 'full' (draft_confidence) or 'fast' (top_confidence)")
         self.config = dict(hidden_size=hidden_size, rank=rank, block_size=block_size, read_states=read_states,
-                           top_k=top_k, bigram_weight=bigram_weight, smoothing=smoothing)
+                           top_k=top_k, bigram_weight=bigram_weight, smoothing=smoothing, confidence=confidence)
+        self.confidence_kind = confidence
         self.read_states, self.top_k, self.bigram_weight, self.smoothing = read_states, top_k, bigram_weight, smoothing
         self.margin = 0.0
         self.state_norm = nn.LayerNorm(hidden_size)
@@ -136,6 +150,15 @@ class PairEditor(torch.nn.Module):
         self.mix = nn.Sequential(nn.LayerNorm(rank), nn.Linear(rank, 2 * rank), nn.GELU(),
                                  nn.Linear(2 * rank, rank), nn.LayerNorm(rank))
         self.up = nn.Parameter(torch.zeros(hidden_size, rank))
+
+    def confidence_input(self, full_confidence, top_values):
+        """The confidence this editor was built to read, for the anchor and every position.
+        full_confidence: draft_confidence() of the first pass, or None for a 'fast' editor.
+        top_values: (rows, positions, K) the candidates' logits."""
+        if self.confidence_kind == "full":
+            return full_confidence
+        fast = top_confidence(top_values)
+        return torch.cat((torch.zeros_like(fast[:, :1]), fast), dim=1)
 
     def context(self, states, previous_embeddings, confidence, first_position):
         """What the editor knows when it decides a position: the drafter's state there, how
@@ -252,7 +275,9 @@ class PairImprover:
     @torch.no_grad()
     def __call__(self, round_state):
         s, editor = round_state, self.editor
-        logits = s.draft_logits[0].float()
+        fast = editor.confidence_kind == "fast"
+        # A 'fast' editor never needs the whole vocabulary again after picking the candidates.
+        logits = s.draft_logits[0] if fast else s.draft_logits[0].float()
         positions = logits.shape[0]
         if positions < 1 or s.block_ids.shape[1] != positions + 1:
             return None
@@ -261,11 +286,15 @@ class PairImprover:
         dtype = editor.up.dtype
         k = min(editor.top_k, logits.shape[-1])
         top = logits.topk(k, dim=-1)
-        # How sure the first pass was (the same four numbers as draft_confidence).
-        total = logits.logsumexp(dim=-1)
-        sure = (top.values[:, :2] - total[:, None]).exp()
-        entropy = total - (logits.softmax(dim=-1) * logits).sum(dim=-1)
-        confidence = torch.stack((sure[:, 0], sure[:, 1], sure[:, 0] - sure[:, 1], entropy / 5.0), dim=-1)
+        if fast:
+            top = SimpleNamespace(values=top.values.float(), indices=top.indices)
+            confidence = top_confidence(top.values)
+        else:
+            # How sure the first pass was (the same four numbers as draft_confidence).
+            total = logits.logsumexp(dim=-1)
+            sure = (top.values[:, :2] - total[:, None]).exp()
+            entropy = total - (logits.softmax(dim=-1) * logits).sum(dim=-1)
+            confidence = torch.stack((sure[:, 0], sure[:, 1], sure[:, 0] - sure[:, 1], entropy / 5.0), dim=-1)
         x = editor.position[1 : positions + 1] + editor.confidence_in(confidence.to(dtype))
         if editor.read_states:
             x = x + editor.state_in(editor.state_norm(s.draft_states[0, 1:].to(dtype)))
@@ -295,8 +324,9 @@ class PairImprover:
         top = logits.topk(min(self.editor.top_k, logits.shape[-1]), dim=-1)
         head = _output_head(s.target)
         table = None if self.table is None else self.table.to(logits.device)
+        full = draft_confidence(s.draft_logits) if self.editor.confidence_kind == "full" else None
         first, pair = self.editor.scores(
-            s.draft_states, draft_confidence(s.draft_logits).to(dtype), top.values, top.indices, s.block_ids[:, 0],
+            s.draft_states, self.editor.confidence_input(full, top.values).to(dtype), top.values, top.indices, s.block_ids[:, 0],
             lambda ids: _raw_input_embeddings(s.target, ids, 1.0).to(dtype), lambda ids: head.weight[ids].to(dtype),
             float(_draft_value(s.first_drafter.config, "output_multiplier", 1.0)), table,
         )

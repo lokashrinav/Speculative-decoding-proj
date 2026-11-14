@@ -424,9 +424,13 @@ def test_pair_editor_short_decoding_path_matches_the_plain_one():
     generator = torch.Generator().manual_seed(8)
     table = BigramTable.count([(torch.randint(0, vocabulary, (80,), generator=generator), 4) for _ in range(20)], vocabulary)
     head = _output_head(target)
-    for bigram_weight, read_states, k, margin in ((0.0, True, 8, 0.0), (0.5, True, 16, 0.3), (0.5, False, 4, 0.0)):
+    for bigram_weight, read_states, k, margin, kind in (
+        (0.0, True, 8, 0.0, "full"), (0.5, True, 16, 0.3, "full"), (0.5, False, 4, 0.0, "full"),
+        (0.0, True, 16, 0.0, "fast"), (0.5, True, 8, 0.2, "fast"),
+    ):
         torch.manual_seed(9)
-        editor = PairEditor(16, rank=8, top_k=k, bigram_weight=bigram_weight, read_states=read_states).double().eval()
+        editor = PairEditor(16, rank=8, top_k=k, bigram_weight=bigram_weight, read_states=read_states,
+                            confidence=kind).double().eval()
         torch.nn.init.normal_(editor.up, std=1.0)
         improver = PairImprover(editor, table, margin=margin)
         changed = 0

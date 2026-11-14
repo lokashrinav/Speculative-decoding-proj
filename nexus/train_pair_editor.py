@@ -18,6 +18,9 @@ Variants are written as  name:key=value,key=value;name:...  with keys
   decay=4       later positions count less: weight exp(-(position - 1) / decay)
   soft=1        also match how the target itself ranks the candidates (0 = off)
   rank=256      size of the editor         lr=0.0006
+  conf=full|fast  how the editor reads the first pass's confidence: probabilities and
+                entropy over the whole vocabulary (full), or only the gaps between the
+                top candidates' logits (fast, cheaper at decoding time)
 """
 
 import argparse
@@ -37,7 +40,7 @@ from dflash.pair_editor import BigramTable, PairEditor, save_pair_editor, walk_r
 from train_editor import EditorTrainer
 from train_redraft import BLOCK, load_data
 
-DEFAULTS = dict(k=16, states=1, bigram=0.0, smoothing=10.0, decay=4.0, soft=0.0, rank=256, lr=6e-4)
+DEFAULTS = dict(k=16, states=1, bigram=0.0, smoothing=10.0, decay=4.0, soft=0.0, rank=256, lr=6e-4, conf="full")
 MARGINS = (0.0, 0.25, 0.5, 1.0, 2.0)
 MAX_K = 16
 
@@ -64,7 +67,8 @@ class Variant:
     def __init__(self, name, options, hidden_size, device):
         self.name, self.options = name, options
         self.editor = PairEditor(hidden_size, rank=options["rank"], read_states=bool(options["states"]),
-                                 top_k=options["k"], bigram_weight=options["bigram"], smoothing=options["smoothing"]).to(device)
+                                 top_k=options["k"], bigram_weight=options["bigram"], smoothing=options["smoothing"],
+                                 confidence=options["conf"]).to(device)
         self.parameters = list(self.editor.parameters())
         self.optimizer = torch.optim.AdamW(self.parameters, lr=options["lr"], weight_decay=0.0)
         self.smoothed, self.skipped, self.failed = None, 0, None
@@ -97,7 +101,8 @@ def pair_loss(frozen, variant, batch, table):
     k = editor.top_k
     candidates, truth = batch.top_tokens[..., :k], batch.tokens[:, 1:]
     with torch.autocast(**frozen.autocast):
-        scores = editor.forced_scores(batch.states, batch.confidence, batch.top_values[..., :k], candidates,
+        scores = editor.forced_scores(batch.states, editor.confidence_input(batch.confidence, batch.top_values[..., :k]),
+                                      batch.top_values[..., :k], candidates,
                                       batch.tokens[:, :-1], frozen.embed, frozen.rows, frozen.multiplier, table)
     present = candidates == truth[..., None]
     # Train a position only while the target's token has been among the candidates so far.
@@ -144,7 +149,9 @@ def validate(frozen, variants, items, anchors_per_sequence, table):
         for v in variants:
             k = v.editor.top_k
             with torch.autocast(**frozen.autocast):
-                start, pair = v.editor.scores(batch.states, batch.confidence, batch.top_values[..., :k],
+                start, pair = v.editor.scores(batch.states,
+                                              v.editor.confidence_input(batch.confidence, batch.top_values[..., :k]),
+                                              batch.top_values[..., :k],
                                               batch.top_tokens[..., :k], batch.tokens[:, 0],
                                               frozen.embed, frozen.rows, frozen.multiplier, table)
             for margin in MARGINS:
