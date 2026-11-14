@@ -1,0 +1,5 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   57.53 tok/s  x1.000  tokens/round  3.34  edited 0/10062  second draft tried 0  won 0  extra tokens 0  outputs differing 0/160
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt   59.14 tok/s  x1.028  tokens/round  3.59  edited 8911/9357  second draft tried 0  won 0  extra tokens 0  outputs differing 2/160
+timing dflash               draft 8.48 ms  improve 0.00 ms  verify one draft 50.72 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.51 ms  improve 1.86 ms  verify one draft 50.93 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
