@@ -1,0 +1,5 @@
+dataset=gsm8k turns=80 max_new_tokens=256 block=16
+dflash                   99.79 tok/s  x1.000  tokens/round  5.76  edited 0/3233  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2e-long-d10.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt  106.67 tok/s  x1.069  tokens/round  6.44  edited 2582/2892  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+timing dflash               draft 8.36 ms  improve 0.00 ms  verify one draft 49.76 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2e-long-d10.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.37 ms  improve 1.66 ms  verify one draft 49.94 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
