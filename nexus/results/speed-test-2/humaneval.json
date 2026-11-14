@@ -1,0 +1,104 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "humaneval",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-decay7.pt,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-bigram-soft.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt,bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v1.pt:16:0.25:10",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/speed-test-2/humaneval",
+  "analysis_samples": 40
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 104.87301204927608,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.193400549954171,
+   "rounds": 3273,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-decay7.pt": {
+   "tokens_per_second": 105.70257959884972,
+   "speed_vs_first_variant": 1.0079102100088806,
+   "tokens_per_round": 6.4804987212276215,
+   "rounds": 3128,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2560,
+   "outputs_differing_from_first_variant": 1
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-bigram-soft.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt": {
+   "tokens_per_second": 105.43564646950763,
+   "speed_vs_first_variant": 1.005364911422275,
+   "tokens_per_round": 6.4804987212276215,
+   "rounds": 3128,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2540,
+   "outputs_differing_from_first_variant": 0
+  },
+  "bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v1.pt:16:0.25:10": {
+   "tokens_per_second": 105.11957169393524,
+   "speed_vs_first_variant": 1.0023510304495051,
+   "tokens_per_round": 6.380547686496695,
+   "rounds": 3177,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2506,
+   "outputs_differing_from_first_variant": 0
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 1681,
+   "draft": 8.463409813237307,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 50.455676658485686,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.621058893515764,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-decay7.pt": {
+   "rounds": 1599,
+   "draft": 8.470198824789708,
+   "improve_per_round": 1.6167339600338424,
+   "verify_one_draft": 50.5917600095109,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.637273295809882,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-bigram-soft.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt": {
+   "rounds": 1619,
+   "draft": 8.485944137158974,
+   "improve_per_round": 1.9482822054473614,
+   "verify_one_draft": 50.68611785673972,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.654107473749228,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v1.pt:16:0.25:10": {
+   "rounds": 1640,
+   "draft": 8.453774906513168,
+   "improve_per_round": 0.8076733052049104,
+   "verify_one_draft": 50.45413189289364,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.613414634146341,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  }
+ }
+}
