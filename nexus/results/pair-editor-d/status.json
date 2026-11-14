@@ -1,0 +1,274 @@
+{
+ "variants": {
+  "f-bs-d7-slow": {
+   "k": 16,
+   "states": 1,
+   "bigram": 0.25,
+   "smoothing": 10.0,
+   "decay": 7.0,
+   "soft": 1.0,
+   "rank": 256,
+   "lr": 0.0002,
+   "conf": "fast",
+   "editor_parameters": 2245632
+  },
+  "f-d7-slow": {
+   "k": 16,
+   "states": 1,
+   "bigram": 0.0,
+   "smoothing": 10.0,
+   "decay": 7.0,
+   "soft": 0.0,
+   "rank": 256,
+   "lr": 0.0002,
+   "conf": "fast",
+   "editor_parameters": 2245632
+  },
+  "f-soft-d7-slow": {
+   "k": 16,
+   "states": 1,
+   "bigram": 0.0,
+   "smoothing": 10.0,
+   "decay": 7.0,
+   "soft": 1.0,
+   "rank": 256,
+   "lr": 0.0002,
+   "conf": "fast",
+   "editor_parameters": 2245632
+  },
+  "bs-d7-slow2": {
+   "k": 16,
+   "states": 1,
+   "bigram": 0.25,
+   "smoothing": 10.0,
+   "decay": 7.0,
+   "soft": 1.0,
+   "rank": 256,
+   "lr": 0.0002,
+   "conf": "full",
+   "editor_parameters": 2245632
+  },
+  "f-d7-slow-k8": {
+   "k": 8,
+   "states": 1,
+   "bigram": 0.0,
+   "smoothing": 10.0,
+   "decay": 7.0,
+   "soft": 0.0,
+   "rank": 256,
+   "lr": 0.0002,
+   "conf": "fast",
+   "editor_parameters": 2245632
+  }
+ },
+ "training_sequences": 79545,
+ "validation_sequences": 300,
+ "new_answers_added": 59688,
+ "new_answers_dropped_as_repeats": 13744,
+ "total_steps": 30000,
+ "validation": [
+  {
+   "rounds": 7194,
+   "tokens_per_round_first_draft": 6.569085348901862,
+   "editors": {
+    "f-bs-d7-slow": {
+     "gain_no_margin": 0.04052223962080492,
+     "best_margin": 0.25,
+     "gain_best_margin": 0.04189766811968343,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": 0.04052223962080492,
+       "edited_better": 0.15221017514595497,
+       "edited_worse": 0.05713094245204337,
+       "drafts_changed": 0.7881567973311092
+      },
+      "0.25": {
+       "gain_edited_replaces_first": 0.04189766811968343,
+       "edited_better": 0.13511259382819016,
+       "edited_worse": 0.03572421462329719,
+       "drafts_changed": 0.7699471782040589
+      },
+      "0.5": {
+       "gain_edited_replaces_first": 0.037898345253713606,
+       "edited_better": 0.12176814011676397,
+       "edited_worse": 0.02627189324437031,
+       "drafts_changed": 0.754239644147901
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.032290829065978244,
+       "edited_better": 0.09938837920489296,
+       "edited_worse": 0.017097581317764805,
+       "drafts_changed": 0.7196274673338894
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 0.01559524313343763,
+       "edited_better": 0.05699193772588268,
+       "edited_worse": 0.011259382819015847,
+       "drafts_changed": 0.5938281901584654
+      }
+     }
+    },
+    "f-d7-slow": {
+     "gain_no_margin": -0.00012696263066569458,
+     "best_margin": 0.0,
+     "gain_best_margin": -0.00012696263066569458,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.25": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "1.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "2.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      }
+     }
+    },
+    "f-soft-d7-slow": {
+     "gain_no_margin": -0.00012696263066569458,
+     "best_margin": 0.0,
+     "gain_best_margin": -0.00012696263066569458,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.25": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "1.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "2.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      }
+     }
+    },
+    "bs-d7-slow2": {
+     "gain_no_margin": 0.04052223962080492,
+     "best_margin": 0.25,
+     "gain_best_margin": 0.04189766811968343,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": 0.04052223962080492,
+       "edited_better": 0.15221017514595497,
+       "edited_worse": 0.05713094245204337,
+       "drafts_changed": 0.7881567973311092
+      },
+      "0.25": {
+       "gain_edited_replaces_first": 0.04189766811968343,
+       "edited_better": 0.13511259382819016,
+       "edited_worse": 0.03572421462329719,
+       "drafts_changed": 0.7699471782040589
+      },
+      "0.5": {
+       "gain_edited_replaces_first": 0.037898345253713606,
+       "edited_better": 0.12176814011676397,
+       "edited_worse": 0.02627189324437031,
+       "drafts_changed": 0.754239644147901
+      },
+      "1.0": {
+       "gain_edited_replaces_first": 0.032290829065978244,
+       "edited_better": 0.09938837920489296,
+       "edited_worse": 0.017097581317764805,
+       "drafts_changed": 0.7196274673338894
+      },
+      "2.0": {
+       "gain_edited_replaces_first": 0.01559524313343763,
+       "edited_better": 0.05699193772588268,
+       "edited_worse": 0.011259382819015847,
+       "drafts_changed": 0.5938281901584654
+      }
+     }
+    },
+    "f-d7-slow-k8": {
+     "gain_no_margin": -0.00012696263066569458,
+     "best_margin": 0.0,
+     "gain_best_margin": -0.00012696263066569458,
+     "by_margin": {
+      "0.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.25": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "0.5": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "1.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      },
+      "2.0": {
+       "gain_edited_replaces_first": -0.00012696263066569458,
+       "edited_better": 0.009313316652766194,
+       "edited_worse": 0.010147345009730331,
+       "drafts_changed": 0.19571865443425077
+      }
+     }
+    }
+   },
+   "step": 0
+  }
+ ],
+ "step": 1200,
+ "hours": 0.099,
+ "loss": {
+  "f-bs-d7-slow": 1.263234693222297,
+  "f-d7-slow": 0.8333634132664546,
+  "f-soft-d7-slow": 1.5389135409295651,
+  "bs-d7-slow2": 1.2653685515234014,
+  "f-d7-slow-k8": 0.6527782646239347
+ },
+ "problems": {},
+ "seconds_per_step": 0.2477
+}
