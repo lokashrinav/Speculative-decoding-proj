@@ -1,0 +1,5 @@
+dataset=humaneval turns=80 max_new_tokens=256 block=16
+dflash                  101.49 tok/s  x1.000  tokens/round  6.19  edited 0/3273  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+editor:/fs/classhomes/sloka/specdec-ckpt/editor-v2-ce-mix.pt   96.99 tok/s  x0.956  tokens/round  6.24  edited 1169/3250  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+timing dflash               draft 8.78 ms  improve 0.00 ms  verify one draft 52.49 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing editor:/fs/classhomes/sloka/specdec-ckpt/editor-v2-ce-mix.pt draft 8.77 ms  improve 2.19 ms  verify one draft 52.44 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
