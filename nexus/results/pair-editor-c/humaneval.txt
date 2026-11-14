@@ -1,0 +1,5 @@
+dataset=humaneval turns=80 max_new_tokens=256 block=16
+dflash                  105.93 tok/s  x1.000  tokens/round  6.19  edited 0/3273  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt  107.91 tok/s  x1.019  tokens/round  6.55  edited 2534/3093  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+timing dflash               draft 8.43 ms  improve 0.00 ms  verify one draft 50.19 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.43 ms  improve 1.92 ms  verify one draft 50.26 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
