@@ -1,0 +1,11 @@
+dataset=mt-bench turns=160 max_new_tokens=256 block=16
+dflash                   57.35 tok/s  x1.000  tokens/round  3.34  edited 0/10062  second draft tried 0  won 0  extra tokens 0  outputs differing 0/160
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt   59.17 tok/s  x1.032  tokens/round  3.59  edited 8911/9357  second draft tried 0  won 0  extra tokens 0  outputs differing 2/160
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt   58.73 tok/s  x1.024  tokens/round  3.59  edited 8903/9358  second draft tried 0  won 0  extra tokens 0  outputs differing 3/160
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt   58.39 tok/s  x1.018  tokens/round  3.56  edited 8985/9438  second draft tried 0  won 0  extra tokens 0  outputs differing 1/160
+bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10   58.28 tok/s  x1.016  tokens/round  3.51  edited 9029/9585  second draft tried 0  won 0  extra tokens 0  outputs differing 2/160
+timing dflash               draft 8.48 ms  improve 0.00 ms  verify one draft 50.82 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.42 ms  improve 1.73 ms  verify one draft 50.42 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt draft 8.39 ms  improve 1.52 ms  verify one draft 50.26 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt draft 8.45 ms  improve 1.32 ms  verify one draft 50.63 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10 draft 8.45 ms  improve 0.67 ms  verify one draft 50.66 ms (15.7 rows)  verify two drafts 0.00 ms (0.0 rows)
