@@ -1,0 +1,125 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "math500",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt,bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/speed-test-3/math500",
+  "analysis_samples": 40
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 116.21185175456814,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.967964174991388,
+   "rounds": 2903,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt": {
+   "tokens_per_second": 122.42048050962777,
+   "speed_vs_first_variant": 1.0534250909982215,
+   "tokens_per_round": 7.624575951752733,
+   "rounds": 2653,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2036,
+   "outputs_differing_from_first_variant": 1
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt": {
+   "tokens_per_second": 122.25655108882191,
+   "speed_vs_first_variant": 1.0520144825419335,
+   "tokens_per_round": 7.665024630541872,
+   "rounds": 2639,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2022,
+   "outputs_differing_from_first_variant": 1
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt": {
+   "tokens_per_second": 121.41858997909011,
+   "speed_vs_first_variant": 1.0448038487117326,
+   "tokens_per_round": 7.587396849212303,
+   "rounds": 2666,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2062,
+   "outputs_differing_from_first_variant": 1
+  },
+  "bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10": {
+   "tokens_per_second": 120.29044126219885,
+   "speed_vs_first_variant": 1.0350961579740114,
+   "tokens_per_round": 7.404099560761347,
+   "rounds": 2732,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2070,
+   "outputs_differing_from_first_variant": 1
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 1454,
+   "draft": 8.663517905289034,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 51.825839711002175,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.60041265474553,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt": {
+   "rounds": 1313,
+   "draft": 8.657920018607369,
+   "improve_per_round": 1.9125079648159247,
+   "verify_one_draft": 51.81313568537506,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.592536176694592,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt": {
+   "rounds": 1296,
+   "draft": 8.653258619884626,
+   "improve_per_round": 1.7131035349814705,
+   "verify_one_draft": 51.806215371830206,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.621913580246913,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt": {
+   "rounds": 1315,
+   "draft": 8.656856340458864,
+   "improve_per_round": 1.490233958603198,
+   "verify_one_draft": 51.80572843384493,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.59087452471483,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10": {
+   "rounds": 1353,
+   "draft": 8.655448112408276,
+   "improve_per_round": 0.6829948537602348,
+   "verify_one_draft": 51.798889984797306,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.63340724316334,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  }
+ }
+}

@@ -1,0 +1,11 @@
+dataset=math500 turns=80 max_new_tokens=256 block=16
+dflash                  116.21 tok/s  x1.000  tokens/round  6.97  edited 0/2903  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt  122.42 tok/s  x1.053  tokens/round  7.62  edited 2036/2653  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt  122.26 tok/s  x1.052  tokens/round  7.67  edited 2022/2639  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt  121.42 tok/s  x1.045  tokens/round  7.59  edited 2062/2666  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10  120.29 tok/s  x1.035  tokens/round  7.40  edited 2070/2732  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+timing dflash               draft 8.66 ms  improve 0.00 ms  verify one draft 51.83 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.66 ms  improve 1.91 ms  verify one draft 51.81 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt draft 8.65 ms  improve 1.71 ms  verify one draft 51.81 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-d7-slow.pt draft 8.66 ms  improve 1.49 ms  verify one draft 51.81 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt:16:0.25:10 draft 8.66 ms  improve 0.68 ms  verify one draft 51.80 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
