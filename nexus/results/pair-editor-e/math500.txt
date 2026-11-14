@@ -1,0 +1,5 @@
+dataset=math500 turns=80 max_new_tokens=256 block=16
+dflash                  121.07 tok/s  x1.000  tokens/round  6.97  edited 0/2903  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2e-long-d10.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt  126.18 tok/s  x1.042  tokens/round  7.62  edited 2072/2655  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+timing dflash               draft 8.33 ms  improve 0.00 ms  verify one draft 49.77 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2e-long-d10.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair.pt draft 8.34 ms  improve 1.67 ms  verify one draft 49.86 ms (15.6 rows)  verify two drafts 0.00 ms (0.0 rows)
