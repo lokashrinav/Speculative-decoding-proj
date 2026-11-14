@@ -1,0 +1,9 @@
+dataset=gsm8k turns=80 max_new_tokens=256 block=16
+dflash                   96.71 tok/s  x1.000  tokens/round  5.76  edited 0/3233  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-decay7.pt  101.02 tok/s  x1.045  tokens/round  6.25  edited 2591/2981  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-bigram-soft.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt  100.20 tok/s  x1.036  tokens/round  6.21  edited 2597/2998  second draft tried 0  won 0  extra tokens 0  outputs differing 1/80
+bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v1.pt:16:0.25:10   97.61 tok/s  x1.009  tokens/round  5.98  edited 2533/3116  second draft tried 0  won 0  extra tokens 0  outputs differing 0/80
+timing dflash               draft 8.58 ms  improve 0.00 ms  verify one draft 51.45 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-decay7.pt draft 8.58 ms  improve 1.66 ms  verify one draft 51.48 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1-bigram-soft.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt draft 8.54 ms  improve 1.97 ms  verify one draft 51.27 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
+timing bigram:/fs/classhomes/sloka/specdec-ckpt/bigram-v1.pt:16:0.25:10 draft 8.54 ms  improve 0.81 ms  verify one draft 51.14 ms (15.8 rows)  verify two drafts 0.00 ms (0.0 rows)
