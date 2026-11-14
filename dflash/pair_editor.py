@@ -10,6 +10,7 @@ BigramTable is the simplest judge of which candidate fits: how often each token
 followed each other token in the target's own answers. It is counted, not learned.
 """
 
+import math
 from types import SimpleNamespace
 
 import torch
@@ -53,12 +54,22 @@ class BigramTable:
     def association(self, previous_token, candidates, smoothing):
         """log p(candidate | previous token) - log p(candidate).
         previous_token: (...), candidates: (..., K). 0 when the previous token was never seen."""
+        seen, unseen = self._values(float(smoothing))
         keys = previous_token[..., None] * self.vocabulary + candidates
         index = torch.searchsorted(self.keys, keys).clamp(max=self.keys.numel() - 1)
-        pair = torch.where(self.keys[index] == keys, self.counts[index], torch.zeros((), device=keys.device))
-        prior = self.prior[candidates]
-        conditional = (pair + smoothing * prior) / (self.previous[previous_token][..., None] + smoothing)
-        return conditional.log() - prior.log()
+        return torch.where(self.keys[index] == keys, seen[index], unseen[previous_token][..., None])
+
+    def _values(self, smoothing):
+        """The association of every counted pair, and of any pair that was never counted
+        (which depends only on the previous token). Worked out once per smoothing."""
+        cache = self.__dict__.setdefault("_cache", {})
+        if smoothing not in cache:
+            first = torch.div(self.keys, self.vocabulary, rounding_mode="floor")
+            prior = self.prior[self.keys - first * self.vocabulary]
+            seen = ((self.counts + smoothing * prior) / (self.previous[first] + smoothing)).log() - prior.log()
+            unseen = math.log(smoothing) - (self.previous + smoothing).log()
+            cache[smoothing] = (seen, unseen)
+        return cache[smoothing]
 
 
 def walk(first_scores, pair_scores, top_tokens):
