@@ -1,0 +1,62 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "mt-bench",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1b-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/pair-editor-b/mt-bench",
+  "analysis_samples": 40
+ },
+ "turns": 160,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 57.788965993672655,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 3.3409858874975153,
+   "rounds": 10062,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1b-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt": {
+   "tokens_per_second": 58.96526432952673,
+   "speed_vs_first_variant": 1.0203550680588898,
+   "tokens_per_round": 3.559991528116065,
+   "rounds": 9443,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 9000,
+   "outputs_differing_from_first_variant": 3
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 2296,
+   "draft": 8.451219582005375,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 50.60623632378889,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.703832752613241,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v1b-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v1-pair.pt": {
+   "rounds": 2171,
+   "draft": 8.514280592270268,
+   "improve_per_round": 1.8757301250164655,
+   "verify_one_draft": 50.99894628181834,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.721787194841086,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  }
+ }
+}
