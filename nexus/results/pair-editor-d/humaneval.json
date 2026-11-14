@@ -1,0 +1,62 @@
+{
+ "args": {
+  "model": "Qwen/Qwen3-4B",
+  "draft": "z-lab/Qwen3-4B-DFlash-b16",
+  "second_draft": null,
+  "dataset": "humaneval",
+  "max_samples": 80,
+  "max_new_tokens": 256,
+  "block_size": 16,
+  "reasoning": "off",
+  "variants": "dflash,pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt",
+  "out": "/fs/classhomes/sloka/specdec-runner/nexus/results/pair-editor-d/humaneval",
+  "analysis_samples": 40
+ },
+ "turns": 80,
+ "variants": {
+  "dflash": {
+   "tokens_per_second": 107.0559892071962,
+   "speed_vs_first_variant": 1.0,
+   "tokens_per_round": 6.193400549954171,
+   "rounds": 3273,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 0,
+   "outputs_differing_from_first_variant": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt": {
+   "tokens_per_second": 107.89566242018117,
+   "speed_vs_first_variant": 1.0078433090871717,
+   "tokens_per_round": 6.541142303969022,
+   "rounds": 3099,
+   "rounds_with_alternative": 0,
+   "alternative_wins": 0,
+   "alternative_extra_tokens": 0,
+   "rounds_edited": 2538,
+   "outputs_differing_from_first_variant": 0
+  }
+ },
+ "timing_ms_per_round": {
+  "dflash": {
+   "rounds": 1681,
+   "draft": 8.32402203254211,
+   "improve_per_round": 0.0,
+   "verify_one_draft": 49.60612833454478,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.621058893515764,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  },
+  "pair:/fs/classhomes/sloka/specdec-ckpt/pair-v2d-f-bs-d7-slow.pt:/fs/classhomes/sloka/specdec-ckpt/bigram-v2-pair-d.pt": {
+   "rounds": 1598,
+   "draft": 8.308281099484377,
+   "improve_per_round": 1.6954125214638527,
+   "verify_one_draft": 49.55437876055663,
+   "verify_two_drafts": 0.0,
+   "rows_one_draft": 15.622653316645808,
+   "rows_two_drafts": 0.0,
+   "rounds_two_drafts": 0
+  }
+ }
+}
