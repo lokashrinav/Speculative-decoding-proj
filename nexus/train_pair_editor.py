@@ -174,6 +174,24 @@ def validate(frozen, variants, items, anchors_per_sequence, table):
     return result
 
 
+def add_new_answers(items, training, extra_dirs, max_len, seed):
+    """Add answers from other data folders to the training set. An answer whose prompt
+    already appears in the first folder (training or held-out) is dropped, so nothing
+    leaks into the held-out answers. Returns how many were added and dropped."""
+    seen = {ids[:length].numpy().tobytes() for ids, length in items}
+    added = dropped = 0
+    for folder in filter(None, extra_dirs.split(",")):
+        for ids, length in load_data(folder, max_len, seed):
+            key = ids[:length].numpy().tobytes()
+            if key in seen:
+                dropped += 1
+                continue
+            seen.add(key)
+            training.append((ids, length))
+            added += 1
+    return added, dropped
+
+
 def learning_rate_factor(step, total_steps, warmup=200):
     if step < warmup:
         return (step + 1) / warmup
@@ -185,6 +203,7 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
     parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16")
     parser.add_argument("--data-dir", required=True)
+    parser.add_argument("--extra-data-dirs", default="", help="comma-separated folders with more answers, for training only")
     parser.add_argument("--variants", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--prefix", default="pair-v1-")
@@ -205,6 +224,7 @@ def main():
     specs = parse_variants(args.variants)
     items = load_data(args.data_dir, args.max_len, args.seed)
     validation, training = items[-args.val_sequences:], items[: -args.val_sequences]
+    added, dropped = add_new_answers(items, training, args.extra_data_dirs, args.max_len, args.seed)
     frozen = EditorTrainer(SimpleNamespace(model=args.model, draft=args.draft, teacher=None, rank=8,
                                            read_tokens="all", no_states=False, first_slot=1), device)
     frozen.embed = lambda ids: _raw_input_embeddings(frozen.target, ids, 1.0)
@@ -224,6 +244,7 @@ def main():
     status = {
         "variants": {v.name: dict(v.options, editor_parameters=sum(p.numel() for p in v.parameters)) for v in variants},
         "training_sequences": len(training), "validation_sequences": len(validation),
+        "new_answers_added": added, "new_answers_dropped_as_repeats": dropped,
         "total_steps": total_steps, "validation": [],
     }
 
@@ -270,7 +291,18 @@ def main():
             step += 1
             if candidates.numel() > 0:
                 pick = torch.randperm(candidates.shape[0], generator=generator)[: args.anchors]
-                batch = first_pass(frozen, ids, candidates[pick.to(device)])
+                chosen = candidates[pick.to(device)]
+                while True:
+                    try:
+                        batch = first_pass(frozen, ids, chosen)
+                        break
+                    except torch.OutOfMemoryError:
+                        # A long answer with many blocks did not fit: use half the blocks for this step.
+                        torch.cuda.empty_cache()
+                        status["steps_with_fewer_blocks"] = status.get("steps_with_fewer_blocks", 0) + 1
+                        if chosen.shape[0] <= 8:
+                            raise
+                        chosen = chosen[: chosen.shape[0] // 2]
                 factor = learning_rate_factor(step - 1, total_steps)
                 for v in variants:
                     if v.failed:

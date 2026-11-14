@@ -410,3 +410,32 @@ def test_left_to_right_pair_editor_is_lossless_and_starts_as_identity(budget, bl
         block_size=block_size, return_stats=True,
     )
     assert careful.rounds_edited == 0 and torch.equal(careful.output_ids, plain.output_ids)
+
+
+def test_pair_editor_short_decoding_path_matches_the_plain_one():
+    """Folding the output head and the token inputs into the editor must not change any pick."""
+    from types import SimpleNamespace
+
+    from dflash.model import _output_head
+    from dflash.pair_editor import BigramTable, PairEditor, PairImprover
+
+    target, draft = make_models()
+    vocabulary = target.get_input_embeddings().weight.shape[0]
+    generator = torch.Generator().manual_seed(8)
+    table = BigramTable.count([(torch.randint(0, vocabulary, (80,), generator=generator), 4) for _ in range(20)], vocabulary)
+    head = _output_head(target)
+    for bigram_weight, read_states, k, margin in ((0.0, True, 8, 0.0), (0.5, True, 16, 0.3), (0.5, False, 4, 0.0)):
+        torch.manual_seed(9)
+        editor = PairEditor(16, rank=8, top_k=k, bigram_weight=bigram_weight, read_states=read_states).double().eval()
+        torch.nn.init.normal_(editor.up, std=1.0)
+        improver = PairImprover(editor, table, margin=margin)
+        changed = 0
+        for positions in (1, 2, 7, 15):
+            states = torch.randn(1, positions + 1, 16, dtype=torch.float64, generator=generator)
+            logits = draft.compute_logits(states[:, 1:], head)
+            block = torch.cat((torch.randint(1, 30, (1, 1), generator=generator), logits.argmax(dim=-1)), dim=1)
+            state = SimpleNamespace(block_ids=block, draft_states=states, target=target, first_drafter=draft, draft_logits=logits)
+            fast, plain = improver(state), improver.reference(state)
+            assert torch.equal(fast, plain)
+            changed += int((fast != block).any())
+        assert changed > 0

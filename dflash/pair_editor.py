@@ -97,15 +97,13 @@ class BigramImprover:
             self.table = self.table.to(logits.device)
         k = min(self.top_k, logits.shape[-1])
         top = logits.topk(k, dim=-1)
-        table, weight, smoothing = self.table, self.weight, self.smoothing
-        first = top.values[0] + weight * table.association(s.block_ids[0, :1], top.indices[:1], smoothing)[0]
-        first[0] += self.margin
-        if positions > 1:
-            following = top.indices[1:, None, :].expand(-1, k, -1)
-            pair = top.values[1:, None, :] + weight * table.association(top.indices[:-1], following, smoothing)
-            pair[..., 0] += self.margin
-        else:
-            pair = logits.new_zeros((0, k, k))
+        # Row p holds the tokens that may have been chosen just before position p + 1:
+        # the anchor for the first position, the previous position's candidates after that.
+        previous = torch.cat((s.block_ids[0, :1].expand(1, k), top.indices[:-1]), dim=0)
+        following = top.indices[:, None, :].expand(-1, k, -1)
+        pair = top.values[:, None, :] + self.weight * self.table.association(previous, following, self.smoothing)
+        pair[..., 0] += self.margin
+        first, pair = pair[0, 0], pair[1:]
         edited = s.block_ids.clone()
         edited[0, 1:] = walk(first, pair, top.indices)
         return edited
@@ -218,16 +216,73 @@ def load_pair_editor(path, device, dtype):
 
 class PairImprover:
     """Plug-in for dflash_generate_redraft: the left-to-right editor with a trained PairEditor
-    as judge. The edited draft replaces the first draft."""
+    as judge. The edited draft replaces the first draft.
+
+    Decoding uses a short path: the output head and the token inputs are folded into the
+    editor once, the confidence reuses the top candidates, all candidate pairs are scored
+    in one pass and the walk itself runs on the CPU. reference() is the plain version."""
 
     def __init__(self, editor, table=None, margin=None, replace=True):
         self.editor, self.table, self.replace = editor, table, replace
         self.margin = float(editor.margin) if margin is None else float(margin)
+        self.folded = None
 
     def start(self, first_drafter):
         pass
 
+    @torch.no_grad()
+    def _fold(self, s):
+        from .model import _draft_value, _output_head, _raw_input_embeddings
+
+        editor, head = self.editor, _output_head(s.target)
+        dtype, device = editor.up.dtype, editor.up.device
+        self.multiplier = float(_draft_value(s.first_drafter.config, "output_multiplier", 1.0))
+        # Output head folded into the editor: the logit change of every token per unit of correction.
+        self.folded = head.weight.to(dtype) @ editor.up
+        # What each possible previous token contributes to the editor's input.
+        vocabulary = head.weight.shape[0]
+        rows = []
+        for begin in range(0, vocabulary, 32768):
+            ids = torch.arange(begin, min(begin + 32768, vocabulary), device=device)
+            rows.append(editor.token_in(editor.token_norm(_raw_input_embeddings(s.target, ids, 1.0).to(dtype))))
+        self.token_rows = torch.cat(rows)
+        if self.table is not None:
+            self.table = self.table.to(device)
+
+    @torch.no_grad()
     def __call__(self, round_state):
+        s, editor = round_state, self.editor
+        logits = s.draft_logits[0].float()
+        positions = logits.shape[0]
+        if positions < 1 or s.block_ids.shape[1] != positions + 1:
+            return None
+        if self.folded is None:
+            self._fold(s)
+        dtype = editor.up.dtype
+        k = min(editor.top_k, logits.shape[-1])
+        top = logits.topk(k, dim=-1)
+        # How sure the first pass was (the same four numbers as draft_confidence).
+        total = logits.logsumexp(dim=-1)
+        sure = (top.values[:, :2] - total[:, None]).exp()
+        entropy = total - (logits.softmax(dim=-1) * logits).sum(dim=-1)
+        confidence = torch.stack((sure[:, 0], sure[:, 1], sure[:, 0] - sure[:, 1], entropy / 5.0), dim=-1)
+        x = editor.position[1 : positions + 1] + editor.confidence_in(confidence.to(dtype))
+        if editor.read_states:
+            x = x + editor.state_in(editor.state_norm(s.draft_states[0, 1:].to(dtype)))
+        previous = torch.cat((s.block_ids[0, :1].expand(1, k), top.indices[:-1]), dim=0)
+        context = editor.mix(x[:, None, :] + self.token_rows[previous])
+        pair = top.values[:, None, :] + (context @ self.folded[top.indices].transpose(1, 2)).float() * self.multiplier
+        if self.table is not None and editor.bigram_weight:
+            following = top.indices[:, None, :].expand(-1, k, -1)
+            pair = pair + editor.bigram_weight * self.table.association(previous, following, editor.smoothing)
+        pair[..., 0] += self.margin
+        edited = s.block_ids.clone()
+        edited[0, 1:] = walk(pair[0, 0], pair[1:], top.indices)
+        return edited
+
+    @torch.no_grad()
+    def reference(self, round_state):
+        """The same edit computed the plain way, as in training and validation."""
         from .draft_editor import draft_confidence
         from .model import _draft_value, _output_head, _raw_input_embeddings
 
@@ -236,15 +291,14 @@ class PairImprover:
         positions = logits.shape[1]
         if positions < 1 or s.block_ids.shape[1] != positions + 1:
             return None
-        if self.table is not None and self.table.keys.device != logits.device:
-            self.table = self.table.to(logits.device)
         dtype = s.draft_states.dtype
         top = logits.topk(min(self.editor.top_k, logits.shape[-1]), dim=-1)
         head = _output_head(s.target)
+        table = None if self.table is None else self.table.to(logits.device)
         first, pair = self.editor.scores(
             s.draft_states, draft_confidence(s.draft_logits).to(dtype), top.values, top.indices, s.block_ids[:, 0],
             lambda ids: _raw_input_embeddings(s.target, ids, 1.0).to(dtype), lambda ids: head.weight[ids].to(dtype),
-            float(_draft_value(s.first_drafter.config, "output_multiplier", 1.0)), self.table,
+            float(_draft_value(s.first_drafter.config, "output_multiplier", 1.0)), table,
         )
         edited = s.block_ids.clone()
         edited[:, 1:] = walk_rows(first, pair, top.indices, self.margin)
