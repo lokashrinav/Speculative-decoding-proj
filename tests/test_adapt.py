@@ -26,6 +26,7 @@ def test_adapters_start_as_the_frozen_drafter_and_come_off_again():
     assert len(adapters) == 5 * len(draft.layers) and all(isinstance(adapter, LowRank) for adapter in adapters)
     assert not any(parameter.requires_grad for name, parameter in draft.named_parameters() if ".base." in name)
     assert attach_adapters(draft, rank=4) == adapters                       # attaching twice adds nothing
+    assert all(adapter.down.requires_grad and adapter.up.requires_grad for adapter in adapters)
     untrained = dflash_generate_redraft(draft, target, prompt, 120, None, return_stats=True)
     assert torch.equal(untrained.output_ids, plain.output_ids) and untrained.acceptance_lengths == plain.acceptance_lengths
     # A learning rate of zero is plain decoding.

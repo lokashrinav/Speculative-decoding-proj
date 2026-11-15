@@ -47,6 +47,28 @@ def by_position(acceptance_lengths, prompt_length, repetition_from):
     return table
 
 
+def canvas_agreement(used, acceptance_lengths, prompt_length, tokens):
+    """How often the target's first choice on a draft was the token the answer really has there.
+
+    used: (round start, the target's first choice at each position of that round's draft).
+    Returns [positions up to the first rejection, of those equal to the answer,
+             positions after the first rejection, of those equal to the answer]."""
+    gained_at, start = {}, prompt_length
+    for gained in acceptance_lengths:
+        gained_at[start] = gained
+        start += gained
+    counts = [0, 0, 0, 0]
+    for position, labels in used:
+        gained = gained_at.get(position)
+        if gained is None:
+            continue
+        for offset, (label, true) in enumerate(zip(labels, tokens[position + 1 : position + 1 + len(labels)])):
+            base = 0 if offset < gained else 2
+            counts[base] += 1
+            counts[base + 1] += int(label == true)
+    return counts
+
+
 def summarize(records, names):
     """Tokens per round of every setting, and how many more tokens per round than the frozen drafter."""
     out = {}
@@ -63,6 +85,13 @@ def summarize(records, names):
             if plain and sum(row[0] for row in plain):
                 base = sum(row[1] for row in plain) / sum(row[0] for row in plain)
                 rows[group]["more_tokens_per_round_than_plain"] = tokens / rounds / base - 1
+        counts = [sum(record["settings"][name]["canvas"][number] for record in records
+                      if "canvas" in record["settings"].get(name, {})) for number in range(4)]
+        if counts[0] and counts[2]:
+            rows["what_the_target_predicted_on_the_drafts"] = {
+                "share_of_positions_after_the_first_rejection": counts[2] / (counts[0] + counts[2]),
+                "first_choice_is_the_answers_token_after_the_first_rejection": counts[3] / counts[2],
+                "first_choice_is_the_answers_token_up_to_it": counts[1] / counts[0]}
         out[name] = rows
     return out
 
@@ -144,6 +173,9 @@ def main():
                                    block_size=16, timers=seconds[setting])
             record["settings"][setting] = {"rounds": int(result.rounds), "seconds": round(time.time() - clock, 1),
                                            "table": by_position(result.acceptance_lengths, prompt_length, repetition_from)}
+            if trainer.canvas_used:
+                record["settings"][setting]["canvas"] = canvas_agreement(
+                    trainer.canvas_used, result.acceptance_lengths, prompt_length, sequence.tolist())
         del features, predictions
         records.append(record)
         report(False)

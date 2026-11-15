@@ -88,6 +88,9 @@ def attach_adapters(model, rank=16, scale=1.0, names=ADAPTED):
                     wrapped = LowRank(module, rank, scale, seed=1000 * number + len(adapters)).to(module.weight.device)
                     setattr(parent, name, wrapped)
                     adapters.append(wrapped)
+    for adapter in adapters:                 # also when they were attached before and have just been frozen above
+        adapter.down.requires_grad_(True)
+        adapter.up.requires_grad_(True)
     return adapters
 
 
