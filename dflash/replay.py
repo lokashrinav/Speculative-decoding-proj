@@ -27,18 +27,30 @@ from .model import (
 
 
 @torch.inference_mode()
-def target_features(target, model, ids, chunk=1024):
-    """The target's hidden states that the drafter reads, for every position of a finished answer."""
+def target_features(target, model, ids, chunk=1024, top=0):
+    """The target's hidden states that the drafter reads, for every position of a finished answer.
+
+    With top > 0 it also returns what the target itself predicted after every position: the `top`
+    most likely next tokens and their log-probabilities, (length, top) each. Row p describes the
+    token at position p + 1, given the text up to p."""
     cache = _make_cache(target.config)
     positions = torch.arange(ids.shape[1], device=ids.device)[None]
-    parts = []
+    parts, tokens, scores = [], [], []
     for begin in range(0, ids.shape[1], chunk):
         output = target(
             ids[:, begin : begin + chunk], position_ids=positions[:, begin : begin + chunk],
-            past_key_values=cache, use_cache=True, logits_to_keep=1, output_hidden_states=True,
+            past_key_values=cache, use_cache=True, output_hidden_states=True,
+            **({} if top else {"logits_to_keep": 1}),
         )
         parts.append(extract_context_feature(output.hidden_states, model.target_layer_ids))
-    return torch.cat(parts, dim=1)
+        if top:
+            best = output.logits[0].float().log_softmax(dim=-1).topk(top, dim=-1)
+            tokens.append(best.indices)
+            scores.append(best.values)
+    features = torch.cat(parts, dim=1)
+    if top:
+        return features, (torch.cat(tokens), torch.cat(scores))
+    return features
 
 
 @torch.inference_mode()

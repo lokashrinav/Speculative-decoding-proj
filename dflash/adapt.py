@@ -16,6 +16,11 @@ Which positions of a past round are used is the question this module is built to
                the committed context, not on its own draft tokens.
   "both"       the immediate positions first, and the rest when they become known.
 
+What the drafter is compared with can be the committed token alone ("ce"), or what the
+target itself predicted at that position: its most likely tokens with their probabilities
+("kl", as in Test-Time Speculation). For a position on the answer's path, the target
+computes that prediction anyway when it checks the round that commits the position.
+
 Only the parts of the drafter that work on the block are adapted (not the projections
 that turn the target's states into keys and values), so the drafter's cache of the
 context stays valid while the adapters change.
@@ -93,10 +98,11 @@ class DraftTrainer:
 
     replace = False
 
-    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0):
-        assert labels in ("immediate", "hindsight", "both")
+    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce"):
+        assert labels in ("immediate", "hindsight", "both") and loss in ("ce", "kl")
         self.model, self.adapters = model, adapters
-        self.labels, self.rate, self.stride, self.decay = labels, rate, stride, decay
+        self.labels, self.rate, self.stride, self.decay, self.loss = labels, rate, stride, decay, loss
+        self.predictions = None      # for "kl": (tokens, log-probabilities) the target predicted after every position
         self.parameters = [parameter for adapter in adapters for parameter in (adapter.down, adapter.up)]
         self.scale = float(_draft_value(model.config, "input_embedding_scale", 1.0))
         self.totals = {"updates": 0, "positions": 0, "seconds": 0.0, "rounds": 0}
@@ -198,7 +204,16 @@ class DraftTrainer:
                 past_key_values=self.cache, use_cache=True,
             )[:, -block.shape[1] :, :]
             logits = model.compute_logits(states[:, 1 + first : 1 + last, :], _output_head(s.target))[0].float()
-            loss = (F.cross_entropy(logits, labels, reduction="none") * weights).sum() / weights.sum()
+            if self.loss == "kl":
+                # Row p of the predictions describes the token at p + 1, so position q is described by row q - 1.
+                rows = slice(position + first, position + last)
+                tokens, scores = self.predictions[0][rows].clone(), self.predictions[1][rows].float().clone()
+                wanted = torch.log_softmax(scores, dim=-1)           # the target's top tokens, made to sum to one
+                given = torch.log_softmax(logits, dim=-1).gather(1, tokens)
+                each = (wanted.exp() * (wanted - given)).sum(dim=-1)
+            else:
+                each = F.cross_entropy(logits, labels, reduction="none")
+            loss = (each * weights).sum() / weights.sum()
             self.optimizer.zero_grad(set_to_none=True)
             loss.backward()
             self.optimizer.step()

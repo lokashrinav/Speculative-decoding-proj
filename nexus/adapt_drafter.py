@@ -6,8 +6,9 @@ every answer and are trained while the answer goes by (dflash/adapt.py). Decodin
 the adapted drafter's own drafts, so the rounds are the ones real decoding would have,
 and the result is simply how many rounds the answer takes.
 
-Settings are written as labels:rate (for example hindsight:1e-4), and "plain" is the
-frozen drafter. The same answers are used for every setting, so they can be compared
+Settings are written as labels:rate (for example hindsight:1e-4), with :kl added to compare
+the drafter with the target's own predictions instead of the committed token alone, and
+"plain" is the frozen drafter. The same answers are used for every setting, so they can be compared
 answer by answer. Only validation answers are used here unless another part is named.
 """
 
@@ -75,6 +76,7 @@ def main():
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--decay", type=float, default=7.0)
+    parser.add_argument("--top", type=int, default=32, help="how many of the target's most likely tokens are kept for kl")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--max-hours", type=float, default=5.0)
@@ -90,9 +92,12 @@ def main():
     adapters = attach_adapters(draft, rank=args.rank)
     trainers = {}
     for setting in args.settings.split(","):
-        labels, _, rate = setting.partition(":")
-        trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if labels == "plain" else labels,
-                                         rate=0.0 if labels == "plain" else float(rate), stride=args.stride, decay=args.decay)
+        parts = setting.split(":")
+        plain = parts[0] == "plain"
+        trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else parts[0],
+                                         rate=0.0 if plain else float(parts[1]), stride=args.stride, decay=args.decay,
+                                         loss=parts[2] if len(parts) > 2 else "ce")
+    top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}
     records, started = [], time.time()
@@ -125,17 +130,18 @@ def main():
         ids = sequence.long().to(device)[None]
         ended = generated[-1] in stop_set
         repetition_from = None if ended else loop_start(generated)
-        features = target_features(target, draft, ids)
+        features, predictions = target_features(target, draft, ids, top=top) if top else (target_features(target, draft, ids), None)
         record = {"source": source, "origin": [name, index], "tokens": len(generated), "ended_by_itself": ended,
                   "repetition_from": repetition_from, "settings": {}}
         for setting, trainer in trainers.items():
             trainer.begin()
+            trainer.predictions = predictions
             clock = time.time()
             result = replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=trainer,
                                    block_size=16, timers=seconds[setting])
             record["settings"][setting] = {"rounds": int(result.rounds), "seconds": round(time.time() - clock, 1),
                                            "table": by_position(result.acceptance_lengths, prompt_length, repetition_from)}
-        del features
+        del features, predictions
         records.append(record)
         report(False)
     report(True)

@@ -98,3 +98,34 @@ def test_stride_trains_on_every_other_round():
     dflash_generate_redraft(draft, target, prompt, 200, None, improver=second, return_stats=True)
     assert 0.35 * every.totals["updates"] < second.totals["updates"] < 0.65 * every.totals["updates"]
     detach_adapters(draft)
+
+
+def test_training_against_the_targets_own_predictions():
+    """"kl" compares the drafter with what the target predicted at each position. Those predictions
+    come from reading the finished answer once, and their first choice is the committed token."""
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    plain = dflash_generate_redraft(draft, target, prompt, 300, None, return_stats=True)
+    ids = plain.output_ids
+    features, (tokens, scores) = target_features(target, draft, ids, top=6, chunk=64)
+    assert torch.allclose(features, target_features(target, draft, ids), atol=1e-9)
+    assert tokens.shape == (ids.shape[1], 6) and scores.shape == tokens.shape
+    start = prompt.shape[1]
+    assert torch.equal(tokens[start - 1 : -1, 0], ids[0, start:])           # row p describes the token at p + 1
+    assert bool((scores[:, 0] >= scores[:, 1]).all()) and bool((scores.exp().sum(-1) <= 1 + 1e-5).all())
+    adapters = attach_adapters(draft, rank=4)
+    results = {}
+    for labels in ("immediate", "hindsight"):
+        trainer = DraftTrainer(draft, adapters, labels=labels, rate=3e-3, loss="kl")
+        trainer.begin()
+        trainer.predictions = (tokens, scores)
+        results[labels] = replay_decode(draft, target, ids, start, ended=False, features=features, improver=trainer)
+        assert trainer.totals["updates"] > 20 and results[labels].acceptance_lengths != plain.acceptance_lengths
+        # The same run again gives the same rounds: nothing is left over from the run before.
+        trainer.begin()
+        trainer.predictions = (tokens, scores)
+        again = replay_decode(draft, target, ids, start, ended=False, features=features, improver=trainer)
+        assert again.acceptance_lengths == results[labels].acceptance_lengths
+    detach_adapters(draft)
