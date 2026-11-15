@@ -139,9 +139,10 @@ def distinct_share(tokens, n=4):
 
 def run(draft, target, encode, stops, prompts, args, save, report):
     """Decode every prompt with the probe attached. save(sequences, lengths, sources) and
-    report(probe, answers, started, done) are called every few answers."""
+    report(probe, answers, started, done, seconds) are called every few answers."""
     probe = MemoryProbe(capacity=args.capacity)
     sequences, lengths, sources, answers = [], [], [], []
+    seconds = {}  # time spent drafting, in the probe, and verifying, summed over every round
     started = time.time()
     stop_set = set(stops or [])
     for source, prompt in prompts:
@@ -153,7 +154,7 @@ def run(draft, target, encode, stops, prompts, args, save, report):
         probe.begin()
         clock = time.time()
         result = dflash_generate_redraft(draft, target, input_ids, args.max_new_tokens, stops,
-                                         improver=probe, block_size=16, return_stats=True)
+                                         improver=probe, block_size=16, return_stats=True, timers=seconds)
         output = result.output_ids[0].tolist()
         generated = output[input_ids.shape[1]:]
         ended = bool(generated) and generated[-1] in stop_set
@@ -170,13 +171,13 @@ def run(draft, target, encode, stops, prompts, args, save, report):
         })
         if len(answers) == 1 or len(answers) % args.save_every == 0:
             save(sequences, lengths, sources)
-            report(probe, answers, started, False)
+            report(probe, answers, started, False, seconds)
     save(sequences, lengths, sources)
-    report(probe, answers, started, True)
+    report(probe, answers, started, True, seconds)
     return probe, answers
 
 
-def status_of(probe, answers, started, done):
+def status_of(probe, answers, started, done, seconds=None):
     tokens = sorted(a["tokens"] for a in answers)
     status = {
         "done": done, "answers": len(answers), "hours": round((time.time() - started) / 3600, 3),
@@ -194,6 +195,11 @@ def status_of(probe, answers, started, done):
             "answers": len(mine), "tokens_median": mine[len(mine) // 2],
             "fell_into_repetition": sum(a["repetition_from"] is not None for a in answers if a["source"] == source)}
     status["memory_read_cost"] = read_cost(probe)
+    rounds = (seconds or {}).get("rounds_one", 0)
+    if rounds:
+        status["milliseconds_per_round"] = {
+            "drafter": 1000 * seconds.get("draft", 0.0) / rounds, "probe": 1000 * seconds.get("improve", 0.0) / rounds,
+            "target_check": 1000 * seconds.get("verify_one", 0.0) / rounds}
     status.update(summarize(probe.totals, probe.delays, probe.columns))
     return status
 
@@ -278,8 +284,8 @@ def main():
         torch.save({"sequences": sequences, "prompt_lengths": lengths, "sources": sources}, shard_path + ".tmp")
         os.replace(shard_path + ".tmp", shard_path)
 
-    def report(probe, answers, started, done):
-        status = status_of(probe, answers, started, done)
+    def report(probe, answers, started, done, seconds):
+        status = status_of(probe, answers, started, done, seconds)
         status["prompt_sources"] = notes
         status["prompts_in_this_shard"] = len(prompts)
         if torch.cuda.is_available():
