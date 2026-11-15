@@ -1,0 +1,6807 @@
+{
+ "done": false,
+ "answers": 1,
+ "hours": 0.025,
+ "tokens_total": 5629,
+ "tokens_median": 5629,
+ "answers_over_2000_tokens": 1,
+ "answers_over_4000_tokens": 1,
+ "answers_that_did_not_end_by_themselves": 0,
+ "answers_that_fell_into_repetition": 0,
+ "by_source": {
+  "aime-before-2024": {
+   "answers": 1,
+   "tokens_median": 5629,
+   "fell_into_repetition": 0
+  }
+ },
+ "memory_read_cost": {
+  "under_4k": {
+   "rounds": 275,
+   "milliseconds_per_round": 4.69589020379565
+  },
+  "4k_to_16k": {
+   "rounds": 822,
+   "milliseconds_per_round": 0.8790350780842731
+  },
+  "16k_and_more": {
+   "rounds": 195,
+   "milliseconds_per_round": 0.9597992118543539
+  }
+ },
+ "milliseconds_per_round": {
+  "drafter": 8.639341101681831,
+  "probe": 3.4491709958265995,
+  "target_check": 50.223229472790685
+ },
+ "clean": {
+  "0-1k": {
+   "rounds": 255,
+   "tokens_per_round": 3.925490196078431,
+   "first_rejections": 254,
+   "target_token_in_top_16": 0.9251968503937008,
+   "D1_rescue_rate": {
+    "raw": 0.06299212598425197,
+    "centered": 0.07874015748031496
+   },
+   "D3_rescue_rate": {
+    "previous": 0.14173228346456693,
+    "suffix": 0.14566929133858267
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.027559055118110236,
+    "centered": 0.04330708661417323
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.023622047244094488,
+    "centered": 0.03937007874015748
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.03596403596403597,
+    "centered": 0.05194805194805195,
+    "previous": 0.05094905094905095,
+    "suffix": 0.05194805194805195,
+    "raw_or_suffix": 0.07492507492507493,
+    "centered_or_suffix": 0.0959040959040959
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.5039370078740157,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.41058941058941056
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.07480314960629922,
+      "net_per_rejection": -0.07086614173228346,
+      "more_tokens": -0.07092907092907093
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.5,
+      "net_per_rejection": -0.484251968503937,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.06692913385826772,
+      "net_per_rejection": -0.06299212598425197,
+      "more_tokens": -0.059940059940059943
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.47244094488188976,
+      "net_per_rejection": -0.4566929133858268,
+      "more_tokens": -0.3516483516483517
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.051181102362204724,
+      "net_per_rejection": -0.047244094488188976,
+      "more_tokens": -0.03696303696303696
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.3228346456692913,
+      "net_per_rejection": -0.31496062992125984,
+      "more_tokens": -0.23576423576423577
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.03937007874015748,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.03496503496503497
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.06692913385826772,
+      "net_per_rejection": -0.06299212598425197,
+      "more_tokens": -0.04495504495504495
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.007874015748031496,
+      "net_per_rejection": -0.007874015748031496,
+      "more_tokens": -0.008991008991008992
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.003937007874015748,
+      "net_per_rejection": -0.003937007874015748,
+      "more_tokens": -0.000999000999000999
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.5196850393700787,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.2559055118110236,
+      "net_per_rejection": -0.23622047244094488,
+      "more_tokens": -0.19480519480519481
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.023976023976023976
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.5196850393700787,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.2559055118110236,
+      "net_per_rejection": -0.23622047244094488,
+      "more_tokens": -0.19480519480519481
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.023976023976023976
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.4330708661417323,
+      "net_per_rejection": -0.41338582677165353,
+      "more_tokens": -0.3226773226773227
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.22440944881889763,
+      "net_per_rejection": -0.2047244094488189,
+      "more_tokens": -0.16983016983016982
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.03543307086614173,
+      "net_per_rejection": -0.031496062992125984,
+      "more_tokens": -0.02097902097902098
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.12598425196850394,
+      "net_per_rejection": -0.11811023622047244,
+      "more_tokens": -0.06693306693306693
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.09055118110236221,
+      "net_per_rejection": -0.08267716535433071,
+      "more_tokens": -0.04795204795204795
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.023622047244094488,
+      "net_per_rejection": -0.01968503937007874,
+      "more_tokens": -0.007992007992007992
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.015748031496062992,
+      "net_per_rejection": -0.015748031496062992,
+      "more_tokens": -0.005994005994005994
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.015748031496062992,
+      "net_per_rejection": -0.015748031496062992,
+      "more_tokens": -0.005994005994005994
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.07480314960629922,
+      "breaks_per_rejection": 0.38188976377952755,
+      "net_per_rejection": -0.30708661417322836,
+      "more_tokens": -0.3196803196803197
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.051181102362204724,
+      "breaks_per_rejection": 0.14960629921259844,
+      "net_per_rejection": -0.0984251968503937,
+      "more_tokens": -0.12287712287712288
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.023622047244094488,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.01968503937007874,
+      "more_tokens": -0.03996003996003996
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.003937007874015748,
+      "net_per_rejection": 0.003937007874015748,
+      "more_tokens": -0.003996003996003996
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08267716535433071,
+      "breaks_per_rejection": 0.3858267716535433,
+      "net_per_rejection": -0.3031496062992126,
+      "more_tokens": -0.3046953046953047
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06299212598425197,
+      "breaks_per_rejection": 0.27165354330708663,
+      "net_per_rejection": -0.20866141732283464,
+      "more_tokens": -0.23276723276723277
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.027559055118110236,
+      "breaks_per_rejection": 0.19291338582677164,
+      "net_per_rejection": -0.16535433070866143,
+      "more_tokens": -0.16183816183816183
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.12992125984251968,
+      "net_per_rejection": -0.0984251968503937,
+      "more_tokens": -0.1038961038961039
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.08661417322834646,
+      "breaks_per_rejection": 0.24015748031496062,
+      "net_per_rejection": -0.15354330708661418,
+      "more_tokens": -0.18281718281718282
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.06692913385826772,
+      "breaks_per_rejection": 0.17716535433070865,
+      "net_per_rejection": -0.11023622047244094,
+      "more_tokens": -0.13586413586413587
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.11811023622047244,
+      "net_per_rejection": -0.08661417322834646,
+      "more_tokens": -0.08791208791208792
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.07086614173228346,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.061938061938061936
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.0,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "centered": {
+     "limits": [
+      0.8,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.007874015748031496,
+     "breaks_per_rejection": 0.003937007874015748,
+     "net_per_rejection": 0.003937007874015748,
+     "more_tokens": -0.003996003996003996
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.031496062992125984,
+     "breaks_per_rejection": 0.07086614173228346,
+     "net_per_rejection": -0.03937007874015748,
+     "more_tokens": -0.061938061938061936
+    }
+   }
+  },
+  "1k-2k": {
+   "rounds": 229,
+   "tokens_per_round": 4.362445414847161,
+   "first_rejections": 228,
+   "target_token_in_top_16": 0.9517543859649122,
+   "D1_rescue_rate": {
+    "raw": 0.14912280701754385,
+    "centered": 0.16666666666666666
+   },
+   "D3_rescue_rate": {
+    "previous": 0.21929824561403508,
+    "suffix": 0.25
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.05701754385964912,
+    "centered": 0.05701754385964912
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.04824561403508772,
+    "centered": 0.05263157894736842
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.08408408408408409,
+    "centered": 0.09509509509509509,
+    "previous": 0.12212212212212212,
+    "suffix": 0.14914914914914915,
+    "raw_or_suffix": 0.17517517517517517,
+    "centered_or_suffix": 0.17517517517517517
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.45614035087719296,
+      "net_per_rejection": -0.3508771929824561,
+      "more_tokens": -0.35135135135135137
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.09649122807017543,
+      "net_per_rejection": -0.05263157894736842,
+      "more_tokens": -0.062062062062062065
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.45614035087719296,
+      "net_per_rejection": -0.3508771929824561,
+      "more_tokens": -0.34134134134134136
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.09649122807017543,
+      "net_per_rejection": -0.05263157894736842,
+      "more_tokens": -0.062062062062062065
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09649122807017543,
+      "breaks_per_rejection": 0.4517543859649123,
+      "net_per_rejection": -0.35526315789473684,
+      "more_tokens": -0.3063063063063063
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.039473684210526314,
+      "breaks_per_rejection": 0.08771929824561403,
+      "net_per_rejection": -0.04824561403508772,
+      "more_tokens": -0.055055055055055056
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09210526315789473,
+      "breaks_per_rejection": 0.3991228070175439,
+      "net_per_rejection": -0.30701754385964913,
+      "more_tokens": -0.24724724724724725
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.03508771929824561,
+      "breaks_per_rejection": 0.07017543859649122,
+      "net_per_rejection": -0.03508771929824561,
+      "more_tokens": -0.04504504504504504
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.16666666666666666,
+      "net_per_rejection": -0.13596491228070176,
+      "more_tokens": -0.08008008008008008
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.008771929824561403,
+      "breaks_per_rejection": 0.03508771929824561,
+      "net_per_rejection": -0.02631578947368421,
+      "more_tokens": -0.022022022022022022
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.02631578947368421,
+      "net_per_rejection": -0.02631578947368421,
+      "more_tokens": -0.01901901901901902
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.005005005005005005
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10087719298245613,
+      "breaks_per_rejection": 0.47368421052631576,
+      "net_per_rejection": -0.37280701754385964,
+      "more_tokens": -0.34534534534534533
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07017543859649122,
+      "breaks_per_rejection": 0.23684210526315788,
+      "net_per_rejection": -0.16666666666666666,
+      "more_tokens": -0.15715715715715717
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10087719298245613,
+      "breaks_per_rejection": 0.47368421052631576,
+      "net_per_rejection": -0.37280701754385964,
+      "more_tokens": -0.34534534534534533
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07017543859649122,
+      "breaks_per_rejection": 0.23684210526315788,
+      "net_per_rejection": -0.16666666666666666,
+      "more_tokens": -0.15715715715715717
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10964912280701754,
+      "breaks_per_rejection": 0.44298245614035087,
+      "net_per_rejection": -0.3333333333333333,
+      "more_tokens": -0.3033033033033033
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07456140350877193,
+      "breaks_per_rejection": 0.22807017543859648,
+      "net_per_rejection": -0.15350877192982457,
+      "more_tokens": -0.15415415415415415
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06140350877192982,
+      "breaks_per_rejection": 0.2149122807017544,
+      "net_per_rejection": -0.15350877192982457,
+      "more_tokens": -0.12212212212212212
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.13157894736842105,
+      "net_per_rejection": -0.08771929824561403,
+      "more_tokens": -0.07107107107107107
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.017543859649122806,
+      "breaks_per_rejection": 0.03070175438596491,
+      "net_per_rejection": -0.013157894736842105,
+      "more_tokens": -0.016016016016016016
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.02631578947368421,
+      "breaks_per_rejection": 0.08333333333333333,
+      "net_per_rejection": -0.05701754385964912,
+      "more_tokens": -0.055055055055055056
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.021929824561403508,
+      "breaks_per_rejection": 0.06578947368421052,
+      "net_per_rejection": -0.043859649122807015,
+      "more_tokens": -0.04904904904904905
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.008771929824561403,
+      "breaks_per_rejection": 0.02631578947368421,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02002002002002002
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.013157894736842105,
+      "net_per_rejection": -0.008771929824561403,
+      "more_tokens": -0.005005005005005005
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.008771929824561403,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.004004004004004004
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": 0.0,
+      "more_tokens": -0.001001001001001001
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.10964912280701754,
+      "breaks_per_rejection": 0.5087719298245614,
+      "net_per_rejection": -0.3991228070175439,
+      "more_tokens": -0.46146146146146144
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.07894736842105263,
+      "breaks_per_rejection": 0.14912280701754385,
+      "net_per_rejection": -0.07017543859649122,
+      "more_tokens": -0.12012012012012012
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.039473684210526314,
+      "breaks_per_rejection": 0.03508771929824561,
+      "net_per_rejection": 0.0043859649122807015,
+      "more_tokens": -0.022022022022022022
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.021929824561403508,
+      "breaks_per_rejection": 0.013157894736842105,
+      "net_per_rejection": 0.008771929824561403,
+      "more_tokens": 0.002002002002002002
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13157894736842105,
+      "breaks_per_rejection": 0.44298245614035087,
+      "net_per_rejection": -0.31140350877192985,
+      "more_tokens": -0.3733733733733734
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.40350877192982454,
+      "net_per_rejection": -0.2982456140350877,
+      "more_tokens": -0.3283283283283283
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.3157894736842105,
+      "net_per_rejection": -0.21052631578947367,
+      "more_tokens": -0.24824824824824826
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.07456140350877193,
+      "breaks_per_rejection": 0.25877192982456143,
+      "net_per_rejection": -0.18421052631578946,
+      "more_tokens": -0.1961961961961962
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12280701754385964,
+      "breaks_per_rejection": 0.2850877192982456,
+      "net_per_rejection": -0.16228070175438597,
+      "more_tokens": -0.2222222222222222
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.11842105263157894,
+      "breaks_per_rejection": 0.25877192982456143,
+      "net_per_rejection": -0.14035087719298245,
+      "more_tokens": -0.18118118118118118
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.09649122807017543,
+      "breaks_per_rejection": 0.20175438596491227,
+      "net_per_rejection": -0.10526315789473684,
+      "more_tokens": -0.14914914914914915
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.06140350877192982,
+      "breaks_per_rejection": 0.14912280701754385,
+      "net_per_rejection": -0.08771929824561403,
+      "more_tokens": -0.11011011011011011
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0043859649122807015,
+     "breaks_per_rejection": 0.0043859649122807015,
+     "net_per_rejection": 0.0,
+     "more_tokens": -0.001001001001001001
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.021929824561403508,
+     "breaks_per_rejection": 0.013157894736842105,
+     "net_per_rejection": 0.008771929824561403,
+     "more_tokens": 0.002002002002002002
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.06140350877192982,
+     "breaks_per_rejection": 0.14912280701754385,
+     "net_per_rejection": -0.08771929824561403,
+     "more_tokens": -0.11011011011011011
+    }
+   }
+  },
+  "2k-4k": {
+   "rounds": 501,
+   "tokens_per_round": 3.9980039920159682,
+   "first_rejections": 499,
+   "target_token_in_top_16": 0.9418837675350702,
+   "D1_rescue_rate": {
+    "raw": 0.250501002004008,
+    "centered": 0.2665330661322645
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2665330661322645,
+    "suffix": 0.3406813627254509
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.12625250501002003,
+    "centered": 0.13827655310621242
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.08817635270541083,
+    "centered": 0.09819639278557114
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.15876185721417874,
+    "centered": 0.1927109335996006,
+    "previous": 0.13130304543185223,
+    "suffix": 0.1492760858711932,
+    "raw_or_suffix": 0.2526210683974039,
+    "centered_or_suffix": 0.27309036445332
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.4168336673346693,
+      "net_per_rejection": -0.2124248496993988,
+      "more_tokens": -0.19720419370943584
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06613226452905811,
+      "net_per_rejection": -0.012024048096192385,
+      "more_tokens": -0.01347978032950574
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.4168336673346693,
+      "net_per_rejection": -0.2124248496993988,
+      "more_tokens": -0.19720419370943584
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06613226452905811,
+      "net_per_rejection": -0.012024048096192385,
+      "more_tokens": -0.01347978032950574
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.41282565130260523,
+      "net_per_rejection": -0.20841683366733466,
+      "more_tokens": -0.1907139291063405
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06212424849699399,
+      "net_per_rejection": -0.008016032064128256,
+      "more_tokens": -0.008986520219670495
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.40480961923847697,
+      "net_per_rejection": -0.20040080160320642,
+      "more_tokens": -0.18622066899650525
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.05811623246492986,
+      "net_per_rejection": -0.004008016032064128,
+      "more_tokens": -0.00798801797304044
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1523046092184369,
+      "breaks_per_rejection": 0.27655310621242485,
+      "net_per_rejection": -0.12424849699398798,
+      "more_tokens": -0.10284573140289566
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04609218436873747,
+      "breaks_per_rejection": 0.04008016032064128,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": 0.0044932601098352475
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.05811623246492986,
+      "breaks_per_rejection": 0.05410821643286573,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.006490264603095357
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.022044088176352707,
+      "breaks_per_rejection": 0.01002004008016032,
+      "net_per_rejection": 0.012024048096192385,
+      "more_tokens": 0.0074887668497254116
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": 0.0054917623564653024
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.21442885771543085,
+      "breaks_per_rejection": 0.39879759519038077,
+      "net_per_rejection": -0.1843687374749499,
+      "more_tokens": -0.15876185721417874
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.19438877755511022,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.022466300549176237
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.21442885771543085,
+      "breaks_per_rejection": 0.39879759519038077,
+      "net_per_rejection": -0.1843687374749499,
+      "more_tokens": -0.15876185721417874
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.19438877755511022,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.022466300549176237
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.2124248496993988,
+      "breaks_per_rejection": 0.3847695390781563,
+      "net_per_rejection": -0.17234468937875752,
+      "more_tokens": -0.14977533699450823
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.18637274549098196,
+      "net_per_rejection": -0.028056112224448898,
+      "more_tokens": -0.016974538192710935
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17635270541082165,
+      "breaks_per_rejection": 0.23046092184368738,
+      "net_per_rejection": -0.05410821643286573,
+      "more_tokens": -0.054418372441337994
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.1342685370741483,
+      "breaks_per_rejection": 0.12024048096192384,
+      "net_per_rejection": 0.014028056112224449,
+      "more_tokens": 0.003494757863205192
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.05811623246492986,
+      "breaks_per_rejection": 0.036072144288577156,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.010983524712930605
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1062124248496994,
+      "breaks_per_rejection": 0.10220440881763528,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.000998502246630055
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08617234468937876,
+      "breaks_per_rejection": 0.06412825651302605,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.010983524712930605
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03807615230460922,
+      "breaks_per_rejection": 0.03006012024048096,
+      "net_per_rejection": 0.008016032064128256,
+      "more_tokens": 0.0024962556165751375
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.04408817635270541,
+      "breaks_per_rejection": 0.022044088176352707,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.014478282576135796
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.036072144288577156,
+      "breaks_per_rejection": 0.014028056112224449,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.014977533699450823
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.02404809619238477,
+      "breaks_per_rejection": 0.008016032064128256,
+      "net_per_rejection": 0.01603206412825651,
+      "more_tokens": 0.011982026959560658
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.12625250501002003,
+      "breaks_per_rejection": 0.46292585170340683,
+      "net_per_rejection": -0.3366733466933868,
+      "more_tokens": -0.3839241138292561
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.050100200400801605,
+      "breaks_per_rejection": 0.14428857715430862,
+      "net_per_rejection": -0.09418837675350701,
+      "more_tokens": -0.10284573140289566
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.022044088176352707,
+      "breaks_per_rejection": 0.02004008016032064,
+      "net_per_rejection": 0.002004008016032064,
+      "more_tokens": -0.0074887668497254116
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.018036072144288578,
+      "breaks_per_rejection": 0.008016032064128256,
+      "net_per_rejection": 0.01002004008016032,
+      "more_tokens": 0.00199700449326011
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17635270541082165,
+      "breaks_per_rejection": 0.4288577154308617,
+      "net_per_rejection": -0.25250501002004005,
+      "more_tokens": -0.31003494757863204
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17034068136272545,
+      "breaks_per_rejection": 0.3967935871743487,
+      "net_per_rejection": -0.22645290581162325,
+      "more_tokens": -0.28407388916625065
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.16032064128256512,
+      "breaks_per_rejection": 0.33867735470941884,
+      "net_per_rejection": -0.17835671342685372,
+      "more_tokens": -0.24463305042436345
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14428857715430862,
+      "breaks_per_rejection": 0.2845691382765531,
+      "net_per_rejection": -0.1402805611222445,
+      "more_tokens": -0.20818771842236644
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.16032064128256512,
+      "breaks_per_rejection": 0.1963927855711423,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.10584123814278582
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15430861723446893,
+      "breaks_per_rejection": 0.1903807615230461,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.10434348477284074
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.14428857715430862,
+      "breaks_per_rejection": 0.16032064128256512,
+      "net_per_rejection": -0.01603206412825651,
+      "more_tokens": -0.07938092860708937
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1282565130260521,
+      "breaks_per_rejection": 0.12224448897795591,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": -0.05941088367448827
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.022044088176352707,
+     "breaks_per_rejection": 0.01002004008016032,
+     "net_per_rejection": 0.012024048096192385,
+     "more_tokens": 0.0074887668497254116
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.036072144288577156,
+     "breaks_per_rejection": 0.014028056112224449,
+     "net_per_rejection": 0.022044088176352707,
+     "more_tokens": 0.014977533699450823
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.018036072144288578,
+     "breaks_per_rejection": 0.008016032064128256,
+     "net_per_rejection": 0.01002004008016032,
+     "more_tokens": 0.00199700449326011
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.1282565130260521,
+     "breaks_per_rejection": 0.12224448897795591,
+     "net_per_rejection": 0.006012024048096192,
+     "more_tokens": -0.05941088367448827
+    }
+   }
+  },
+  "4k-8k": {
+   "rounds": 307,
+   "tokens_per_round": 5.296416938110749,
+   "first_rejections": 298,
+   "target_token_in_top_16": 0.9530201342281879,
+   "D1_rescue_rate": {
+    "raw": 0.21476510067114093,
+    "centered": 0.2516778523489933
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2751677852348993,
+    "suffix": 0.3221476510067114
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.1174496644295302,
+    "centered": 0.1342281879194631
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.09060402684563758,
+    "centered": 0.1040268456375839
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.10516605166051661,
+    "centered": 0.14391143911439114,
+    "previous": 0.11254612546125461,
+    "suffix": 0.15067650676506766,
+    "raw_or_suffix": 0.21525215252152521,
+    "centered_or_suffix": 0.23185731857318573
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6073825503355704,
+      "net_per_rejection": -0.4899328859060403,
+      "more_tokens": -0.43788437884378845
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.046740467404674045
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6073825503355704,
+      "net_per_rejection": -0.4899328859060403,
+      "more_tokens": -0.43788437884378845
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.046740467404674045
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6040268456375839,
+      "net_per_rejection": -0.4865771812080537,
+      "more_tokens": -0.42496924969249694
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.04489544895448955
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.5503355704697986,
+      "net_per_rejection": -0.4261744966442953,
+      "more_tokens": -0.3462484624846248
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.07046979865771812,
+      "net_per_rejection": -0.016778523489932886,
+      "more_tokens": -0.028290282902829027
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006711409395973154,
+      "more_tokens": 0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08053691275167785,
+      "breaks_per_rejection": 0.21140939597315436,
+      "net_per_rejection": -0.13087248322147652,
+      "more_tokens": -0.1033210332103321
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.040268456375838924,
+      "breaks_per_rejection": 0.026845637583892617,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": -0.0036900369003690036
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006711409395973154,
+      "more_tokens": 0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.03691275167785235,
+      "net_per_rejection": -0.010067114093959731,
+      "more_tokens": -0.0036900369003690036
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.016778523489932886,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": 0.005535055350553505
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003355704697986577,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14093959731543623,
+      "breaks_per_rejection": 0.5637583892617449,
+      "net_per_rejection": -0.4228187919463087,
+      "more_tokens": -0.3862238622386224
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14093959731543623,
+      "breaks_per_rejection": 0.5637583892617449,
+      "net_per_rejection": -0.4228187919463087,
+      "more_tokens": -0.3862238622386224
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14429530201342283,
+      "breaks_per_rejection": 0.5536912751677853,
+      "net_per_rejection": -0.40939597315436244,
+      "more_tokens": -0.36592865928659285
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.3087248322147651,
+      "net_per_rejection": -0.1912751677852349,
+      "more_tokens": -0.18511685116851168
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.06711409395973154,
+      "breaks_per_rejection": 0.13758389261744966,
+      "net_per_rejection": -0.07046979865771812,
+      "more_tokens": -0.07380073800738007
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.026845637583892617,
+      "net_per_rejection": -0.006711409395973154,
+      "more_tokens": -0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.07046979865771812,
+      "breaks_per_rejection": 0.12416107382550336,
+      "net_per_rejection": -0.053691275167785234,
+      "more_tokens": -0.04489544895448955
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04697986577181208,
+      "breaks_per_rejection": 0.06711409395973154,
+      "net_per_rejection": -0.020134228187919462,
+      "more_tokens": -0.013530135301353014
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.020134228187919462,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.010067114093959731,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": 0.008610086100861008
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.016778523489932886,
+      "breaks_per_rejection": 0.006711409395973154,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": 0.00922509225092251
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.013422818791946308,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": 0.00984009840098401
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.087248322147651,
+      "breaks_per_rejection": 0.5738255033557047,
+      "net_per_rejection": -0.4865771812080537,
+      "more_tokens": -0.4932349323493235
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.09060402684563758,
+      "breaks_per_rejection": 0.18791946308724833,
+      "net_per_rejection": -0.09731543624161074,
+      "more_tokens": -0.13653136531365315
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.0436241610738255,
+      "breaks_per_rejection": 0.040268456375838924,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": -0.020910209102091022
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.016778523489932886,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": -0.01107011070110701
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15100671140939598,
+      "breaks_per_rejection": 0.5167785234899329,
+      "net_per_rejection": -0.36577181208053694,
+      "more_tokens": -0.38253382533825336
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15436241610738255,
+      "breaks_per_rejection": 0.4597315436241611,
+      "net_per_rejection": -0.3053691275167785,
+      "more_tokens": -0.33087330873308735
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13758389261744966,
+      "breaks_per_rejection": 0.3926174496644295,
+      "net_per_rejection": -0.2550335570469799,
+      "more_tokens": -0.2730627306273063
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.3523489932885906,
+      "net_per_rejection": -0.22818791946308725,
+      "more_tokens": -0.23677736777367775
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1476510067114094,
+      "breaks_per_rejection": 0.28523489932885904,
+      "net_per_rejection": -0.13758389261744966,
+      "more_tokens": -0.1906519065190652
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15436241610738255,
+      "breaks_per_rejection": 0.26174496644295303,
+      "net_per_rejection": -0.10738255033557047,
+      "more_tokens": -0.15928659286592867
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.2214765100671141,
+      "net_per_rejection": -0.09731543624161074,
+      "more_tokens": -0.13284132841328414
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.18120805369127516,
+      "net_per_rejection": -0.06375838926174497,
+      "more_tokens": -0.0984009840098401
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.016778523489932886,
+     "breaks_per_rejection": 0.003355704697986577,
+     "net_per_rejection": 0.013422818791946308,
+     "more_tokens": 0.005535055350553505
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.013422818791946308,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.013422818791946308,
+     "more_tokens": 0.00984009840098401
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.026845637583892617,
+     "breaks_per_rejection": 0.016778523489932886,
+     "net_per_rejection": 0.010067114093959731,
+     "more_tokens": -0.01107011070110701
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.1174496644295302,
+     "breaks_per_rejection": 0.18120805369127516,
+     "net_per_rejection": -0.06375838926174497,
+     "more_tokens": -0.0984009840098401
+    }
+   }
+  },
+  "2k+": {
+   "rounds": 808,
+   "tokens_per_round": 4.491336633663367,
+   "first_rejections": 797,
+   "target_token_in_top_16": 0.946047678795483,
+   "D1_rescue_rate": {
+    "raw": 0.2371392722710163,
+    "centered": 0.26097867001254704
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2697616060225847,
+    "suffix": 0.3337515683814304
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.12296110414052698,
+    "centered": 0.13676286072772897
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.0890840652446675,
+    "centered": 0.10037641154328733
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.13474786442546155,
+    "centered": 0.17084596307522734,
+    "previous": 0.12289887021217967,
+    "suffix": 0.149903554698264,
+    "raw_or_suffix": 0.23587765224579774,
+    "centered_or_suffix": 0.25461559658308075
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.4880803011292346,
+      "net_per_rejection": -0.3161856963613551,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.0740276035131744,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.02838247451088454
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.4880803011292346,
+      "net_per_rejection": -0.3161856963613551,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.0740276035131744,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.02838247451088454
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.48431618569636137,
+      "net_per_rejection": -0.3124215809284818,
+      "more_tokens": -0.2956737393221273
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.07151819322459223,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.025075778451364012
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17440401505646172,
+      "breaks_per_rejection": 0.4592220828105395,
+      "net_per_rejection": -0.2848180677540778,
+      "more_tokens": -0.25792229264260125
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.06273525721455459,
+      "net_per_rejection": -0.00878293601003764,
+      "more_tokens": -0.017084596307522733
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.0012547051442910915,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12547051442910917,
+      "breaks_per_rejection": 0.2521957340025094,
+      "net_per_rejection": -0.12672521957340024,
+      "more_tokens": -0.10305869385505649
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043914680050188205,
+      "breaks_per_rejection": 0.03513174404015056,
+      "net_per_rejection": 0.00878293601003764,
+      "more_tokens": 0.0008266740148801323
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.0012547051442910915,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.04642409033877039,
+      "breaks_per_rejection": 0.04767879548306148,
+      "net_per_rejection": -0.0012547051442910915,
+      "more_tokens": 0.0019289060347203086
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.020075282308657464,
+      "breaks_per_rejection": 0.0075282308657465494,
+      "net_per_rejection": 0.012547051442910916,
+      "more_tokens": 0.006613392119041058
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.005018820577164366,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4604767879548306,
+      "net_per_rejection": -0.27352572145545795,
+      "more_tokens": -0.2606778726922017
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.19824341279799249,
+      "net_per_rejection": -0.06775407779171895,
+      "more_tokens": -0.06833838523009093
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4604767879548306,
+      "net_per_rejection": -0.27352572145545795,
+      "more_tokens": -0.2606778726922017
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.19824341279799249,
+      "net_per_rejection": -0.06775407779171895,
+      "more_tokens": -0.06833838523009093
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4479297365119197,
+      "net_per_rejection": -0.26097867001254704,
+      "more_tokens": -0.24662441443923946
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.1932245922208281,
+      "net_per_rejection": -0.06273525721455459,
+      "more_tokens": -0.06530724717553045
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15432873274780426,
+      "breaks_per_rejection": 0.25972396486825594,
+      "net_per_rejection": -0.1053952321204517,
+      "more_tokens": -0.11297878203361808
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.10915934755332497,
+      "breaks_per_rejection": 0.12672521957340024,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.031138054560484983
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.043914680050188205,
+      "breaks_per_rejection": 0.03262233375156838,
+      "net_per_rejection": 0.011292346298619825,
+      "more_tokens": 0.005511160099200882
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09284818067754078,
+      "breaks_per_rejection": 0.11041405269761606,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.01956461835216313
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07151819322459223,
+      "breaks_per_rejection": 0.06524466750313676,
+      "net_per_rejection": 0.006273525721455458,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03136762860727729,
+      "breaks_per_rejection": 0.026348808030112924,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.0013777900248002205
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.03513174404015056,
+      "breaks_per_rejection": 0.01756587202007528,
+      "net_per_rejection": 0.01756587202007528,
+      "more_tokens": 0.011848994213281895
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.028858218318695106,
+      "breaks_per_rejection": 0.011292346298619825,
+      "net_per_rejection": 0.01756587202007528,
+      "more_tokens": 0.012400110223201984
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020075282308657464,
+      "breaks_per_rejection": 0.005018820577164366,
+      "net_per_rejection": 0.015056461731493099,
+      "more_tokens": 0.011022320198401764
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.11166875784190715,
+      "breaks_per_rejection": 0.5043914680050188,
+      "net_per_rejection": -0.39272271016311167,
+      "more_tokens": -0.43290162579222924
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.06524466750313676,
+      "breaks_per_rejection": 0.1606022584692597,
+      "net_per_rejection": -0.09535759096612297,
+      "more_tokens": -0.11793882612289887
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.030112923462986198,
+      "breaks_per_rejection": 0.027603513174404015,
+      "net_per_rejection": 0.002509410288582183,
+      "more_tokens": -0.01350234224304216
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.02132998745294856,
+      "breaks_per_rejection": 0.011292346298619825,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": -0.0038578120694406173
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1668757841907152,
+      "breaks_per_rejection": 0.4617314930991217,
+      "net_per_rejection": -0.2948557089084065,
+      "more_tokens": -0.3425186001653348
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.164366373902133,
+      "breaks_per_rejection": 0.4203262233375157,
+      "net_per_rejection": -0.2559598494353827,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15181932245922208,
+      "breaks_per_rejection": 0.3588456712672522,
+      "net_per_rejection": -0.20702634880803011,
+      "more_tokens": -0.25737117663268116
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13676286072772897,
+      "breaks_per_rejection": 0.3099121706398996,
+      "net_per_rejection": -0.17314930991217065,
+      "more_tokens": -0.22099751997795536
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15558343789209536,
+      "breaks_per_rejection": 0.22961104140526975,
+      "net_per_rejection": -0.0740276035131744,
+      "more_tokens": -0.143841278589143
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15432873274780426,
+      "breaks_per_rejection": 0.21706398996235884,
+      "net_per_rejection": -0.06273525721455459,
+      "more_tokens": -0.12896114632130062
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.13676286072772897,
+      "breaks_per_rejection": 0.18318695106649938,
+      "net_per_rejection": -0.04642409033877039,
+      "more_tokens": -0.10333425186001653
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12421580928481807,
+      "breaks_per_rejection": 0.14429109159347553,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.0768806833838523
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.020075282308657464,
+     "breaks_per_rejection": 0.0075282308657465494,
+     "net_per_rejection": 0.012547051442910916,
+     "more_tokens": 0.006613392119041058
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.028858218318695106,
+     "breaks_per_rejection": 0.011292346298619825,
+     "net_per_rejection": 0.01756587202007528,
+     "more_tokens": 0.012400110223201984
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.02132998745294856,
+     "breaks_per_rejection": 0.011292346298619825,
+     "net_per_rejection": 0.010037641154328732,
+     "more_tokens": -0.0038578120694406173
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.12421580928481807,
+     "breaks_per_rejection": 0.14429109159347553,
+     "net_per_rejection": -0.020075282308657464,
+     "more_tokens": -0.0768806833838523
+    }
+   }
+  },
+  "everything": {
+   "rounds": 1292,
+   "tokens_per_round": 4.356811145510836,
+   "first_rejections": 1279,
+   "target_token_in_top_16": 0.9429241594996091,
+   "D1_rescue_rate": {
+    "raw": 0.18686473807662235,
+    "centered": 0.20797498045347929
+   },
+   "D3_rescue_rate": {
+    "previous": 0.23534010946051603,
+    "suffix": 0.2814698983580923
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.09225957779515247,
+    "centered": 0.10398749022673964
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.0688037529319781,
+    "centered": 0.0797498045347928
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.10818973174631373,
+    "centered": 0.13625866050808313,
+    "previous": 0.10996624622490674,
+    "suffix": 0.13235032865517854,
+    "raw_or_suffix": 0.19648250133238587,
+    "centered_or_suffix": 0.21229348019186356
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12900703674745895,
+      "breaks_per_rejection": 0.48553557466770914,
+      "net_per_rejection": -0.3565285379202502,
+      "more_tokens": -0.3320305560490318
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04222048475371384,
+      "breaks_per_rejection": 0.07818608287724785,
+      "net_per_rejection": -0.03596559812353401,
+      "more_tokens": -0.041925741694794814
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12900703674745895,
+      "breaks_per_rejection": 0.4847537138389367,
+      "net_per_rejection": -0.3557466770914777,
+      "more_tokens": -0.3290104814354237
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04222048475371384,
+      "breaks_per_rejection": 0.0766223612197029,
+      "net_per_rejection": -0.03440187646598905,
+      "more_tokens": -0.03997157576834251
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.127443315089914,
+      "breaks_per_rejection": 0.4761532447224394,
+      "net_per_rejection": -0.3487099296325254,
+      "more_tokens": -0.3075146562444484
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04143862392494136,
+      "breaks_per_rejection": 0.07036747458952307,
+      "net_per_rejection": -0.028928850664581705,
+      "more_tokens": -0.03251021495825191
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1266614542611415,
+      "breaks_per_rejection": 0.4214229867083659,
+      "net_per_rejection": -0.2947615324472244,
+      "more_tokens": -0.2520874045123468
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0398749022673964,
+      "breaks_per_rejection": 0.05942142298670837,
+      "net_per_rejection": -0.019546520719311962,
+      "more_tokens": -0.025226505596020608
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.001563721657544957,
+      "net_per_rejection": 0.0023455824863174357,
+      "more_tokens": 0.0003553028957186001
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08444096950742767,
+      "breaks_per_rejection": 0.2001563721657545,
+      "net_per_rejection": -0.11571540265832682,
+      "more_tokens": -0.08864807248179073
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.028928850664581705,
+      "breaks_per_rejection": 0.029710711493354185,
+      "net_per_rejection": -0.0007818608287724785,
+      "more_tokens": -0.004974240540060401
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0007818608287724785,
+      "net_per_rejection": 0.003127443315089914,
+      "more_tokens": 0.0021318173743116006
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.028928850664581705,
+      "breaks_per_rejection": 0.035183737294761534,
+      "net_per_rejection": -0.006254886630179828,
+      "more_tokens": -0.0023094688221709007
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.012509773260359656,
+      "breaks_per_rejection": 0.00547302580140735,
+      "net_per_rejection": 0.007036747458952306,
+      "more_tokens": 0.003375377509326701
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003127443315089914,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.003127443315089914,
+      "more_tokens": 0.0021318173743116006
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14073494917904614,
+      "breaks_per_rejection": 0.47458952306489444,
+      "net_per_rejection": -0.3338545738858483,
+      "more_tokens": -0.3011192041215136
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.09773260359655982,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.11884284597341674,
+      "more_tokens": -0.10659086871558003
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.04143862392494136,
+      "net_per_rejection": -0.004691164972634871,
+      "more_tokens": -0.006928406466512702
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14073494917904614,
+      "breaks_per_rejection": 0.47458952306489444,
+      "net_per_rejection": -0.3338545738858483,
+      "more_tokens": -0.3011192041215136
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.09773260359655982,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.11884284597341674,
+      "more_tokens": -0.10659086871558003
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.04143862392494136,
+      "net_per_rejection": -0.004691164972634871,
+      "more_tokens": -0.006928406466512702
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13995308835027365,
+      "breaks_per_rejection": 0.4440969507427678,
+      "net_per_rejection": -0.30414386239249414,
+      "more_tokens": -0.2702078521939954
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0985144644253323,
+      "breaks_per_rejection": 0.20562939796716184,
+      "net_per_rejection": -0.10711493354182955,
+      "more_tokens": -0.09966246224906733
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.0398749022673964,
+      "net_per_rejection": -0.003127443315089914,
+      "more_tokens": -0.006395452122934802
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10867865519937452,
+      "breaks_per_rejection": 0.2251759186864738,
+      "net_per_rejection": -0.1164972634870993,
+      "more_tokens": -0.10641321726772074
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07740422204847537,
+      "breaks_per_rejection": 0.12040656763096169,
+      "net_per_rejection": -0.04300234558248632,
+      "more_tokens": -0.04121513590335761
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03127443315089914,
+      "breaks_per_rejection": 0.03049257232212666,
+      "net_per_rejection": 0.0007818608287724785,
+      "more_tokens": -0.0007106057914372002
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06254886630179828,
+      "breaks_per_rejection": 0.08678655199374512,
+      "net_per_rejection": -0.024237685691946835,
+      "more_tokens": -0.023449991117427606
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04847537138389367,
+      "breaks_per_rejection": 0.05551211884284597,
+      "net_per_rejection": -0.007036747458952306,
+      "more_tokens": -0.009770829632261504
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.02111024237685692,
+      "breaks_per_rejection": 0.02111024237685692,
+      "net_per_rejection": 0.0,
+      "more_tokens": -0.0026647717178895007
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.022673964034401875,
+      "breaks_per_rejection": 0.013291634089132134,
+      "net_per_rejection": 0.009382329945269743,
+      "more_tokens": 0.006750755018653402
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.018764659890539485,
+      "breaks_per_rejection": 0.008600469116497263,
+      "net_per_rejection": 0.010164190774042221,
+      "more_tokens": 0.0072837093622313024
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.013291634089132134,
+      "breaks_per_rejection": 0.003909304143862392,
+      "net_per_rejection": 0.009382329945269743,
+      "more_tokens": 0.006928406466512702
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.10398749022673964,
+      "breaks_per_rejection": 0.4808444096950743,
+      "net_per_rejection": -0.37685691946833466,
+      "more_tokens": -0.4178362053650737
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.06489444878811572,
+      "breaks_per_rejection": 0.1563721657544957,
+      "net_per_rejection": -0.09147771696637999,
+      "more_tokens": -0.11920412151359033
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.03049257232212666,
+      "breaks_per_rejection": 0.03205629397967162,
+      "net_per_rejection": -0.001563721657544957,
+      "more_tokens": -0.019719310712382306
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.018764659890539485,
+      "breaks_per_rejection": 0.010164190774042221,
+      "net_per_rejection": 0.008600469116497263,
+      "more_tokens": -0.0028424231657488007
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14386239249413604,
+      "breaks_per_rejection": 0.4433150899139953,
+      "net_per_rejection": -0.29945269741985925,
+      "more_tokens": -0.3412684313377154
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13369820172009383,
+      "breaks_per_rejection": 0.38780297107114936,
+      "net_per_rejection": -0.2541047693510555,
+      "more_tokens": -0.2963226150293125
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.11884284597341674,
+      "breaks_per_rejection": 0.31821735731039874,
+      "net_per_rejection": -0.19937451133698203,
+      "more_tokens": -0.23876354592289928
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10476935105551212,
+      "breaks_per_rejection": 0.2650508209538702,
+      "net_per_rejection": -0.1602814698983581,
+      "more_tokens": -0.19577189554094865
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.13604378420641125,
+      "breaks_per_rejection": 0.24159499609069585,
+      "net_per_rejection": -0.1055512118842846,
+      "more_tokens": -0.16468289216557114
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1305707584050039,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.08600469116497264,
+      "more_tokens": -0.13945638656955053
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.10867865519937452,
+      "breaks_per_rejection": 0.17357310398749023,
+      "net_per_rejection": -0.06489444878811572,
+      "more_tokens": -0.10872268608989163
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.0946051602814699,
+      "breaks_per_rejection": 0.1305707584050039,
+      "net_per_rejection": -0.03596559812353401,
+      "more_tokens": -0.08012080298454433
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.012509773260359656,
+     "breaks_per_rejection": 0.00547302580140735,
+     "net_per_rejection": 0.007036747458952306,
+     "more_tokens": 0.003375377509326701
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.018764659890539485,
+     "breaks_per_rejection": 0.008600469116497263,
+     "net_per_rejection": 0.010164190774042221,
+     "more_tokens": 0.0072837093622313024
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.018764659890539485,
+     "breaks_per_rejection": 0.010164190774042221,
+     "net_per_rejection": 0.008600469116497263,
+     "more_tokens": -0.0028424231657488007
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.0946051602814699,
+     "breaks_per_rejection": 0.1305707584050039,
+     "net_per_rejection": -0.03596559812353401,
+     "more_tokens": -0.08012080298454433
+    }
+   }
+  }
+ },
+ "all": {
+  "0-1k": {
+   "rounds": 255,
+   "tokens_per_round": 3.925490196078431,
+   "first_rejections": 254,
+   "target_token_in_top_16": 0.9251968503937008,
+   "D1_rescue_rate": {
+    "raw": 0.06299212598425197,
+    "centered": 0.07874015748031496
+   },
+   "D3_rescue_rate": {
+    "previous": 0.14173228346456693,
+    "suffix": 0.14566929133858267
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.027559055118110236,
+    "centered": 0.04330708661417323
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.023622047244094488,
+    "centered": 0.03937007874015748
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.03596403596403597,
+    "centered": 0.05194805194805195,
+    "previous": 0.05094905094905095,
+    "suffix": 0.05194805194805195,
+    "raw_or_suffix": 0.07492507492507493,
+    "centered_or_suffix": 0.0959040959040959
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.5039370078740157,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.41058941058941056
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.07480314960629922,
+      "net_per_rejection": -0.07086614173228346,
+      "more_tokens": -0.07092907092907093
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.5,
+      "net_per_rejection": -0.484251968503937,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.06692913385826772,
+      "net_per_rejection": -0.06299212598425197,
+      "more_tokens": -0.059940059940059943
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.015748031496062992,
+      "breaks_per_rejection": 0.47244094488188976,
+      "net_per_rejection": -0.4566929133858268,
+      "more_tokens": -0.3516483516483517
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.051181102362204724,
+      "net_per_rejection": -0.047244094488188976,
+      "more_tokens": -0.03696303696303696
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.3228346456692913,
+      "net_per_rejection": -0.31496062992125984,
+      "more_tokens": -0.23576423576423577
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.03937007874015748,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.03496503496503497
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.06692913385826772,
+      "net_per_rejection": -0.06299212598425197,
+      "more_tokens": -0.04495504495504495
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.007874015748031496,
+      "net_per_rejection": -0.007874015748031496,
+      "more_tokens": -0.008991008991008992
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.003937007874015748,
+      "net_per_rejection": -0.003937007874015748,
+      "more_tokens": -0.000999000999000999
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.5196850393700787,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.2559055118110236,
+      "net_per_rejection": -0.23622047244094488,
+      "more_tokens": -0.19480519480519481
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.023976023976023976
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.5196850393700787,
+      "net_per_rejection": -0.4881889763779528,
+      "more_tokens": -0.4035964035964036
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.2559055118110236,
+      "net_per_rejection": -0.23622047244094488,
+      "more_tokens": -0.19480519480519481
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.023976023976023976
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.4330708661417323,
+      "net_per_rejection": -0.41338582677165353,
+      "more_tokens": -0.3226773226773227
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.01968503937007874,
+      "breaks_per_rejection": 0.22440944881889763,
+      "net_per_rejection": -0.2047244094488189,
+      "more_tokens": -0.16983016983016982
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.03543307086614173,
+      "net_per_rejection": -0.031496062992125984,
+      "more_tokens": -0.02097902097902098
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.12598425196850394,
+      "net_per_rejection": -0.11811023622047244,
+      "more_tokens": -0.06693306693306693
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.09055118110236221,
+      "net_per_rejection": -0.08267716535433071,
+      "more_tokens": -0.04795204795204795
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003937007874015748,
+      "breaks_per_rejection": 0.023622047244094488,
+      "net_per_rejection": -0.01968503937007874,
+      "more_tokens": -0.007992007992007992
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.015748031496062992,
+      "net_per_rejection": -0.015748031496062992,
+      "more_tokens": -0.005994005994005994
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.015748031496062992,
+      "net_per_rejection": -0.015748031496062992,
+      "more_tokens": -0.005994005994005994
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.07480314960629922,
+      "breaks_per_rejection": 0.38188976377952755,
+      "net_per_rejection": -0.30708661417322836,
+      "more_tokens": -0.3196803196803197
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.051181102362204724,
+      "breaks_per_rejection": 0.14960629921259844,
+      "net_per_rejection": -0.0984251968503937,
+      "more_tokens": -0.12287712287712288
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.023622047244094488,
+      "breaks_per_rejection": 0.04330708661417323,
+      "net_per_rejection": -0.01968503937007874,
+      "more_tokens": -0.03996003996003996
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.007874015748031496,
+      "breaks_per_rejection": 0.003937007874015748,
+      "net_per_rejection": 0.003937007874015748,
+      "more_tokens": -0.003996003996003996
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08267716535433071,
+      "breaks_per_rejection": 0.3858267716535433,
+      "net_per_rejection": -0.3031496062992126,
+      "more_tokens": -0.3046953046953047
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06299212598425197,
+      "breaks_per_rejection": 0.27165354330708663,
+      "net_per_rejection": -0.20866141732283464,
+      "more_tokens": -0.23276723276723277
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.027559055118110236,
+      "breaks_per_rejection": 0.19291338582677164,
+      "net_per_rejection": -0.16535433070866143,
+      "more_tokens": -0.16183816183816183
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.12992125984251968,
+      "net_per_rejection": -0.0984251968503937,
+      "more_tokens": -0.1038961038961039
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.08661417322834646,
+      "breaks_per_rejection": 0.24015748031496062,
+      "net_per_rejection": -0.15354330708661418,
+      "more_tokens": -0.18281718281718282
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.06692913385826772,
+      "breaks_per_rejection": 0.17716535433070865,
+      "net_per_rejection": -0.11023622047244094,
+      "more_tokens": -0.13586413586413587
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.11811023622047244,
+      "net_per_rejection": -0.08661417322834646,
+      "more_tokens": -0.08791208791208792
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.031496062992125984,
+      "breaks_per_rejection": 0.07086614173228346,
+      "net_per_rejection": -0.03937007874015748,
+      "more_tokens": -0.061938061938061936
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.0,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "centered": {
+     "limits": [
+      0.8,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.007874015748031496,
+     "breaks_per_rejection": 0.003937007874015748,
+     "net_per_rejection": 0.003937007874015748,
+     "more_tokens": -0.003996003996003996
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.031496062992125984,
+     "breaks_per_rejection": 0.07086614173228346,
+     "net_per_rejection": -0.03937007874015748,
+     "more_tokens": -0.061938061938061936
+    }
+   }
+  },
+  "1k-2k": {
+   "rounds": 229,
+   "tokens_per_round": 4.362445414847161,
+   "first_rejections": 228,
+   "target_token_in_top_16": 0.9517543859649122,
+   "D1_rescue_rate": {
+    "raw": 0.14912280701754385,
+    "centered": 0.16666666666666666
+   },
+   "D3_rescue_rate": {
+    "previous": 0.21929824561403508,
+    "suffix": 0.25
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.05701754385964912,
+    "centered": 0.05701754385964912
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.04824561403508772,
+    "centered": 0.05263157894736842
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.08408408408408409,
+    "centered": 0.09509509509509509,
+    "previous": 0.12212212212212212,
+    "suffix": 0.14914914914914915,
+    "raw_or_suffix": 0.17517517517517517,
+    "centered_or_suffix": 0.17517517517517517
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.45614035087719296,
+      "net_per_rejection": -0.3508771929824561,
+      "more_tokens": -0.35135135135135137
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.09649122807017543,
+      "net_per_rejection": -0.05263157894736842,
+      "more_tokens": -0.062062062062062065
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.45614035087719296,
+      "net_per_rejection": -0.3508771929824561,
+      "more_tokens": -0.34134134134134136
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.09649122807017543,
+      "net_per_rejection": -0.05263157894736842,
+      "more_tokens": -0.062062062062062065
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09649122807017543,
+      "breaks_per_rejection": 0.4517543859649123,
+      "net_per_rejection": -0.35526315789473684,
+      "more_tokens": -0.3063063063063063
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.039473684210526314,
+      "breaks_per_rejection": 0.08771929824561403,
+      "net_per_rejection": -0.04824561403508772,
+      "more_tokens": -0.055055055055055056
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09210526315789473,
+      "breaks_per_rejection": 0.3991228070175439,
+      "net_per_rejection": -0.30701754385964913,
+      "more_tokens": -0.24724724724724725
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.03508771929824561,
+      "breaks_per_rejection": 0.07017543859649122,
+      "net_per_rejection": -0.03508771929824561,
+      "more_tokens": -0.04504504504504504
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.01001001001001001
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.16666666666666666,
+      "net_per_rejection": -0.13596491228070176,
+      "more_tokens": -0.08008008008008008
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.008771929824561403,
+      "breaks_per_rejection": 0.03508771929824561,
+      "net_per_rejection": -0.02631578947368421,
+      "more_tokens": -0.022022022022022022
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.02631578947368421,
+      "net_per_rejection": -0.02631578947368421,
+      "more_tokens": -0.01901901901901902
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.005005005005005005
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10087719298245613,
+      "breaks_per_rejection": 0.47368421052631576,
+      "net_per_rejection": -0.37280701754385964,
+      "more_tokens": -0.34534534534534533
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07017543859649122,
+      "breaks_per_rejection": 0.23684210526315788,
+      "net_per_rejection": -0.16666666666666666,
+      "more_tokens": -0.15715715715715717
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10087719298245613,
+      "breaks_per_rejection": 0.47368421052631576,
+      "net_per_rejection": -0.37280701754385964,
+      "more_tokens": -0.34534534534534533
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07017543859649122,
+      "breaks_per_rejection": 0.23684210526315788,
+      "net_per_rejection": -0.16666666666666666,
+      "more_tokens": -0.15715715715715717
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10964912280701754,
+      "breaks_per_rejection": 0.44298245614035087,
+      "net_per_rejection": -0.3333333333333333,
+      "more_tokens": -0.3033033033033033
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07456140350877193,
+      "breaks_per_rejection": 0.22807017543859648,
+      "net_per_rejection": -0.15350877192982457,
+      "more_tokens": -0.15415415415415415
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03070175438596491,
+      "breaks_per_rejection": 0.04824561403508772,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02702702702702703
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06140350877192982,
+      "breaks_per_rejection": 0.2149122807017544,
+      "net_per_rejection": -0.15350877192982457,
+      "more_tokens": -0.12212212212212212
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043859649122807015,
+      "breaks_per_rejection": 0.13157894736842105,
+      "net_per_rejection": -0.08771929824561403,
+      "more_tokens": -0.07107107107107107
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.017543859649122806,
+      "breaks_per_rejection": 0.03070175438596491,
+      "net_per_rejection": -0.013157894736842105,
+      "more_tokens": -0.016016016016016016
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.02631578947368421,
+      "breaks_per_rejection": 0.08333333333333333,
+      "net_per_rejection": -0.05701754385964912,
+      "more_tokens": -0.055055055055055056
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.021929824561403508,
+      "breaks_per_rejection": 0.06578947368421052,
+      "net_per_rejection": -0.043859649122807015,
+      "more_tokens": -0.04904904904904905
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.008771929824561403,
+      "breaks_per_rejection": 0.02631578947368421,
+      "net_per_rejection": -0.017543859649122806,
+      "more_tokens": -0.02002002002002002
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.013157894736842105,
+      "net_per_rejection": -0.008771929824561403,
+      "more_tokens": -0.005005005005005005
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.008771929824561403,
+      "net_per_rejection": -0.0043859649122807015,
+      "more_tokens": -0.004004004004004004
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.0043859649122807015,
+      "breaks_per_rejection": 0.0043859649122807015,
+      "net_per_rejection": 0.0,
+      "more_tokens": -0.001001001001001001
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.10964912280701754,
+      "breaks_per_rejection": 0.5087719298245614,
+      "net_per_rejection": -0.3991228070175439,
+      "more_tokens": -0.46146146146146144
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.07894736842105263,
+      "breaks_per_rejection": 0.14912280701754385,
+      "net_per_rejection": -0.07017543859649122,
+      "more_tokens": -0.12012012012012012
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.039473684210526314,
+      "breaks_per_rejection": 0.03508771929824561,
+      "net_per_rejection": 0.0043859649122807015,
+      "more_tokens": -0.022022022022022022
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.021929824561403508,
+      "breaks_per_rejection": 0.013157894736842105,
+      "net_per_rejection": 0.008771929824561403,
+      "more_tokens": 0.002002002002002002
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13157894736842105,
+      "breaks_per_rejection": 0.44298245614035087,
+      "net_per_rejection": -0.31140350877192985,
+      "more_tokens": -0.3733733733733734
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.40350877192982454,
+      "net_per_rejection": -0.2982456140350877,
+      "more_tokens": -0.3283283283283283
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10526315789473684,
+      "breaks_per_rejection": 0.3157894736842105,
+      "net_per_rejection": -0.21052631578947367,
+      "more_tokens": -0.24824824824824826
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.07456140350877193,
+      "breaks_per_rejection": 0.25877192982456143,
+      "net_per_rejection": -0.18421052631578946,
+      "more_tokens": -0.1961961961961962
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12280701754385964,
+      "breaks_per_rejection": 0.2850877192982456,
+      "net_per_rejection": -0.16228070175438597,
+      "more_tokens": -0.2222222222222222
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.11842105263157894,
+      "breaks_per_rejection": 0.25877192982456143,
+      "net_per_rejection": -0.14035087719298245,
+      "more_tokens": -0.18118118118118118
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.09649122807017543,
+      "breaks_per_rejection": 0.20175438596491227,
+      "net_per_rejection": -0.10526315789473684,
+      "more_tokens": -0.14914914914914915
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.06140350877192982,
+      "breaks_per_rejection": 0.14912280701754385,
+      "net_per_rejection": -0.08771929824561403,
+      "more_tokens": -0.11011011011011011
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.0,
+     "more_tokens": 0.0
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.0043859649122807015,
+     "breaks_per_rejection": 0.0043859649122807015,
+     "net_per_rejection": 0.0,
+     "more_tokens": -0.001001001001001001
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.021929824561403508,
+     "breaks_per_rejection": 0.013157894736842105,
+     "net_per_rejection": 0.008771929824561403,
+     "more_tokens": 0.002002002002002002
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.06140350877192982,
+     "breaks_per_rejection": 0.14912280701754385,
+     "net_per_rejection": -0.08771929824561403,
+     "more_tokens": -0.11011011011011011
+    }
+   }
+  },
+  "2k-4k": {
+   "rounds": 501,
+   "tokens_per_round": 3.9980039920159682,
+   "first_rejections": 499,
+   "target_token_in_top_16": 0.9418837675350702,
+   "D1_rescue_rate": {
+    "raw": 0.250501002004008,
+    "centered": 0.2665330661322645
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2665330661322645,
+    "suffix": 0.3406813627254509
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.12625250501002003,
+    "centered": 0.13827655310621242
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.08817635270541083,
+    "centered": 0.09819639278557114
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.15876185721417874,
+    "centered": 0.1927109335996006,
+    "previous": 0.13130304543185223,
+    "suffix": 0.1492760858711932,
+    "raw_or_suffix": 0.2526210683974039,
+    "centered_or_suffix": 0.27309036445332
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.4168336673346693,
+      "net_per_rejection": -0.2124248496993988,
+      "more_tokens": -0.19720419370943584
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06613226452905811,
+      "net_per_rejection": -0.012024048096192385,
+      "more_tokens": -0.01347978032950574
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.4168336673346693,
+      "net_per_rejection": -0.2124248496993988,
+      "more_tokens": -0.19720419370943584
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06613226452905811,
+      "net_per_rejection": -0.012024048096192385,
+      "more_tokens": -0.01347978032950574
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.41282565130260523,
+      "net_per_rejection": -0.20841683366733466,
+      "more_tokens": -0.1907139291063405
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.06212424849699399,
+      "net_per_rejection": -0.008016032064128256,
+      "more_tokens": -0.008986520219670495
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.20440881763527055,
+      "breaks_per_rejection": 0.40480961923847697,
+      "net_per_rejection": -0.20040080160320642,
+      "more_tokens": -0.18622066899650525
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.05410821643286573,
+      "breaks_per_rejection": 0.05811623246492986,
+      "net_per_rejection": -0.004008016032064128,
+      "more_tokens": -0.00798801797304044
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1523046092184369,
+      "breaks_per_rejection": 0.27655310621242485,
+      "net_per_rejection": -0.12424849699398798,
+      "more_tokens": -0.10284573140289566
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04609218436873747,
+      "breaks_per_rejection": 0.04008016032064128,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": 0.0044932601098352475
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.002004008016032064,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.004992511233150275
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.05811623246492986,
+      "breaks_per_rejection": 0.05410821643286573,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.006490264603095357
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.022044088176352707,
+      "breaks_per_rejection": 0.01002004008016032,
+      "net_per_rejection": 0.012024048096192385,
+      "more_tokens": 0.0074887668497254116
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006012024048096192,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": 0.0054917623564653024
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.21442885771543085,
+      "breaks_per_rejection": 0.39879759519038077,
+      "net_per_rejection": -0.1843687374749499,
+      "more_tokens": -0.15876185721417874
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.19438877755511022,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.022466300549176237
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.21442885771543085,
+      "breaks_per_rejection": 0.39879759519038077,
+      "net_per_rejection": -0.1843687374749499,
+      "more_tokens": -0.15876185721417874
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.19438877755511022,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.022466300549176237
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.2124248496993988,
+      "breaks_per_rejection": 0.3847695390781563,
+      "net_per_rejection": -0.17234468937875752,
+      "more_tokens": -0.14977533699450823
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.15831663326653306,
+      "breaks_per_rejection": 0.18637274549098196,
+      "net_per_rejection": -0.028056112224448898,
+      "more_tokens": -0.016974538192710935
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.06212424849699399,
+      "breaks_per_rejection": 0.04408817635270541,
+      "net_per_rejection": 0.018036072144288578,
+      "more_tokens": 0.00998502246630055
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17635270541082165,
+      "breaks_per_rejection": 0.23046092184368738,
+      "net_per_rejection": -0.05410821643286573,
+      "more_tokens": -0.054418372441337994
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.1342685370741483,
+      "breaks_per_rejection": 0.12024048096192384,
+      "net_per_rejection": 0.014028056112224449,
+      "more_tokens": 0.003494757863205192
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.05811623246492986,
+      "breaks_per_rejection": 0.036072144288577156,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.010983524712930605
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1062124248496994,
+      "breaks_per_rejection": 0.10220440881763528,
+      "net_per_rejection": 0.004008016032064128,
+      "more_tokens": 0.000998502246630055
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08617234468937876,
+      "breaks_per_rejection": 0.06412825651302605,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.010983524712930605
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03807615230460922,
+      "breaks_per_rejection": 0.03006012024048096,
+      "net_per_rejection": 0.008016032064128256,
+      "more_tokens": 0.0024962556165751375
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.04408817635270541,
+      "breaks_per_rejection": 0.022044088176352707,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.014478282576135796
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.036072144288577156,
+      "breaks_per_rejection": 0.014028056112224449,
+      "net_per_rejection": 0.022044088176352707,
+      "more_tokens": 0.014977533699450823
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.02404809619238477,
+      "breaks_per_rejection": 0.008016032064128256,
+      "net_per_rejection": 0.01603206412825651,
+      "more_tokens": 0.011982026959560658
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.12625250501002003,
+      "breaks_per_rejection": 0.46292585170340683,
+      "net_per_rejection": -0.3366733466933868,
+      "more_tokens": -0.3839241138292561
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.050100200400801605,
+      "breaks_per_rejection": 0.14428857715430862,
+      "net_per_rejection": -0.09418837675350701,
+      "more_tokens": -0.10284573140289566
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.022044088176352707,
+      "breaks_per_rejection": 0.02004008016032064,
+      "net_per_rejection": 0.002004008016032064,
+      "more_tokens": -0.0074887668497254116
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.018036072144288578,
+      "breaks_per_rejection": 0.008016032064128256,
+      "net_per_rejection": 0.01002004008016032,
+      "more_tokens": 0.00199700449326011
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17635270541082165,
+      "breaks_per_rejection": 0.4288577154308617,
+      "net_per_rejection": -0.25250501002004005,
+      "more_tokens": -0.31003494757863204
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17034068136272545,
+      "breaks_per_rejection": 0.3967935871743487,
+      "net_per_rejection": -0.22645290581162325,
+      "more_tokens": -0.28407388916625065
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.16032064128256512,
+      "breaks_per_rejection": 0.33867735470941884,
+      "net_per_rejection": -0.17835671342685372,
+      "more_tokens": -0.24463305042436345
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14428857715430862,
+      "breaks_per_rejection": 0.2845691382765531,
+      "net_per_rejection": -0.1402805611222445,
+      "more_tokens": -0.20818771842236644
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.16032064128256512,
+      "breaks_per_rejection": 0.1963927855711423,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.10584123814278582
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15430861723446893,
+      "breaks_per_rejection": 0.1903807615230461,
+      "net_per_rejection": -0.036072144288577156,
+      "more_tokens": -0.10434348477284074
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.14428857715430862,
+      "breaks_per_rejection": 0.16032064128256512,
+      "net_per_rejection": -0.01603206412825651,
+      "more_tokens": -0.07938092860708937
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1282565130260521,
+      "breaks_per_rejection": 0.12224448897795591,
+      "net_per_rejection": 0.006012024048096192,
+      "more_tokens": -0.05941088367448827
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.022044088176352707,
+     "breaks_per_rejection": 0.01002004008016032,
+     "net_per_rejection": 0.012024048096192385,
+     "more_tokens": 0.0074887668497254116
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.036072144288577156,
+     "breaks_per_rejection": 0.014028056112224449,
+     "net_per_rejection": 0.022044088176352707,
+     "more_tokens": 0.014977533699450823
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.018036072144288578,
+     "breaks_per_rejection": 0.008016032064128256,
+     "net_per_rejection": 0.01002004008016032,
+     "more_tokens": 0.00199700449326011
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.1282565130260521,
+     "breaks_per_rejection": 0.12224448897795591,
+     "net_per_rejection": 0.006012024048096192,
+     "more_tokens": -0.05941088367448827
+    }
+   }
+  },
+  "4k-8k": {
+   "rounds": 307,
+   "tokens_per_round": 5.296416938110749,
+   "first_rejections": 298,
+   "target_token_in_top_16": 0.9530201342281879,
+   "D1_rescue_rate": {
+    "raw": 0.21476510067114093,
+    "centered": 0.2516778523489933
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2751677852348993,
+    "suffix": 0.3221476510067114
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.1174496644295302,
+    "centered": 0.1342281879194631
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.09060402684563758,
+    "centered": 0.1040268456375839
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.10516605166051661,
+    "centered": 0.14391143911439114,
+    "previous": 0.11254612546125461,
+    "suffix": 0.15067650676506766,
+    "raw_or_suffix": 0.21525215252152521,
+    "centered_or_suffix": 0.23185731857318573
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6073825503355704,
+      "net_per_rejection": -0.4899328859060403,
+      "more_tokens": -0.43788437884378845
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.046740467404674045
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6073825503355704,
+      "net_per_rejection": -0.4899328859060403,
+      "more_tokens": -0.43788437884378845
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.046740467404674045
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.6040268456375839,
+      "net_per_rejection": -0.4865771812080537,
+      "more_tokens": -0.42496924969249694
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.087248322147651,
+      "net_per_rejection": -0.03355704697986577,
+      "more_tokens": -0.04489544895448955
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.5503355704697986,
+      "net_per_rejection": -0.4261744966442953,
+      "more_tokens": -0.3462484624846248
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053691275167785234,
+      "breaks_per_rejection": 0.07046979865771812,
+      "net_per_rejection": -0.016778523489932886,
+      "more_tokens": -0.028290282902829027
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006711409395973154,
+      "more_tokens": 0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08053691275167785,
+      "breaks_per_rejection": 0.21140939597315436,
+      "net_per_rejection": -0.13087248322147652,
+      "more_tokens": -0.1033210332103321
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.040268456375838924,
+      "breaks_per_rejection": 0.026845637583892617,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": -0.0036900369003690036
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006711409395973154,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.006711409395973154,
+      "more_tokens": 0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.03691275167785235,
+      "net_per_rejection": -0.010067114093959731,
+      "more_tokens": -0.0036900369003690036
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.016778523489932886,
+      "breaks_per_rejection": 0.003355704697986577,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": 0.005535055350553505
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003355704697986577,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": 0.0006150061500615006
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14093959731543623,
+      "breaks_per_rejection": 0.5637583892617449,
+      "net_per_rejection": -0.4228187919463087,
+      "more_tokens": -0.3862238622386224
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14093959731543623,
+      "breaks_per_rejection": 0.5637583892617449,
+      "net_per_rejection": -0.4228187919463087,
+      "more_tokens": -0.3862238622386224
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14429530201342283,
+      "breaks_per_rejection": 0.5536912751677853,
+      "net_per_rejection": -0.40939597315436244,
+      "more_tokens": -0.36592865928659285
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.08389261744966443,
+      "breaks_per_rejection": 0.20469798657718122,
+      "net_per_rejection": -0.12080536912751678,
+      "more_tokens": -0.12484624846248463
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.030201342281879196,
+      "net_per_rejection": -0.003355704697986577,
+      "more_tokens": -0.004920049200492005
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.3087248322147651,
+      "net_per_rejection": -0.1912751677852349,
+      "more_tokens": -0.18511685116851168
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.06711409395973154,
+      "breaks_per_rejection": 0.13758389261744966,
+      "net_per_rejection": -0.07046979865771812,
+      "more_tokens": -0.07380073800738007
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.026845637583892617,
+      "net_per_rejection": -0.006711409395973154,
+      "more_tokens": -0.0012300123001230013
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.07046979865771812,
+      "breaks_per_rejection": 0.12416107382550336,
+      "net_per_rejection": -0.053691275167785234,
+      "more_tokens": -0.04489544895448955
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04697986577181208,
+      "breaks_per_rejection": 0.06711409395973154,
+      "net_per_rejection": -0.020134228187919462,
+      "more_tokens": -0.013530135301353014
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.020134228187919462,
+      "net_per_rejection": 0.0,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.020134228187919462,
+      "breaks_per_rejection": 0.010067114093959731,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": 0.008610086100861008
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.016778523489932886,
+      "breaks_per_rejection": 0.006711409395973154,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": 0.00922509225092251
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.013422818791946308,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.013422818791946308,
+      "more_tokens": 0.00984009840098401
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.087248322147651,
+      "breaks_per_rejection": 0.5738255033557047,
+      "net_per_rejection": -0.4865771812080537,
+      "more_tokens": -0.4932349323493235
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.09060402684563758,
+      "breaks_per_rejection": 0.18791946308724833,
+      "net_per_rejection": -0.09731543624161074,
+      "more_tokens": -0.13653136531365315
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.0436241610738255,
+      "breaks_per_rejection": 0.040268456375838924,
+      "net_per_rejection": 0.003355704697986577,
+      "more_tokens": -0.020910209102091022
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.026845637583892617,
+      "breaks_per_rejection": 0.016778523489932886,
+      "net_per_rejection": 0.010067114093959731,
+      "more_tokens": -0.01107011070110701
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15100671140939598,
+      "breaks_per_rejection": 0.5167785234899329,
+      "net_per_rejection": -0.36577181208053694,
+      "more_tokens": -0.38253382533825336
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15436241610738255,
+      "breaks_per_rejection": 0.4597315436241611,
+      "net_per_rejection": -0.3053691275167785,
+      "more_tokens": -0.33087330873308735
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13758389261744966,
+      "breaks_per_rejection": 0.3926174496644295,
+      "net_per_rejection": -0.2550335570469799,
+      "more_tokens": -0.2730627306273063
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.3523489932885906,
+      "net_per_rejection": -0.22818791946308725,
+      "more_tokens": -0.23677736777367775
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1476510067114094,
+      "breaks_per_rejection": 0.28523489932885904,
+      "net_per_rejection": -0.13758389261744966,
+      "more_tokens": -0.1906519065190652
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15436241610738255,
+      "breaks_per_rejection": 0.26174496644295303,
+      "net_per_rejection": -0.10738255033557047,
+      "more_tokens": -0.15928659286592867
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12416107382550336,
+      "breaks_per_rejection": 0.2214765100671141,
+      "net_per_rejection": -0.09731543624161074,
+      "more_tokens": -0.13284132841328414
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1174496644295302,
+      "breaks_per_rejection": 0.18120805369127516,
+      "net_per_rejection": -0.06375838926174497,
+      "more_tokens": -0.0984009840098401
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.016778523489932886,
+     "breaks_per_rejection": 0.003355704697986577,
+     "net_per_rejection": 0.013422818791946308,
+     "more_tokens": 0.005535055350553505
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.9
+     ],
+     "rescues_per_rejection": 0.013422818791946308,
+     "breaks_per_rejection": 0.0,
+     "net_per_rejection": 0.013422818791946308,
+     "more_tokens": 0.00984009840098401
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.026845637583892617,
+     "breaks_per_rejection": 0.016778523489932886,
+     "net_per_rejection": 0.010067114093959731,
+     "more_tokens": -0.01107011070110701
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.1174496644295302,
+     "breaks_per_rejection": 0.18120805369127516,
+     "net_per_rejection": -0.06375838926174497,
+     "more_tokens": -0.0984009840098401
+    }
+   }
+  },
+  "2k+": {
+   "rounds": 808,
+   "tokens_per_round": 4.491336633663367,
+   "first_rejections": 797,
+   "target_token_in_top_16": 0.946047678795483,
+   "D1_rescue_rate": {
+    "raw": 0.2371392722710163,
+    "centered": 0.26097867001254704
+   },
+   "D3_rescue_rate": {
+    "previous": 0.2697616060225847,
+    "suffix": 0.3337515683814304
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.12296110414052698,
+    "centered": 0.13676286072772897
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.0890840652446675,
+    "centered": 0.10037641154328733
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.13474786442546155,
+    "centered": 0.17084596307522734,
+    "previous": 0.12289887021217967,
+    "suffix": 0.149903554698264,
+    "raw_or_suffix": 0.23587765224579774,
+    "centered_or_suffix": 0.25461559658308075
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.4880803011292346,
+      "net_per_rejection": -0.3161856963613551,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.0740276035131744,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.02838247451088454
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.4880803011292346,
+      "net_per_rejection": -0.3161856963613551,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.0740276035131744,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.02838247451088454
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17189460476787954,
+      "breaks_per_rejection": 0.48431618569636137,
+      "net_per_rejection": -0.3124215809284818,
+      "more_tokens": -0.2956737393221273
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.07151819322459223,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.025075778451364012
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.002509410288582183,
+      "net_per_rejection": 0.0037641154328732747,
+      "more_tokens": 0.003031138054560485
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.17440401505646172,
+      "breaks_per_rejection": 0.4592220828105395,
+      "net_per_rejection": -0.2848180677540778,
+      "more_tokens": -0.25792229264260125
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.053952321204516936,
+      "breaks_per_rejection": 0.06273525721455459,
+      "net_per_rejection": -0.00878293601003764,
+      "more_tokens": -0.017084596307522733
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.0012547051442910915,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12547051442910917,
+      "breaks_per_rejection": 0.2521957340025094,
+      "net_per_rejection": -0.12672521957340024,
+      "more_tokens": -0.10305869385505649
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.043914680050188205,
+      "breaks_per_rejection": 0.03513174404015056,
+      "net_per_rejection": 0.00878293601003764,
+      "more_tokens": 0.0008266740148801323
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.006273525721455458,
+      "breaks_per_rejection": 0.0012547051442910915,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.04642409033877039,
+      "breaks_per_rejection": 0.04767879548306148,
+      "net_per_rejection": -0.0012547051442910915,
+      "more_tokens": 0.0019289060347203086
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.020075282308657464,
+      "breaks_per_rejection": 0.0075282308657465494,
+      "net_per_rejection": 0.012547051442910916,
+      "more_tokens": 0.006613392119041058
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.005018820577164366,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.003306696059520529
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4604767879548306,
+      "net_per_rejection": -0.27352572145545795,
+      "more_tokens": -0.2606778726922017
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.19824341279799249,
+      "net_per_rejection": -0.06775407779171895,
+      "more_tokens": -0.06833838523009093
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4604767879548306,
+      "net_per_rejection": -0.27352572145545795,
+      "more_tokens": -0.2606778726922017
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.19824341279799249,
+      "net_per_rejection": -0.06775407779171895,
+      "more_tokens": -0.06833838523009093
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.18695106649937265,
+      "breaks_per_rejection": 0.4479297365119197,
+      "net_per_rejection": -0.26097867001254704,
+      "more_tokens": -0.24662441443923946
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.13048933500627352,
+      "breaks_per_rejection": 0.1932245922208281,
+      "net_per_rejection": -0.06273525721455459,
+      "more_tokens": -0.06530724717553045
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.04893350062735257,
+      "breaks_per_rejection": 0.03889585947302384,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": 0.003306696059520529
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15432873274780426,
+      "breaks_per_rejection": 0.25972396486825594,
+      "net_per_rejection": -0.1053952321204517,
+      "more_tokens": -0.11297878203361808
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.10915934755332497,
+      "breaks_per_rejection": 0.12672521957340024,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.031138054560484983
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.043914680050188205,
+      "breaks_per_rejection": 0.03262233375156838,
+      "net_per_rejection": 0.011292346298619825,
+      "more_tokens": 0.005511160099200882
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.09284818067754078,
+      "breaks_per_rejection": 0.11041405269761606,
+      "net_per_rejection": -0.01756587202007528,
+      "more_tokens": -0.01956461835216313
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07151819322459223,
+      "breaks_per_rejection": 0.06524466750313676,
+      "net_per_rejection": 0.006273525721455458,
+      "more_tokens": 0.0
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03136762860727729,
+      "breaks_per_rejection": 0.026348808030112924,
+      "net_per_rejection": 0.005018820577164366,
+      "more_tokens": 0.0013777900248002205
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.03513174404015056,
+      "breaks_per_rejection": 0.01756587202007528,
+      "net_per_rejection": 0.01756587202007528,
+      "more_tokens": 0.011848994213281895
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.028858218318695106,
+      "breaks_per_rejection": 0.011292346298619825,
+      "net_per_rejection": 0.01756587202007528,
+      "more_tokens": 0.012400110223201984
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.020075282308657464,
+      "breaks_per_rejection": 0.005018820577164366,
+      "net_per_rejection": 0.015056461731493099,
+      "more_tokens": 0.011022320198401764
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.11166875784190715,
+      "breaks_per_rejection": 0.5043914680050188,
+      "net_per_rejection": -0.39272271016311167,
+      "more_tokens": -0.43290162579222924
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.06524466750313676,
+      "breaks_per_rejection": 0.1606022584692597,
+      "net_per_rejection": -0.09535759096612297,
+      "more_tokens": -0.11793882612289887
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.030112923462986198,
+      "breaks_per_rejection": 0.027603513174404015,
+      "net_per_rejection": 0.002509410288582183,
+      "more_tokens": -0.01350234224304216
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.02132998745294856,
+      "breaks_per_rejection": 0.011292346298619825,
+      "net_per_rejection": 0.010037641154328732,
+      "more_tokens": -0.0038578120694406173
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1668757841907152,
+      "breaks_per_rejection": 0.4617314930991217,
+      "net_per_rejection": -0.2948557089084065,
+      "more_tokens": -0.3425186001653348
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.164366373902133,
+      "breaks_per_rejection": 0.4203262233375157,
+      "net_per_rejection": -0.2559598494353827,
+      "more_tokens": -0.3050427114907688
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.15181932245922208,
+      "breaks_per_rejection": 0.3588456712672522,
+      "net_per_rejection": -0.20702634880803011,
+      "more_tokens": -0.25737117663268116
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13676286072772897,
+      "breaks_per_rejection": 0.3099121706398996,
+      "net_per_rejection": -0.17314930991217065,
+      "more_tokens": -0.22099751997795536
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15558343789209536,
+      "breaks_per_rejection": 0.22961104140526975,
+      "net_per_rejection": -0.0740276035131744,
+      "more_tokens": -0.143841278589143
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.15432873274780426,
+      "breaks_per_rejection": 0.21706398996235884,
+      "net_per_rejection": -0.06273525721455459,
+      "more_tokens": -0.12896114632130062
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.13676286072772897,
+      "breaks_per_rejection": 0.18318695106649938,
+      "net_per_rejection": -0.04642409033877039,
+      "more_tokens": -0.10333425186001653
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.12421580928481807,
+      "breaks_per_rejection": 0.14429109159347553,
+      "net_per_rejection": -0.020075282308657464,
+      "more_tokens": -0.0768806833838523
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.020075282308657464,
+     "breaks_per_rejection": 0.0075282308657465494,
+     "net_per_rejection": 0.012547051442910916,
+     "more_tokens": 0.006613392119041058
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.028858218318695106,
+     "breaks_per_rejection": 0.011292346298619825,
+     "net_per_rejection": 0.01756587202007528,
+     "more_tokens": 0.012400110223201984
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.02132998745294856,
+     "breaks_per_rejection": 0.011292346298619825,
+     "net_per_rejection": 0.010037641154328732,
+     "more_tokens": -0.0038578120694406173
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.12421580928481807,
+     "breaks_per_rejection": 0.14429109159347553,
+     "net_per_rejection": -0.020075282308657464,
+     "more_tokens": -0.0768806833838523
+    }
+   }
+  },
+  "everything": {
+   "rounds": 1292,
+   "tokens_per_round": 4.356811145510836,
+   "first_rejections": 1279,
+   "target_token_in_top_16": 0.9429241594996091,
+   "D1_rescue_rate": {
+    "raw": 0.18686473807662235,
+    "centered": 0.20797498045347929
+   },
+   "D3_rescue_rate": {
+    "previous": 0.23534010946051603,
+    "suffix": 0.2814698983580923
+   },
+   "rescued_where_previous_token_memory_fails": {
+    "raw": 0.09225957779515247,
+    "centered": 0.10398749022673964
+   },
+   "rescued_where_suffix_memory_fails": {
+    "raw": 0.0688037529319781,
+    "centered": 0.0797498045347928
+   },
+   "D5_more_tokens_if_used_only_when_right": {
+    "raw": 0.10818973174631373,
+    "centered": 0.13625866050808313,
+    "previous": 0.10996624622490674,
+    "suffix": 0.13235032865517854,
+    "raw_or_suffix": 0.19648250133238587,
+    "centered_or_suffix": 0.21229348019186356
+   },
+   "rules": {
+    "raw": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12900703674745895,
+      "breaks_per_rejection": 0.48553557466770914,
+      "net_per_rejection": -0.3565285379202502,
+      "more_tokens": -0.3320305560490318
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04222048475371384,
+      "breaks_per_rejection": 0.07818608287724785,
+      "net_per_rejection": -0.03596559812353401,
+      "more_tokens": -0.041925741694794814
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.12900703674745895,
+      "breaks_per_rejection": 0.4847537138389367,
+      "net_per_rejection": -0.3557466770914777,
+      "more_tokens": -0.3290104814354237
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04222048475371384,
+      "breaks_per_rejection": 0.0766223612197029,
+      "net_per_rejection": -0.03440187646598905,
+      "more_tokens": -0.03997157576834251
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.127443315089914,
+      "breaks_per_rejection": 0.4761532447224394,
+      "net_per_rejection": -0.3487099296325254,
+      "more_tokens": -0.3075146562444484
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04143862392494136,
+      "breaks_per_rejection": 0.07036747458952307,
+      "net_per_rejection": -0.028928850664581705,
+      "more_tokens": -0.03251021495825191
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0023455824863174357,
+      "net_per_rejection": 0.001563721657544957,
+      "more_tokens": 0.00017765144785930004
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.1266614542611415,
+      "breaks_per_rejection": 0.4214229867083659,
+      "net_per_rejection": -0.2947615324472244,
+      "more_tokens": -0.2520874045123468
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0398749022673964,
+      "breaks_per_rejection": 0.05942142298670837,
+      "net_per_rejection": -0.019546520719311962,
+      "more_tokens": -0.025226505596020608
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.001563721657544957,
+      "net_per_rejection": 0.0023455824863174357,
+      "more_tokens": 0.0003553028957186001
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.08444096950742767,
+      "breaks_per_rejection": 0.2001563721657545,
+      "net_per_rejection": -0.11571540265832682,
+      "more_tokens": -0.08864807248179073
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.028928850664581705,
+      "breaks_per_rejection": 0.029710711493354185,
+      "net_per_rejection": -0.0007818608287724785,
+      "more_tokens": -0.004974240540060401
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003909304143862392,
+      "breaks_per_rejection": 0.0007818608287724785,
+      "net_per_rejection": 0.003127443315089914,
+      "more_tokens": 0.0021318173743116006
+     },
+     {
+      "limits": [
+       0.95,
+       0.0
+      ],
+      "rescues_per_rejection": 0.028928850664581705,
+      "breaks_per_rejection": 0.035183737294761534,
+      "net_per_rejection": -0.006254886630179828,
+      "more_tokens": -0.0023094688221709007
+     },
+     {
+      "limits": [
+       0.95,
+       0.6
+      ],
+      "rescues_per_rejection": 0.012509773260359656,
+      "breaks_per_rejection": 0.00547302580140735,
+      "net_per_rejection": 0.007036747458952306,
+      "more_tokens": 0.003375377509326701
+     },
+     {
+      "limits": [
+       0.95,
+       0.9
+      ],
+      "rescues_per_rejection": 0.003127443315089914,
+      "breaks_per_rejection": 0.0,
+      "net_per_rejection": 0.003127443315089914,
+      "more_tokens": 0.0021318173743116006
+     }
+    ],
+    "centered": [
+     {
+      "limits": [
+       0.0,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14073494917904614,
+      "breaks_per_rejection": 0.47458952306489444,
+      "net_per_rejection": -0.3338545738858483,
+      "more_tokens": -0.3011192041215136
+     },
+     {
+      "limits": [
+       0.0,
+       0.6
+      ],
+      "rescues_per_rejection": 0.09773260359655982,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.11884284597341674,
+      "more_tokens": -0.10659086871558003
+     },
+     {
+      "limits": [
+       0.0,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.04143862392494136,
+      "net_per_rejection": -0.004691164972634871,
+      "more_tokens": -0.006928406466512702
+     },
+     {
+      "limits": [
+       0.3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14073494917904614,
+      "breaks_per_rejection": 0.47458952306489444,
+      "net_per_rejection": -0.3338545738858483,
+      "more_tokens": -0.3011192041215136
+     },
+     {
+      "limits": [
+       0.3,
+       0.6
+      ],
+      "rescues_per_rejection": 0.09773260359655982,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.11884284597341674,
+      "more_tokens": -0.10659086871558003
+     },
+     {
+      "limits": [
+       0.3,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.04143862392494136,
+      "net_per_rejection": -0.004691164972634871,
+      "more_tokens": -0.006928406466512702
+     },
+     {
+      "limits": [
+       0.5,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13995308835027365,
+      "breaks_per_rejection": 0.4440969507427678,
+      "net_per_rejection": -0.30414386239249414,
+      "more_tokens": -0.2702078521939954
+     },
+     {
+      "limits": [
+       0.5,
+       0.6
+      ],
+      "rescues_per_rejection": 0.0985144644253323,
+      "breaks_per_rejection": 0.20562939796716184,
+      "net_per_rejection": -0.10711493354182955,
+      "more_tokens": -0.09966246224906733
+     },
+     {
+      "limits": [
+       0.5,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03674745895230649,
+      "breaks_per_rejection": 0.0398749022673964,
+      "net_per_rejection": -0.003127443315089914,
+      "more_tokens": -0.006395452122934802
+     },
+     {
+      "limits": [
+       0.7,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10867865519937452,
+      "breaks_per_rejection": 0.2251759186864738,
+      "net_per_rejection": -0.1164972634870993,
+      "more_tokens": -0.10641321726772074
+     },
+     {
+      "limits": [
+       0.7,
+       0.6
+      ],
+      "rescues_per_rejection": 0.07740422204847537,
+      "breaks_per_rejection": 0.12040656763096169,
+      "net_per_rejection": -0.04300234558248632,
+      "more_tokens": -0.04121513590335761
+     },
+     {
+      "limits": [
+       0.7,
+       0.9
+      ],
+      "rescues_per_rejection": 0.03127443315089914,
+      "breaks_per_rejection": 0.03049257232212666,
+      "net_per_rejection": 0.0007818608287724785,
+      "more_tokens": -0.0007106057914372002
+     },
+     {
+      "limits": [
+       0.8,
+       0.0
+      ],
+      "rescues_per_rejection": 0.06254886630179828,
+      "breaks_per_rejection": 0.08678655199374512,
+      "net_per_rejection": -0.024237685691946835,
+      "more_tokens": -0.023449991117427606
+     },
+     {
+      "limits": [
+       0.8,
+       0.6
+      ],
+      "rescues_per_rejection": 0.04847537138389367,
+      "breaks_per_rejection": 0.05551211884284597,
+      "net_per_rejection": -0.007036747458952306,
+      "more_tokens": -0.009770829632261504
+     },
+     {
+      "limits": [
+       0.8,
+       0.9
+      ],
+      "rescues_per_rejection": 0.02111024237685692,
+      "breaks_per_rejection": 0.02111024237685692,
+      "net_per_rejection": 0.0,
+      "more_tokens": -0.0026647717178895007
+     },
+     {
+      "limits": [
+       0.9,
+       0.0
+      ],
+      "rescues_per_rejection": 0.022673964034401875,
+      "breaks_per_rejection": 0.013291634089132134,
+      "net_per_rejection": 0.009382329945269743,
+      "more_tokens": 0.006750755018653402
+     },
+     {
+      "limits": [
+       0.9,
+       0.6
+      ],
+      "rescues_per_rejection": 0.018764659890539485,
+      "breaks_per_rejection": 0.008600469116497263,
+      "net_per_rejection": 0.010164190774042221,
+      "more_tokens": 0.0072837093622313024
+     },
+     {
+      "limits": [
+       0.9,
+       0.9
+      ],
+      "rescues_per_rejection": 0.013291634089132134,
+      "breaks_per_rejection": 0.003909304143862392,
+      "net_per_rejection": 0.009382329945269743,
+      "more_tokens": 0.006928406466512702
+     }
+    ],
+    "previous": [
+     {
+      "limits": [
+       0.0,
+       1
+      ],
+      "rescues_per_rejection": 0.10398749022673964,
+      "breaks_per_rejection": 0.4808444096950743,
+      "net_per_rejection": -0.37685691946833466,
+      "more_tokens": -0.4178362053650737
+     },
+     {
+      "limits": [
+       0.6,
+       2
+      ],
+      "rescues_per_rejection": 0.06489444878811572,
+      "breaks_per_rejection": 0.1563721657544957,
+      "net_per_rejection": -0.09147771696637999,
+      "more_tokens": -0.11920412151359033
+     },
+     {
+      "limits": [
+       0.8,
+       3
+      ],
+      "rescues_per_rejection": 0.03049257232212666,
+      "breaks_per_rejection": 0.03205629397967162,
+      "net_per_rejection": -0.001563721657544957,
+      "more_tokens": -0.019719310712382306
+     },
+     {
+      "limits": [
+       0.9,
+       5
+      ],
+      "rescues_per_rejection": 0.018764659890539485,
+      "breaks_per_rejection": 0.010164190774042221,
+      "net_per_rejection": 0.008600469116497263,
+      "more_tokens": -0.0028424231657488007
+     }
+    ],
+    "suffix": [
+     {
+      "limits": [
+       1,
+       0.0
+      ],
+      "rescues_per_rejection": 0.14386239249413604,
+      "breaks_per_rejection": 0.4433150899139953,
+      "net_per_rejection": -0.29945269741985925,
+      "more_tokens": -0.3412684313377154
+     },
+     {
+      "limits": [
+       2,
+       0.0
+      ],
+      "rescues_per_rejection": 0.13369820172009383,
+      "breaks_per_rejection": 0.38780297107114936,
+      "net_per_rejection": -0.2541047693510555,
+      "more_tokens": -0.2963226150293125
+     },
+     {
+      "limits": [
+       3,
+       0.0
+      ],
+      "rescues_per_rejection": 0.11884284597341674,
+      "breaks_per_rejection": 0.31821735731039874,
+      "net_per_rejection": -0.19937451133698203,
+      "more_tokens": -0.23876354592289928
+     },
+     {
+      "limits": [
+       4,
+       0.0
+      ],
+      "rescues_per_rejection": 0.10476935105551212,
+      "breaks_per_rejection": 0.2650508209538702,
+      "net_per_rejection": -0.1602814698983581,
+      "more_tokens": -0.19577189554094865
+     },
+     {
+      "limits": [
+       1,
+       0.8
+      ],
+      "rescues_per_rejection": 0.13604378420641125,
+      "breaks_per_rejection": 0.24159499609069585,
+      "net_per_rejection": -0.1055512118842846,
+      "more_tokens": -0.16468289216557114
+     },
+     {
+      "limits": [
+       2,
+       0.8
+      ],
+      "rescues_per_rejection": 0.1305707584050039,
+      "breaks_per_rejection": 0.21657544956997654,
+      "net_per_rejection": -0.08600469116497264,
+      "more_tokens": -0.13945638656955053
+     },
+     {
+      "limits": [
+       3,
+       0.8
+      ],
+      "rescues_per_rejection": 0.10867865519937452,
+      "breaks_per_rejection": 0.17357310398749023,
+      "net_per_rejection": -0.06489444878811572,
+      "more_tokens": -0.10872268608989163
+     },
+     {
+      "limits": [
+       4,
+       0.8
+      ],
+      "rescues_per_rejection": 0.0946051602814699,
+      "breaks_per_rejection": 0.1305707584050039,
+      "net_per_rejection": -0.03596559812353401,
+      "more_tokens": -0.08012080298454433
+     }
+    ]
+   },
+   "best_rule": {
+    "raw": {
+     "limits": [
+      0.95,
+      0.6
+     ],
+     "rescues_per_rejection": 0.012509773260359656,
+     "breaks_per_rejection": 0.00547302580140735,
+     "net_per_rejection": 0.007036747458952306,
+     "more_tokens": 0.003375377509326701
+    },
+    "centered": {
+     "limits": [
+      0.9,
+      0.6
+     ],
+     "rescues_per_rejection": 0.018764659890539485,
+     "breaks_per_rejection": 0.008600469116497263,
+     "net_per_rejection": 0.010164190774042221,
+     "more_tokens": 0.0072837093622313024
+    },
+    "previous": {
+     "limits": [
+      0.9,
+      5
+     ],
+     "rescues_per_rejection": 0.018764659890539485,
+     "breaks_per_rejection": 0.010164190774042221,
+     "net_per_rejection": 0.008600469116497263,
+     "more_tokens": -0.0028424231657488007
+    },
+    "suffix": {
+     "limits": [
+      4,
+      0.8
+     ],
+     "rescues_per_rejection": 0.0946051602814699,
+     "breaks_per_rejection": 0.1305707584050039,
+     "net_per_rejection": -0.03596559812353401,
+     "more_tokens": -0.08012080298454433
+    }
+   }
+  }
+ },
+ "D4_rounds_waited_after_first_rejection": {
+  "median": 3,
+  "counts": {
+   "2": 5014,
+   "3": 3758,
+   "4": 2412,
+   "5": 1376,
+   "6": 725,
+   "7": 301,
+   "8": 113,
+   "9": 34,
+   "10": 7
+  }
+ },
+ "prompt_sources": {
+  "aime-before-2024": "919 available, 180 used",
+  "math-train-level5": "2304 available, 180 used",
+  "longwriter": "2290 available, 150 used",
+  "ultrachat": "1200 available, 90 used"
+ },
+ "prompts_in_this_shard": 149,
+ "gpu_memory_peak_gb": 9.88
+}
