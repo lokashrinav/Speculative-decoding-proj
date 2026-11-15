@@ -1,6 +1,9 @@
-"""Fits small gates on the recorded rounds and scores them on held-out answers (plan item E4).
+"""Fits small gates on recorded rounds and scores them on held-out answers (plan item E4).
 
-Each round of each replayed answer was recorded by the memory probe: the draft, the
+The functions here work on the record of one answer's rounds that the memory probe hands
+back (nothing needs to be stored on disk); nexus/gate_pipeline.py runs them in three steps.
+
+Each round of each replayed answer is recorded by the memory probe: the draft, the
 drafter's 16 candidates with their probabilities, the nearest stored states of the
 hidden-state memory, the token memory's counts, an editor's draft, and the target's
 tokens. From that, a small network learns to re-pick each draft token among the 16
@@ -30,18 +33,12 @@ What is exact and what is not:
     "one edit" continues with the editor's recorded tokens (an estimate).
 """
 
-import argparse
-import glob
 import hashlib
-import json
-import os
-import time
 
 import numpy as np
 import torch
 
 from dflash.hindsight import accepted_length
-from nexus.probe_memory import write_json
 
 SETS = {"drafter": (), "token": ("token",), "hidden": ("hidden",), "both": ("token", "hidden")}
 BASES = ("plain", "editor")
@@ -251,108 +248,89 @@ def clean_rounds(record, device):
     return starts < int(record["prompt_length"]) + int(record["repetition_from"])
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--rounds-dir", required=True)
-    parser.add_argument("--results-dir", required=True)
-    parser.add_argument("--max-cells", type=int, default=1_500_000)
-    parser.add_argument("--epochs", type=int, default=6)
-    parser.add_argument("--limit", type=int, default=0, help="use only this many answers (for a quick trial)")
-    args = parser.parse_args()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    started = time.time()
-    paths = sorted(glob.glob(os.path.join(args.rounds_dir, "*.pt")))
-    if args.limit:
-        paths = paths[:: max(1, len(paths) // args.limit)][: args.limit]
-    status_path = os.path.join(args.results_dir, "status.json")
-    write_json(status_path, {"done": False, "files": len(paths)}, indent=1)
-
-    # Pass 1: the cells to fit on, from the training answers.
-    parts = {path: split_of_file(path) for path in paths}
-    train_paths = [path for path in paths if parts[path] == "train"]
-    per_answer = max(1, args.max_cells // max(len(train_paths), 1))
-    cells = {base: {"x": [], "lp": [], "target": []} for base in BASES}
-    generator = torch.Generator(device=device).manual_seed(0)
-    for path in train_paths:
-        record = torch.load(path, map_location="cpu")
-        clean = clean_rounds(record, device)
-        for base in BASES:
-            if base == "editor" and "edited" not in record:
-                continue
-            made = build(record, base, device)
-            hit = made["cand"] == made["truth"][..., None]
-            use = reachable(made["base"], made["truth"], made["valid"]) & hit.any(-1) & clean[:, None]
-            rows = use.nonzero()
-            if rows.shape[0] > per_answer:
-                rows = rows[torch.randperm(rows.shape[0], device=device, generator=generator)[:per_answer]]
-            cells[base]["x"].append(made["x"][rows[:, 0], rows[:, 1]].half())
-            cells[base]["lp"].append(made["lp"][rows[:, 0], rows[:, 1]])
-            cells[base]["target"].append(hit[rows[:, 0], rows[:, 1]].float().argmax(-1))
-            del made
-    out = {"answers": {part: sum(value == part for value in parts.values()) for part in ("train", "validation", "test")},
-           "inputs": [name for name, _ in feature_names()], "fitted_on_cells": {}, "results": {}}
-    gates = {}
+def sample_cells(record, device, per_answer, generator):
+    """Cells of one answer to fit on, for each starting draft: reachable, outside endless repetition,
+    with the target's token among the candidates. Returns {base: (inputs, log-probabilities, target index)}."""
+    out = {}
+    clean = clean_rounds(record, device)
     for base in BASES:
-        if not cells[base]["x"]:
+        if base == "editor" and "edited" not in record:
             continue
-        x, lp, target = (torch.cat(cells[base][key]) for key in ("x", "lp", "target"))
-        out["fitted_on_cells"][base] = int(x.shape[0])
-        out["share_of_cells_where_the_starting_draft_is_right"] = out.get("share_of_cells_where_the_starting_draft_is_right", {})
-        out["share_of_cells_where_the_starting_draft_is_right"][base] = float((x[:, :, 2].float().argmax(-1) == target).float().mean())
-        for name, groups in SETS.items():
-            gates[(base, name)] = fit(x, lp, target, set_mask(groups, device), 3.0 if base == "editor" else 0.0, args.epochs, device)
-        del x, lp, target
-        cells[base] = None
-        write_json(status_path, {"done": False, "fitted": base, "hours": round((time.time() - started) / 3600, 3), **out}, indent=1)
+        made = build(record, base, device)
+        hit = made["cand"] == made["truth"][..., None]
+        use = reachable(made["base"], made["truth"], made["valid"]) & hit.any(-1) & clean[:, None]
+        rows = use.nonzero()
+        if rows.shape[0] > per_answer:
+            rows = rows[torch.randperm(rows.shape[0], device=device, generator=generator)[:per_answer]]
+        out[base] = (made["x"][rows[:, 0], rows[:, 1]].half().cpu(), made["lp"][rows[:, 0], rows[:, 1]].cpu(),
+                     hit[rows[:, 0], rows[:, 1]].float().argmax(-1).cpu())
+    return out
 
-    # Pass 2: score every gate at every margin on the validation and test answers.
-    sums = {key: {part: [] for part in ("validation", "test")} for key in gates}
-    sources = {base: {part: [] for part in ("validation", "test")} for base in BASES}
-    for path in paths:
-        part = parts[path]
-        if part == "train":
+
+def fit_gates(cells, device, epochs=6):
+    """cells: {base: (inputs, log-probabilities, target index)}. One gate per starting draft and set of inputs."""
+    gates = {}
+    for base, (x, lp, target) in cells.items():
+        x, lp, target = x.to(device), lp.to(device), target.to(device)
+        for name, groups in SETS.items():
+            gates[f"{base}|{name}"] = fit(x, lp, target, set_mask(groups, device), 3.0 if base == "editor" else 0.0, epochs, device)
+    return gates
+
+
+def save_gates(gates, path):
+    torch.save({key: gate.state_dict() for key, gate in gates.items()}, path)
+
+
+def load_gates(path, device):
+    gates = {}
+    for key, state in torch.load(path, map_location="cpu").items():
+        gate = Gate(state["mask"].shape[0], state["mask"])
+        gate.load_state_dict(state)
+        gates[key] = gate.to(device).eval()
+    return gates
+
+
+@torch.no_grad()
+def score_answer(record, gates, device):
+    """Every gate at every margin on one answer: {"base|set": (margins, groups, counts)}."""
+    out = {}
+    clean = clean_rounds(record, device)
+    for base in BASES:
+        if base == "editor" and "edited" not in record:
             continue
-        record = torch.load(path, map_location="cpu")
-        clean = clean_rounds(record, device)
-        for base in BASES:
-            if (base, "both") not in gates or (base == "editor" and "edited" not in record):
-                continue
-            sources[base][part].append(record.get("source", "unknown"))
-            made = build(record, base, device)
-            for name in SETS:
-                with torch.no_grad():
-                    scores = gates[(base, name)](made["x"], made["lp"])
-                tables = [answer_sums(walk(scores, made["cand"], made["base"], made["truth"], made["valid"], margin),
-                                      made["position"], clean) for margin in MARGINS]
-                sums[(base, name)][part].append(torch.stack(tables))       # (margins, groups, counts)
-            del made
+        mine = {key: gate for key, gate in gates.items() if key.split("|")[0] == base}
+        if not mine:
+            continue
+        made = build(record, base, device)
+        for key, gate in mine.items():
+            scores = gate(made["x"], made["lp"])
+            out[key] = torch.stack([answer_sums(walk(scores, made["cand"], made["base"], made["truth"], made["valid"], margin),
+                                               made["position"], clean) for margin in MARGINS])
+    return out
+
+
+def report(rows):
+    """rows: one per scored answer, {"part": "validation" or "test", "source": ..., "sums": {"base|set": nested list}}.
+    The margin of each gate is chosen on the validation answers; the result is described on the test answers."""
     everything = [name for name, _, _ in GROUPS].index("everything")
-    for (base, name), by_part in sums.items():
-        if not by_part["validation"] or not by_part["test"]:
+    out = {"answers": {part: sum(row["part"] == part for row in rows) for part in ("validation", "test")}, "results": {}}
+    keys = sorted({key for row in rows for key in row["sums"]})
+    for key in keys:
+        base, name = key.split("|")
+        parts = {part: [row for row in rows if row["part"] == part and key in row["sums"]] for part in ("validation", "test")}
+        if not parts["validation"] or not parts["test"]:
             continue
-        validation = torch.stack(by_part["validation"]).numpy()             # (answers, margins, groups, counts)
-        test = torch.stack(by_part["test"]).numpy()
-        # The margin is chosen on validation answers: most gained tokens (the lower bound on the editor's draft).
+        validation = np.array([row["sums"][key] for row in parts["validation"]], dtype=np.float64)   # (answers, margins, groups, counts)
+        test = np.array([row["sums"][key] for row in parts["test"]], dtype=np.float64)
+        # Most gained tokens on validation (on the editor's draft: the lower bound, which is exact).
         chosen_by = COUNTS.index("at_least" if base == "editor" else "one_edit")
         best = int(validation[:, :, everything, chosen_by].sum(axis=0).argmax())
         out["results"].setdefault(base, {})[name] = {
             "margin": MARGINS[best],
             "validation_more_tokens": float(validation[:, best, everything, chosen_by].sum() / validation[:, best, everything, 1].sum()),
-            "test": describe(test[:, best], sources[base]["test"]),
+            "test": describe(test[:, best], [row["source"] for row in parts["test"]]),
             "test_more_tokens_one_edit_at_every_margin": {
                 str(margin): float(test[:, number, everything, 3].sum() / test[:, number, everything, 1].sum())
                 for number, margin in enumerate(MARGINS)},
         }
-    out["done"] = True
-    out["hours"] = round((time.time() - started) / 3600, 3)
-    write_json(status_path, out, indent=1)
-
-
-def split_of_file(path):
-    name = os.path.basename(path)[:-3]            # "shard0of4-0012"
-    shard, index = name.rsplit("-", 1)
-    return split_of([shard + ".pt", int(index)])
-
-
-if __name__ == "__main__":
-    main()
+    return out

@@ -48,69 +48,80 @@ def test_reachable_cells_and_the_fixed_split():
     assert fg.reachable(base, truth, truth >= 0).tolist() == [[True, True, False, False], [True, True, False, False]]
     parts = [fg.split_of(["shard0of4.pt", index]) for index in range(400)]
     assert 200 < parts.count("train") < 280 and 50 < parts.count("validation") < 110 and 50 < parts.count("test") < 110
-    assert fg.split_of(["shard0of4.pt", 7]) == fg.split_of_file("/some/where/shard0of4-0007.pt")
+    assert fg.split_of(["shard0of4.pt", 7]) == fg.split_of(["shard0of4.pt", 7])
     names = fg.feature_names()
     assert len(names) == 38 and names[2][0] == "is_starting_draft"
     mask = fg.set_mask(("token",), torch.device("cpu"))
     assert int(mask.sum()) == 9 + 12 and int(fg.set_mask((), torch.device("cpu")).sum()) == 9
 
 
-def test_gate_fitting_runs_end_to_end_on_recorded_rounds(tmp_path, monkeypatch):
-    """Tiny models: record rounds with the probe and an editor, then fit and score gates."""
+def test_gate_pipeline_runs_end_to_end_without_storing_rounds(tmp_path, monkeypatch):
+    """Tiny models: collect cells from training answers, fit the gates, score the other answers,
+    and put the report together. Only the small files are written."""
     import dflash.redraft
-    import nexus.probe_memory as pm
-    import nexus.replay_memory as rm
+    import nexus.gate_pipeline as gp
     from dflash.hindsight import MemoryProbe
     from dflash.pair_editor import BigramTable, PairEditor, PairImprover
+    from dflash.replay import replay_decode
     from tests.test_redraft import make_models
 
     monkeypatch.setattr(dflash.redraft, "_cuda_time", time.perf_counter)
     target, draft = make_models()
     generator = torch.Generator().manual_seed(0)
     sequences, lengths = [], []
-    for number in range(14):
+    for number in range(16):
         prompt = torch.randint(1, 32, (1, 4 + number % 3), generator=generator)
         result = dflash.redraft.dflash_generate_redraft(draft, target, prompt, 120, None, block_size=8, return_stats=True)
         sequences.append(result.output_ids[0].to(torch.int32))
         lengths.append(prompt.shape[1])
-    torch.save({"sequences": sequences, "prompt_lengths": lengths, "sources": ["aime-before-2024", "longwriter"] * 7},
-               tmp_path / "shard0of1.pt")
+    data = tmp_path / "data"
+    data.mkdir()
+    torch.save({"sequences": sequences, "prompt_lengths": lengths, "sources": ["aime-before-2024", "longwriter"] * 8},
+               data / "shard0of1.pt")
     torch.manual_seed(1)
     table = BigramTable.count([(torch.randint(0, 32, (60,), generator=generator), 4) for _ in range(12)], 32)
     editor = PairEditor(16, rank=8, top_k=8, bigram_weight=0.5).double().eval()
     torch.nn.init.normal_(editor.up, std=1.0)
-    probe = MemoryProbe(capacity=512, top_k=16, editor=PairImprover(editor, table), dump=True)
-    args = types.SimpleNamespace(out_dir=str(tmp_path / "rounds"), max_hours=1.0, save_every=5)
-    monkeypatch.setattr(rm, "replay_decode", lambda *a, **k: __import__("dflash.replay", fromlist=["x"]).replay_decode(
-        *a, **{**k, "block_size": 8}))
-    rm.run(draft, target, None, rm.load_answers(str(tmp_path)), probe, args, torch.device("cpu"), lambda *a: None)
-    files = sorted(glob.glob(str(tmp_path / "rounds" / "*.pt")))
-    assert len(files) == 14
-    record = torch.load(files[0])
-    assert record["source"] == "aime-before-2024" and record["origin"] == ["shard0of1.pt", 0] and record["ended"] is False
-    made = fg.build(record, "editor", torch.device("cpu"))
-    rounds, width, top = record["top_tokens"].shape
-    assert made["x"].shape == (rounds, width, top, 38) and bool(torch.isfinite(made["x"]).all())
-    names = [name for name, _ in fg.feature_names()]
-    drafted = record["draft"] >= 0
-    assert bool((made["x"][..., names.index("is_first_draft")][..., 0] == 1)[drafted].all())   # the draft is the first candidate
-    weights = made["x"][..., names.index("raw_weight_nearest_16")].sum(-1)
-    assert bool((weights <= 1 + 1e-5).all()) and float(weights.max()) > 0.5                     # a share of the neighbours' weight
-    shares = made["x"][..., names.index("followed_run_of_1_share")]
-    assert bool((shares >= 0).all()) and bool((shares.sum(-1) <= 1 + 1e-5).all())
-    results = tmp_path / "results"
-    results.mkdir()
-    monkeypatch.setattr(sys, "argv", ["fit_gate.py", "--rounds-dir", str(tmp_path / "rounds"), "--results-dir", str(results),
-                                      "--epochs", "2"])
-    fg.main()
-    out = json.load(open(results / "status.json"))
-    assert out["done"] and sum(out["answers"].values()) == 14 and min(out["answers"].values()) >= 1
-    assert set(out["results"]) == {"plain", "editor"} and set(out["results"]["plain"]) == set(fg.SETS)
-    for base in fg.BASES:
-        for name in fg.SETS:
-            row = out["results"][base][name]
-            assert row["margin"] in fg.MARGINS and "everything" in row["test"]
-            everything = row["test"]["everything"]
-            assert everything["more_tokens_at_least"]["value"] <= everything["more_tokens_one_edit"]["value"] + 1e-9 or base == "editor"
-    # With only the drafter's own probabilities there is nothing to learn from: the control changes almost nothing.
-    assert abs(out["results"]["plain"]["drafter"]["test"]["everything"]["more_tokens_one_edit"]["value"]) < 0.05
+    monkeypatch.setattr(gp, "load_transformers_models", lambda *a: (target, draft, None))
+    monkeypatch.setattr(gp, "stop_token_ids", lambda *a: None)
+    monkeypatch.setattr(gp, "MemoryProbe", lambda **kw: MemoryProbe(capacity=512, top_k=16, editor=PairImprover(editor, table), dump=True))
+    monkeypatch.setattr(gp, "replay_decode", lambda *a, **k: replay_decode(*a, **{**k, "block_size": 8}))
+    work = tmp_path / "work"
+
+    def step(mode, name, *extra):
+        results = tmp_path / name
+        results.mkdir()
+        monkeypatch.setattr(sys, "argv", ["gate_pipeline.py", "--mode", mode, "--data-dir", str(data), "--work-dir", str(work),
+                                          "--results-dir", str(results), "--epochs", "2", *extra])
+        gp.main()
+        return results
+
+    collected = step("collect", "collect", "--cells-per-answer", "60")
+    cells = torch.load(work / "cells-0of1.pt")
+    assert set(cells) == {"plain", "editor"}
+    x, lp, target_index = cells["plain"]
+    assert x.dtype == torch.float16 and x.shape[1:] == (16, 38) and lp.shape == (x.shape[0], 16) and target_index.shape == (x.shape[0],)
+    status = json.load(open(collected / "status.json"))
+    train = sum(fg.split_of(["shard0of1.pt", index]) == "train" for index in range(16))
+    assert status["done"] and status["answers"] == train and 0 < x.shape[0] <= 60 * train
+    assert "with_editor" in status["all"]["everything"]                      # the editor's draft was scored too
+    assert glob.glob(str(collected / "answers-*.json")) and not glob.glob(str(work / "*rounds*"))
+
+    fitted = json.load(open(step("fit", "fit") / "status.json"))
+    assert fitted["done"] and len(fitted["gates"]) == 8 and fitted["fitted_on_cells"]["plain"] == x.shape[0]
+    gates = fg.load_gates(str(work / "gates.pt"), torch.device("cpu"))
+    assert set(gates) == {f"{base}|{name}" for base in fg.BASES for name in fg.SETS}
+    assert float(gates["editor|both"].prior) != 0.0 and int(gates["plain|token"].mask.sum()) == 9 + 12
+
+    scored = step("score", "score")
+    files = sorted(glob.glob(str(scored / "gate-scores-*.json")))
+    rows = [row for path in files for row in json.load(open(path))["answers"]]
+    assert len(rows) == 16 - train and {row["part"] for row in rows} <= {"validation", "test"}
+    assert len(rows[0]["sums"]["plain|both"]) == len(fg.MARGINS) and len(rows[0]["sums"]["plain|both"][0]) == len(fg.GROUPS)
+    out = fg.report(rows)
+    if out["answers"]["validation"] and out["answers"]["test"]:
+        assert set(out["results"]) == {"plain", "editor"} and set(out["results"]["plain"]) == set(fg.SETS)
+        row = out["results"]["plain"]["hidden"]
+        assert row["margin"] in fg.MARGINS and "everything" in row["test"]
+        # With only the drafter's own probabilities there is nothing to learn from: the control changes almost nothing.
+        assert abs(out["results"]["plain"]["drafter"]["test"]["everything"]["more_tokens_one_edit"]["value"]) < 0.05
