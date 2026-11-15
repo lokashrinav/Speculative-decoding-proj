@@ -443,3 +443,137 @@ def test_pair_editor_short_decoding_path_matches_the_plain_one():
             assert torch.equal(fast, plain)
             changed += int((fast != block).any())
         assert changed > 0
+
+
+def test_hindsight_probe_labels_are_exact_and_drafts_are_untouched():
+    """The memory probe must not change decoding, every stored label must be the token the
+    answer really has at that position, and its counts must agree with the decoding loop."""
+    from dflash.hindsight import MemoryProbe, accepted_length, summarize
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    budget = 120
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    probe = MemoryProbe(capacity=64, neighbours=4)
+    probe.begin()
+    probed = dflash_generate_redraft(draft, target, prompt, budget, None, improver=probe, return_stats=True)
+    assert torch.equal(probed.output_ids, plain.output_ids) and probed.rounds == plain.rounds
+    final = probed.output_ids[0]
+    stored = probe.positions[: probe.size]
+    assert probe.size > 0 and int(stored.max()) < final.shape[0]
+    assert torch.equal(probe.labels[: probe.size], final[stored])          # hindsight labels are exact
+    assert probe.suffix.tokens == final[: probe.last_start + 1].tolist()   # the token memory saw the committed text only
+    # The probe's reading of "accepted" is the decoding loop's, round by round.
+    checked = 0
+    for number, entry in enumerate(probe.log):
+        first = entry["start"] + 1
+        if first + entry["draft"].shape[0] < final.shape[0]:
+            truth = final[first : first + entry["draft"].shape[0]]
+            assert int(accepted_length(entry["draft"][None], truth[None])) + 1 == probed.acceptance_lengths[number]
+            checked += 1
+    assert checked >= 3
+    answer = probe.finish(probed.output_ids, ended=False)
+    names = {name: number for number, name in enumerate(probe.columns)}
+    row = answer["bins"]["0"]
+    assert list(answer["bins"]) == ["0"] and answer["loop_start"] is None
+    assert row[names["rounds"]] == len(probe.log) == probe.round
+    assert row[names["raw|rescue"]] <= row[names["raw|label_is_target"]] <= row[names["first_rejections"]] <= row[names["rounds"]]
+    assert row[names["tokens"]] <= final.shape[0] - prompt.shape[1] + 1
+    assert torch.equal(probe.totals["all"], probe.totals["clean"])
+    table = summarize(probe.totals, probe.delays)
+    first = table["clean"]["0-1k"]
+    assert abs(first["tokens_per_round"] - row[names["tokens"]] / row[names["rounds"]]) < 1e-9
+    assert table["clean"]["everything"]["rounds"] == first["rounds"] and "2k+" not in table["clean"]
+    assert len(first["rules"]["raw"]) == 18 and len(first["rules"]["suffix"]) == 8
+    # A second answer starts with an empty memory.
+    probe.begin()
+    assert probe.size == 0 and probe.pending == [] and probe.log == [] and probe.suffix.tokens == []
+
+
+def test_hindsight_scoring_on_a_hand_made_answer():
+    """Rescues, breaks and gained tokens for an answer small enough to check by hand."""
+    from dflash.hindsight import MemoryProbe, summarize
+
+    final = (100 + torch.arange(2600))[None]          # the target's token at position p is 100 + p
+    probe = MemoryProbe()
+    probe.begin()
+    probe.prompt_length = 2
+
+    def entry(start, draft, raw, centered, previous=None, suffix=None, memory_size=0):
+        draft = torch.tensor(draft)
+        truth = 100 + start + 1 + torch.arange(len(draft))
+        top = torch.stack((draft, truth, torch.full_like(draft, 555), torch.full_like(draft, 888)), dim=1)
+        as_tensors = lambda rows: (torch.tensor([r[0] for r in rows]), torch.tensor([r[1] for r in rows]),
+                                   torch.tensor([r[2] for r in rows]))
+        silent = [(-1, 0.0, 0.0)] * len(draft)
+        nothing = [(-1, 0.0, 0, 0)] * len(draft)
+        return dict(start=start, draft=draft, top=top, memory_size=memory_size, raw=as_tensors(raw or silent),
+                    centered=as_tensors(centered or silent), previous=previous or nothing, suffix=suffix or nothing)
+
+    quiet = (-1, 0.0, 0.0)  # (label, agreement, similarity)
+    # Round A starts at position 2: two draft tokens are right, the third (truth 105) is wrong.
+    probe.log.append(entry(
+        2, [103, 104, 999, 106, 107],
+        raw=[quiet, quiet, (105, 1.0, 0.92), quiet, quiet],                       # right where the draft is wrong
+        centered=[(555, 1.0, 0.6), quiet, (105, 1.0, 0.6), quiet, quiet],         # also breaks the first token if trusted
+        previous=[(-1, 0.0, 0, 0)] * 2 + [(105, 1.0, 3, 1)] + [(-1, 0.0, 0, 0)] * 2,
+        suffix=[(-1, 0.0, 0, 0)] * 2 + [(444, 1.0, 2, 3)] + [(-1, 0.0, 0, 0)] * 2))
+    # Round B starts at position 5: the whole draft is right, and the raw memory would break its second token.
+    probe.log.append(entry(5, [106, 107, 108, 109, 110], raw=[quiet, (888, 1.0, 0.99), quiet, quiet, quiet],
+                           centered=None, memory_size=5))
+    # Round C is far into the answer (position 2500 of the answer) and its draft is right.
+    probe.log.append(entry(2502, [2603, 2604, 2605, 2606, 2607], raw=None, centered=None, memory_size=9))
+    answer = probe.finish(final, ended=True)
+    names = {name: number for number, name in enumerate(probe.columns)}
+    early, late = answer["bins"]["0"], answer["bins"]["2"]
+    get = lambda key: early[names[key]]
+    assert sorted(answer["bins"]) == ["0", "2"]
+    assert (late[names["rounds"]], late[names["tokens"]], late[names["first_rejections"]]) == (1, 6, 0)
+    assert (get("rounds"), get("tokens"), get("first_rejections"), get("target_in_top"), get("memory_nonempty")) == (2, 9, 1, 1, 0)
+    for variant in ("raw", "centered"):
+        assert (get(f"{variant}|label_is_target"), get(f"{variant}|rescue"), get(f"{variant}|oracle_tokens")) == (1, 1, 3)
+        assert (get(f"{variant}|rescue_previous_misses"), get(f"{variant}|rescue_suffix_misses")) == (0, 1)
+    assert (get("previous|rescue"), get("previous|oracle_tokens"), get("suffix|rescue"), get("suffix|oracle_tokens")) == (1, 3, 0, 0)
+    assert (get("raw_or_suffix|oracle_tokens"), get("centered_or_suffix|oracle_tokens")) == (3, 3)
+    rule = lambda tag: (get(f"{tag}|rescues"), get(f"{tag}|breaks"), get(f"{tag}|net_tokens"))
+    assert rule("raw|0.9|0.9") == (1, 1, -1)        # +3 in round A, -4 in round B
+    assert rule("raw|0.95|0.9") == (0, 1, -4)       # too strict for round A's neighbour
+    assert rule("centered|0.5|0.6") == (0, 1, -2)   # trusts the wrong label on the first token
+    assert rule("centered|0.7|0.0") == (0, 0, 0)    # never acts
+    assert rule("previous|0.8|3") == (1, 0, 3) and rule("previous|0.9|5") == (0, 0, 0)
+    assert rule("suffix|1|0.0") == (0, 0, 0)        # its token is not among the candidates
+    # The two positions after round A's rejection get their labels two rounds later.
+    assert dict(probe.delays) == {2: 2}
+    table = summarize(probe.totals, probe.delays)
+    assert table["clean"]["2k+"]["rounds"] == 1 and table["clean"]["everything"]["rounds"] == 3
+    assert table["clean"]["0-1k"]["D1_rescue_rate"] == {"raw": 1.0, "centered": 1.0}
+    assert table["clean"]["0-1k"]["best_rule"]["previous"]["more_tokens"] == 3 / 9
+    assert table["D4_rounds_waited_after_first_rejection"]["median"] == 2
+
+
+def test_hindsight_token_memory_and_repetition_detector():
+    from dflash.hindsight import MemoryProbe, SuffixMemory, loop_start
+
+    memory = SuffixMemory(longest=4)
+    memory.extend([1, 2, 3, 1, 2, 4, 1, 2])
+    assert memory.successor([7, 1, 2], (4, 3, 2, 1)) == (3, 0.5, 2, 2)        # "1 2" was followed by 3 and by 4
+    assert memory.successor([3, 1, 2], (4, 3, 2, 1)) == (4, 1.0, 1, 3)        # the longer run decides
+    assert memory.successor([3, 1, 2], (1,)) == (3, 0.5, 2, 1)                # previous token only
+    assert memory.successor([9], (4, 3, 2, 1)) == (-1, 0.0, 0, 0)
+    looping = list(range(1000, 1300)) + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] * 60
+    assert 280 <= loop_start(looping) <= 320
+    assert loop_start(list(range(2000))) is None
+    assert loop_start(list(range(1000, 1300)) + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] * 12) is None   # too short to call
+    # The two readings of the memory agree with a direct computation.
+    torch.manual_seed(0)
+    probe = MemoryProbe(capacity=32, neighbours=3)
+    keys = torch.randn(20, 6) + 4.0
+    probe._add(keys, torch.arange(20), torch.arange(20))
+    queries = torch.randn(5, 6) + 4.0
+    both = probe._similarities(queries)
+    cosine = torch.nn.functional.cosine_similarity
+    mean = keys.mean(dim=0)
+    assert torch.allclose(both["raw"], cosine(queries[:, None], keys[None], dim=-1), atol=1e-5)
+    assert torch.allclose(both["centered"], cosine((queries - mean)[:, None], (keys - mean)[None], dim=-1), atol=1e-4)
+    label, agreement, similarity = probe._read(keys[:5])["raw"]
+    assert label.tolist() == [0, 1, 2, 3, 4] and bool((similarity > 0.999).all())   # a stored state finds itself
