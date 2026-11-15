@@ -3,6 +3,11 @@
 # Once a minute it pulls the nexus-jobs branch, submits any new nexus/queue/*.sbatch
 # file with sbatch, and pushes job status, log tails and small result files back.
 # Stop it by pushing a file named nexus/STOP, or with: tmux kill-session -t specdec
+#
+# A job file may name jobs that must have ended before it starts, on a line such as
+#   #DEPENDS: collect-0 collect-1
+# The runner then waits until those are submitted and passes their job numbers to sbatch.
+# When this script itself changes on the branch, the runner starts itself again with the new version.
 BRANCH=nexus-jobs
 cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
 git config user.name "nexus-runner"
@@ -13,6 +18,8 @@ export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -
 NET="timeout -k 10 300"
 LOGDIR="$HOME/specdec-slurm"
 mkdir -p nexus/status nexus/logs nexus/results "$LOGDIR"
+SELF="$(readlink -f "$0")"
+SELF_SUM=$(md5sum "$SELF" | cut -d" " -f1)
 tick=0
 while true; do
   # A lock left behind by an interrupted git command would block every later one: set it aside.
@@ -21,13 +28,26 @@ while true; do
   done
   $NET git pull -q --rebase --autostash origin "$BRANCH" || { git rebase --abort 2>/dev/null; }
   if [ -f nexus/STOP ]; then echo "STOP file found, exiting"; exit 0; fi
+  if [ "$(md5sum "$SELF" | cut -d" " -f1)" != "$SELF_SUM" ]; then
+    echo "$(date -u +%FT%TZ) the runner script changed: starting the new version"
+    exec bash "$SELF"
+  fi
   submitted=0
   for f in nexus/queue/*.sbatch; do
     [ -e "$f" ] || continue
     name=$(basename "$f" .sbatch)
     [ -e "nexus/status/$name.jobid" ] && continue
+    after=""
+    waiting=0
+    for needed in $(sed -n 's/^#DEPENDS:[[:space:]]*//p' "$f" | head -1); do
+      id=$(head -1 "nexus/status/$needed.jobid" 2>/dev/null)
+      id=${id%%;*}
+      case "$id" in ""|*[!0-9]*) waiting=1 ;; *) after="$after:$id" ;; esac
+    done
+    [ "$waiting" = 1 ] && continue    # a job it depends on has no job number yet: look again next minute
+    [ -n "$after" ] && after="--dependency=afterany$after"
     mkdir -p "nexus/results/$name"
-    sbatch --parsable --job-name="$name" --output="$LOGDIR/$name.log" \
+    sbatch --parsable $after --job-name="$name" --output="$LOGDIR/$name.log" \
       --export=ALL,JOB_NAME="$name",RESULTS_DIR="$PWD/nexus/results/$name" "$f" \
       > "nexus/status/$name.jobid" 2>&1
     submitted=1
@@ -48,5 +68,5 @@ while true; do
     $NET git push -q origin "HEAD:$BRANCH" || echo "$(date -u +%FT%TZ) push failed"
   fi
   tick=$((tick + 1))
-  sleep 60
+  sleep "${RUNNER_SLEEP:-60}"
 done
