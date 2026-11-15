@@ -715,7 +715,22 @@ def test_probe_with_an_editor_and_a_dump_of_every_round():
     drafted = rounds["draft"] >= 0                                           # the last block before the length limit is shorter
     assert int((~drafted).sum()) <= 2
     assert bool((rounds["top_tokens"][:, :, 0] == rounds["draft"])[drafted].all())   # the draft is the drafter's first candidate
-    assert rounds["raw_labels"].shape == (count, width, 4) and rounds["centered_offsets"].dtype == torch.int8
+    assert rounds["raw_labels"].shape == (count, width, 16) and rounds["centered_offsets"].dtype == torch.int8
+    # Token memory per candidate: where its guess is among the candidates, the counts say the same thing.
+    counts, runs = rounds["suffix_candidate_counts"], rounds["suffix_run_counts"]
+    assert counts.shape == (count, width, 4, 8) and runs.shape == (count, width, 4)
+    agreed = 0
+    for number, offset in (rounds["suffix_token"] >= 0).nonzero().tolist():
+        level = int(rounds["suffix_length"][number, offset]) - 1
+        seen = int(rounds["suffix_seen"][number, offset])
+        assert int(runs[number, offset, level]) == seen and int(counts[number, offset, level].sum()) <= seen
+        where = (rounds["top_tokens"][number, offset] == rounds["suffix_token"][number, offset]).nonzero()
+        if where.numel():
+            share = float(rounds["suffix_share"][number, offset])
+            assert abs(int(counts[number, offset, level, int(where[0])]) - share * seen) < 0.01 * seen + 0.01
+            assert int(counts[number, offset, level].max()) == int(counts[number, offset, level, int(where[0])])
+            agreed += 1
+    assert agreed > 5
     assert int(rounds["raw_labels"][0].max()) == -1                          # nothing is stored before the first round
     # Each neighbour's guess is what the drafter had drafted at that neighbour's position.
     drafted_at = {}

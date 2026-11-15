@@ -137,6 +137,16 @@ class SuffixMemory:
                 return best, counts[best] / total, total, length
         return -1, 0.0, 0, 0
 
+    def counts(self, context, candidates):
+        """For every run length 1..longest: how often each candidate followed that trailing run
+        of `context`, and how often the run occurred at all."""
+        rows, totals = [], []
+        for length in range(1, self.longest + 1):
+            counts = self.tables[length - 1].get(tuple(context[len(context) - length :])) if length <= len(context) else None
+            rows.append([counts.get(candidate, 0) for candidate in candidates] if counts else [0] * len(candidates))
+            totals.append(sum(counts.values()) if counts else 0)
+        return rows, totals
+
 
 class MemoryProbe:
     """Plug-in for dflash_generate_redraft that only measures (it returns no draft).
@@ -144,8 +154,10 @@ class MemoryProbe:
 
     replace = False
 
-    def __init__(self, capacity=32768, neighbours=8, temperature=0.05, top_k=16, longest=4, editor=None, dump=False):
+    def __init__(self, capacity=32768, neighbours=8, temperature=0.05, top_k=16, longest=4, editor=None, dump=False,
+                 dump_neighbours=16):
         self.capacity, self.neighbours, self.temperature = capacity, neighbours, temperature
+        self.kept = max(neighbours, dump_neighbours) if dump else neighbours  # nearest states handed back per query
         self.top_k, self.longest = top_k, longest
         self.editor, self.dump = editor, dump  # an improver whose draft is only scored, never used
         self.columns = column_names()
@@ -214,23 +226,25 @@ class MemoryProbe:
         and the nearest states themselves (label, similarity, position, offset, the drafter's guess then)."""
         count, device = queries.shape[0], queries.device
         if self.size == 0:
-            empty = torch.full((count, self.neighbours), -1, dtype=torch.long, device=device)
+            empty = torch.full((count, self.kept), -1, dtype=torch.long, device=device)
             nothing = (torch.full((count,), -1, dtype=torch.long, device=device), torch.zeros(count, device=device),
-                       torch.zeros(count, device=device), (empty, torch.zeros((count, self.neighbours), device=device), empty, empty, empty))
+                       torch.zeros(count, device=device), (empty, torch.zeros((count, self.kept), device=device), empty, empty, empty))
             return {variant: nothing for variant in VARIANTS}
         out = {}
         for variant, similarity in self._similarities(queries).items():
-            top = similarity.topk(min(self.neighbours, self.size), dim=1)
-            weights = torch.softmax(top.values / self.temperature, dim=1)
-            labels = self.labels[top.indices]
+            top = similarity.topk(min(self.kept, self.size), dim=1)
+            all_labels = self.labels[top.indices]
+            # The memory's label is decided by the nearest `neighbours` states only.
+            values, labels = top.values[:, : self.neighbours], all_labels[:, : self.neighbours]
+            weights = torch.softmax(values / self.temperature, dim=1)
             same = labels[:, :, None] == labels[:, None, :]
             weight_of_label = (same * weights[:, None, :]).sum(dim=-1)
             best = weight_of_label.argmax(dim=1, keepdim=True)
-            missing = self.neighbours - labels.shape[1]  # fewer stored states than neighbours asked for
-            pad = lambda values, fill: torch.nn.functional.pad(values, (0, missing), value=fill)
-            nearest = (pad(labels, -1), pad(top.values, 0.0), pad(self.positions[top.indices], -1), pad(self.offsets[top.indices], -1),
-                       pad(self.guesses[top.indices], -1))
-            out[variant] = (labels.gather(1, best)[:, 0], weight_of_label.gather(1, best)[:, 0], top.values[:, 0], nearest)
+            missing = self.kept - all_labels.shape[1]  # fewer stored states than neighbours asked for
+            pad = lambda items, fill: torch.nn.functional.pad(items, (0, missing), value=fill)
+            nearest = (pad(all_labels, -1), pad(top.values, 0.0), pad(self.positions[top.indices], -1),
+                       pad(self.offsets[top.indices], -1), pad(self.guesses[top.indices], -1))
+            out[variant] = (labels.gather(1, best)[:, 0], weight_of_label.gather(1, best)[:, 0], values[:, 0], nearest)
         return out
 
     # ---- one round --------------------------------------------------------------------------
@@ -267,6 +281,9 @@ class MemoryProbe:
         longest_first = range(self.longest, 0, -1)
         entry["previous"] = [self.suffix.successor(context[: len(tail) + offset], (1,)) for offset in range(len(draft))]
         entry["suffix"] = [self.suffix.successor(context[: len(tail) + offset], longest_first) for offset in range(len(draft))]
+        if self.dump:  # how often each candidate followed the same run of tokens earlier in this request
+            candidates = best.indices.tolist()
+            entry["suffix_counts"] = [self.suffix.counts(context[: len(tail) + offset], candidates[offset]) for offset in range(len(draft))]
         self.log.append(entry)
         self.pending.append(dict(keys=states, guesses=draft, first=start + 1, count=states.shape[0], start=start))
         self.last_start = start
@@ -445,6 +462,10 @@ class MemoryProbe:
                 record[f"{memory}_share"] = half(from_lists(memory, 1, 0.0, torch.float32))
                 record[f"{memory}_seen"] = small(from_lists(memory, 2, 0, torch.long))
             record["suffix_length"] = from_lists("suffix", 3, 0, torch.long).to(torch.int8).cpu()
+            blank = ([[0] * top.shape[-1]] * self.longest, [0] * self.longest)
+            cells = [entry["suffix_counts"] + [blank] * (width - len(entry["suffix_counts"])) for entry in self.log]
+            record["suffix_candidate_counts"] = torch.tensor([[cell[0] for cell in row] for row in cells]).clamp(max=255).to(torch.uint8)
+            record["suffix_run_counts"] = torch.tensor([[cell[1] for cell in row] for row in cells], dtype=torch.int32)
             answer["rounds"] = record
         return answer
 
