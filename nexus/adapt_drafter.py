@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--max-hours", type=float, default=5.0)
+    parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
+    parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -154,10 +156,10 @@ def main():
                    separators=(",", ":"))
 
     for name, index, sequence, prompt_length, source in answers:
-        if time.time() - started > args.max_hours * 3600:
+        if time.time() - started > args.max_hours * 3600 or (args.max_answers and len(records) >= args.max_answers):
             break
         generated = sequence[prompt_length:].tolist()
-        if len(generated) < 2:
+        if len(generated) < 2 or (args.longest and len(generated) > args.longest):
             continue
         ids = sequence.long().to(device)[None]
         ended = generated[-1] in stop_set
