@@ -7,6 +7,14 @@ DEST="$HOME/specdec-runner"
 LOG="$HOME/specdec-runner.log"
 NOTE="/tmp/specdec-restart-$USER.txt"
 [ -d "$DEST/.git" ] || { echo "ERROR: $DEST is missing. Run the first-time setup line instead."; exit 1; }
+# Two runners on two machines would get in each other's way: restart where the last one ran.
+OLD=$(sed -n 2p "$DEST/nexus/status/heartbeat.txt" 2>/dev/null)
+if [ -n "$OLD" ] && [ "$OLD" != "$(hostname)" ] && [ -z "$FORCE" ]; then
+  echo "NOT RESTARTED: the runner last ran on $OLD, and this machine is $(hostname)."
+  echo "Please log in to $OLD and paste the same line there."
+  echo "(Only if $OLD cannot be reached: paste the line again with 'FORCE=1 bash' in place of 'bash' at its end.)"
+  exit 1
+fi
 {
   echo "== restart at $(date -u +%FT%TZ) on $(hostname)"
   echo "== uptime"; uptime
