@@ -1,0 +1,63 @@
+== restart at 2026-11-15T21:38:15Z on nexusclass01.umiacs.umd.edu
+== uptime
+ 16:38:15 up 34 days,  7:23,  2 users,  load average: 0.95, 0.42, 0.15
+== tmux sessions
+specdec: 1 windows (created Sun Nov 15 16:28:10 2026)
+== processes of the runner
+2374868 tmux new -d -s specdec bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh 2>&1 | tee -a /fs/classhomes/sloka/specdec-runner.log
+2374869 bash -c bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh 2>&1 | tee -a /fs/classhomes/sloka/specdec-runner.log
+2374871 bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh
+== last lines of the runner's own log
+Created autostash: 52ae908
+Applied autostash.
+Created autostash: 0f079dc
+Applied autostash.
+Created autostash: a866b13
+Applied autostash.
+Created autostash: b700545
+Applied autostash.
+Created autostash: cdb1b13
+Applied autostash.
+Created autostash: cbc346c
+Applied autostash.
+Created autostash: 5a580db
+Applied autostash.
+Created autostash: cff55cb
+Applied autostash.
+Created autostash: fab4e6f
+Applied autostash.
+Created autostash: 1ed96f1
+Applied autostash.
+Created autostash: 6bc545c
+Applied autostash.
+Created autostash: 9b1be56
+Applied autostash.
+Created autostash: 13e753f
+Applied autostash.
+Created autostash: ca7d4c4
+Applied autostash.
+Created autostash: 687a014
+Applied autostash.
+== git folder
+## nexus-jobs...origin/nexus-jobs
+ M nexus/logs/baseline-4b.log
+ M nexus/logs/editor-keepfirst.log
+ M nexus/logs/editor-main.log
+ M nexus/logs/editor-teacher.log
+ M nexus/logs/editor2-b-inputs.log
+ D nexus/results/baseline-4b-v2/dflash_humaneval_64.err
+ D nexus/results/baseline-4b-v2/dflash_math500_64.err
+ D nexus/results/baseline-4b-v2/dflash_mtbench_40.err
+ D nexus/results/baseline-4b-v2/secondary_gsm8k_32.err
+ D nexus/results/diag-a/gsm8k.err
+ D nexus/results/diag-a/math500.err
+ D nexus/results/diag-b/humaneval.err
+ D nexus/results/diag-b/mt-bench.err
+ D nexus/results/diag-resample/gsm8k.err
+== last commits
+2026-11-15 21:32:32 +0000 Cleanup after the home folder filled up; runner chains jobs by name and updates itself
+2026-11-15 21:04:03 +0000 Restart script: only restart on the machine where the runner last ran
+2026-11-15 21:03:18 +0000 Runner: survive a hung connection, and a one-line restart that records what it found
+== jobs
+JOBID NAME STATE TIME TIME_LIMIT NODELIST(REASON)
+== pull at restart: ok
