@@ -26,6 +26,13 @@ request, which removes what all states of one answer have in common.
 
 All counts are kept twice: over every round, and over "clean" rounds only, which
 leaves out the part of an answer that fell into endless repetition.
+
+Optionally the probe also runs an editor on each draft (for example the trained
+left-to-right editor) without using its result, and scores what a memory could still
+add to the edited draft. With dump=True, finish() also returns everything recorded
+per round (drafts, candidates with their probabilities, the nearest stored states,
+the token memories' guesses, the target's tokens), so that gates can be fitted later
+without decoding again.
 """
 
 import time
@@ -36,18 +43,21 @@ import torch
 BIN_EDGES = (0, 1000, 2000, 4000, 8000)  # by position of the round's start in the answer
 BIN_NAMES = ("0-1k", "1k-2k", "2k-4k", "4k-8k", "8k+")
 VARIANTS = ("raw", "centered")
+MEMORIES = VARIANTS + ("previous", "suffix")
 # A hidden-state memory acts when its best neighbour is at least this similar ...
-SIMILARITY_STEPS = {"raw": (0.0, 0.5, 0.7, 0.8, 0.9, 0.95), "centered": (0.0, 0.3, 0.5, 0.7, 0.8, 0.9)}
-AGREEMENT_STEPS = (0.0, 0.6, 0.9)  # ... and its neighbours agree at least this much
-PREVIOUS_RULES = ((0.0, 1), (0.6, 2), (0.8, 3), (0.9, 5))  # (share of the commonest successor, sightings)
-SUFFIX_RULES = ((1, 0.0), (2, 0.0), (3, 0.0), (4, 0.0), (1, 0.8), (2, 0.8), (3, 0.8), (4, 0.8))  # (matched tokens, share)
+SIMILARITY_STEPS = {"raw": (0.8, 0.9, 0.95), "centered": (0.5, 0.7, 0.8, 0.9)}
+AGREEMENT_STEPS = (0.0, 0.6, 0.9)  # ... and its neighbours agree at least this much ...
+SURE_STEPS = (1.0, 0.8, 0.6, 0.4)  # ... and the drafter gave its own token at most this probability
+PREVIOUS_RULES = ((0.6, 2), (0.8, 3), (0.9, 5))  # (share of the commonest successor, sightings)
+SUFFIX_RULES = ((3, 0.0), (2, 0.8), (3, 0.8), (4, 0.8))  # (matched tokens, share)
 
 
 def rule_list():
-    rules = [(variant, similarity, agreement) for variant in VARIANTS
-             for similarity in SIMILARITY_STEPS[variant] for agreement in AGREEMENT_STEPS]
-    rules += [("previous", share, seen) for share, seen in PREVIOUS_RULES]
-    rules += [("suffix", length, share) for length, share in SUFFIX_RULES]
+    """(memory, first limit, second limit, the drafter's probability limit)"""
+    rules = [(variant, similarity, agreement, sure) for variant in VARIANTS
+             for similarity in SIMILARITY_STEPS[variant] for agreement in AGREEMENT_STEPS for sure in SURE_STEPS]
+    rules += [("previous", share, seen, sure) for share, seen in PREVIOUS_RULES for sure in SURE_STEPS]
+    rules += [("suffix", length, share, sure) for length, share in SUFFIX_RULES for sure in SURE_STEPS]
     return rules
 
 
@@ -60,6 +70,11 @@ def column_names():
     for memory in ("previous", "suffix"):
         names += [f"{memory}|rescue", f"{memory}|oracle_tokens"]
     names += ["raw_or_suffix|oracle_tokens", "centered_or_suffix|oracle_tokens"]
+    # What is left once an editor has edited the draft (all zero when the probe runs no editor).
+    names += ["editor|tokens", "editor|first_rejections", "editor|target_in_top"]
+    for memory in MEMORIES:
+        names += [f"after_editor|{memory}|rescue", f"after_editor|{memory}|oracle_tokens"]
+    names += ["after_editor|centered_or_suffix|oracle_tokens"]
     for rule in rule_list():
         tag = "|".join(str(part) for part in rule)
         names += [f"{tag}|rescues", f"{tag}|breaks", f"{tag}|net_tokens"]
@@ -129,9 +144,10 @@ class MemoryProbe:
 
     replace = False
 
-    def __init__(self, capacity=32768, neighbours=8, temperature=0.05, top_k=16, longest=4):
+    def __init__(self, capacity=32768, neighbours=8, temperature=0.05, top_k=16, longest=4, editor=None, dump=False):
         self.capacity, self.neighbours, self.temperature = capacity, neighbours, temperature
         self.top_k, self.longest = top_k, longest
+        self.editor, self.dump = editor, dump  # an improver whose draft is only scored, never used
         self.columns = column_names()
         self.totals = {}                 # "all" and "clean": sums over every answer so far, (bins, columns)
         self.delays = defaultdict(int)   # D4: rounds waited -> number of positions
@@ -158,18 +174,22 @@ class MemoryProbe:
 
     # ---- memory -----------------------------------------------------------------------------
 
-    def _add(self, keys, labels, positions):
+    def _add(self, keys, labels, positions, offsets, guesses):
         if self.keys is None:
             self.keys = torch.zeros((self.capacity, keys.shape[1]), dtype=torch.float32, device=keys.device)
             self.squares = torch.zeros((self.capacity,), dtype=torch.float32, device=keys.device)
             self.labels = torch.full((self.capacity,), -1, dtype=torch.long, device=keys.device)
             self.positions = torch.full((self.capacity,), -1, dtype=torch.long, device=keys.device)
+            self.offsets = torch.zeros((self.capacity,), dtype=torch.long, device=keys.device)
+            self.guesses = torch.full((self.capacity,), -1, dtype=torch.long, device=keys.device)
             self.total = torch.zeros((keys.shape[1],), dtype=torch.float64, device=keys.device)
         slots = (self.pointer + torch.arange(keys.shape[0], device=keys.device)) % self.capacity
         self.keys[slots] = keys            # once full, the oldest entries are overwritten
         self.squares[slots] = (keys * keys).sum(dim=1)
         self.labels[slots] = labels
         self.positions[slots] = positions
+        self.offsets[slots] = offsets      # how far ahead of its round's start the state was drafted
+        self.guesses[slots] = guesses      # what the drafter drafted there (a mistake if it differs from the label)
         self.total += keys.double().sum(dim=0)
         self.added += keys.shape[0]
         self.pointer = int((self.pointer + keys.shape[0]) % self.capacity)
@@ -190,11 +210,13 @@ class MemoryProbe:
 
     def _read(self, queries):
         """For each query and each reading: the label carrying the most weight among
-        the nearest stored states, that weight (agreement), and the highest similarity."""
-        count = queries.shape[0]
+        the nearest stored states, that weight (agreement), the highest similarity,
+        and the nearest states themselves (label, similarity, position, offset, the drafter's guess then)."""
+        count, device = queries.shape[0], queries.device
         if self.size == 0:
-            nothing = (torch.full((count,), -1, dtype=torch.long, device=queries.device),
-                       torch.zeros(count, device=queries.device), torch.zeros(count, device=queries.device))
+            empty = torch.full((count, self.neighbours), -1, dtype=torch.long, device=device)
+            nothing = (torch.full((count,), -1, dtype=torch.long, device=device), torch.zeros(count, device=device),
+                       torch.zeros(count, device=device), (empty, torch.zeros((count, self.neighbours), device=device), empty, empty, empty))
             return {variant: nothing for variant in VARIANTS}
         out = {}
         for variant, similarity in self._similarities(queries).items():
@@ -204,7 +226,11 @@ class MemoryProbe:
             same = labels[:, :, None] == labels[:, None, :]
             weight_of_label = (same * weights[:, None, :]).sum(dim=-1)
             best = weight_of_label.argmax(dim=1, keepdim=True)
-            out[variant] = (labels.gather(1, best)[:, 0], weight_of_label.gather(1, best)[:, 0], top.values[:, 0])
+            missing = self.neighbours - labels.shape[1]  # fewer stored states than neighbours asked for
+            pad = lambda values, fill: torch.nn.functional.pad(values, (0, missing), value=fill)
+            nearest = (pad(labels, -1), pad(top.values, 0.0), pad(self.positions[top.indices], -1), pad(self.offsets[top.indices], -1),
+                       pad(self.guesses[top.indices], -1))
+            out[variant] = (labels.gather(1, best)[:, 0], weight_of_label.gather(1, best)[:, 0], top.values[:, 0], nearest)
         return out
 
     # ---- one round --------------------------------------------------------------------------
@@ -224,8 +250,13 @@ class MemoryProbe:
 
         states = s.draft_states[0, 1:].float()
         draft = s.block_ids[0, 1:].clone()
-        entry = dict(start=start, draft=draft, memory_size=self.size,
-                     top=s.draft_logits[0].topk(min(self.top_k, s.draft_logits.shape[-1]), dim=-1).indices)
+        log_probs = s.draft_logits[0].float().log_softmax(dim=-1)
+        best = log_probs.topk(min(self.top_k, log_probs.shape[-1]), dim=-1)
+        entry = dict(start=start, draft=draft, memory_size=self.size, top=best.indices, top_log_probs=best.values,
+                     entropy=-(log_probs.exp() * log_probs).sum(dim=-1))
+        if self.editor is not None:
+            edited = self.editor(s)
+            entry["edited"] = draft if edited is None else edited[0, 1:].clone()
         clock = self._clock(states)
         entry.update(self._read(states))
         filled = "under_4k" if self.size < 4096 else "4k_to_16k" if self.size < 16384 else "16k_and_more"
@@ -237,7 +268,7 @@ class MemoryProbe:
         entry["previous"] = [self.suffix.successor(context[: len(tail) + offset], (1,)) for offset in range(len(draft))]
         entry["suffix"] = [self.suffix.successor(context[: len(tail) + offset], longest_first) for offset in range(len(draft))]
         self.log.append(entry)
-        self.pending.append(dict(keys=states, first=start + 1, count=states.shape[0]))
+        self.pending.append(dict(keys=states, guesses=draft, first=start + 1, count=states.shape[0], start=start))
         self.last_start = start
         self.round += 1
         return None
@@ -261,10 +292,11 @@ class MemoryProbe:
                 committed = torch.cat((s.accepted_ids[0], s.block_ids[0, :1]))  # positions 0 .. start
             positions = torch.arange(batch["first"], batch["first"] + ready, device=committed.device)
             assert batch["first"] + ready - 1 <= start, "a label was read before the answer reached its position"
-            self._add(batch["keys"][:ready], committed[positions], positions)
+            self._add(batch["keys"][:ready], committed[positions], positions, positions - batch["start"] - 1,
+                      batch["guesses"][:ready])
             if ready < batch["count"]:
-                waiting.append(dict(keys=batch["keys"][ready:], first=batch["first"] + ready,
-                                    count=batch["count"] - ready))
+                waiting.append(dict(keys=batch["keys"][ready:], guesses=batch["guesses"][ready:], first=batch["first"] + ready,
+                                    count=batch["count"] - ready, start=batch["start"]))
         self.pending = waiting
 
     # ---- scoring a finished answer ----------------------------------------------------------
@@ -338,6 +370,23 @@ class MemoryProbe:
             either = ((proposals[variant] == truth) | (proposals["suffix"] == truth)) & target_in_top
             columns.append(gain_of(torch.where(either, truth, draft)))
 
+        # What a memory could still add once an editor has edited the draft.
+        edited = None
+        if "edited" in self.log[0]:
+            edited = stack([entry["edited"] for entry in self.log], -2)
+            after = accepted_length(edited, truth)
+            still_rejected = after < valid.sum(dim=1)
+            there = after.clamp(max=width - 1)[:, None]
+            at_editor = lambda values: values.gather(1, there)[:, 0]
+            columns += [after + 1, still_rejected, still_rejected & at_editor(target_in_top)]
+            for name in MEMORIES:
+                right = (proposals[name] == truth) & target_in_top
+                columns += [still_rejected & at_editor(right), accepted_length(torch.where(right, truth, edited), truth) - after]
+            either = ((proposals["centered"] == truth) | (proposals["suffix"] == truth)) & target_in_top
+            columns.append(accepted_length(torch.where(either, truth, edited), truth) - after)
+        else:
+            columns += [torch.zeros(rounds, device=device)] * (3 + 2 * len(MEMORIES) + 1)
+
         measures = {}
         for variant in VARIANTS:
             measures[variant] = (stack([entry[variant][2] for entry in self.log], 0.0),
@@ -345,9 +394,10 @@ class MemoryProbe:
         measures["previous"] = (from_lists("previous", 1, 0.0, torch.float32), from_lists("previous", 2, 0, torch.float32))
         measures["suffix"] = (from_lists("suffix", 3, 0, torch.float32), from_lists("suffix", 1, 0.0, torch.float32))
         in_top = {name: (top == proposal[..., None]).any(dim=-1) & (proposal >= 0) for name, proposal in proposals.items()}
-        for name, first_limit, second_limit in rule_list():
+        sure = stack([entry["top_log_probs"][:, 0] for entry in self.log], 0.0).exp()  # the drafter's probability of its own token
+        for name, first_limit, second_limit, sure_limit in rule_list():
             first, second = measures[name]
-            acts = in_top[name] & (first >= first_limit) & (second >= second_limit)
+            acts = in_top[name] & (first >= first_limit) & (second >= second_limit) & (sure <= sure_limit)
             gain = gain_of(torch.where(acts, proposals[name], draft))
             columns += [gain > 0, gain < 0, gain]
 
@@ -373,6 +423,29 @@ class MemoryProbe:
         for wait, count in enumerate(torch.bincount(waits[counted].clamp(max=10), minlength=11).tolist()):
             if count:
                 self.delays[wait] += count
+
+        if self.dump:
+            small = lambda values: values.to(torch.int32).cpu()
+            half = lambda values: values.to(torch.float16).cpu()
+            record = {
+                "starts": small(starts), "prompt_length": self.prompt_length, "memory_size": small(memory_size),
+                "draft": small(draft), "truth": small(truth), "top_tokens": small(top),
+                "top_log_probs": half(stack([entry["top_log_probs"] for entry in self.log], 0.0)),
+                "entropy": half(stack([entry["entropy"] for entry in self.log], 0.0)),
+            }
+            if edited is not None:
+                record["edited"] = small(edited)
+            for variant in VARIANTS:
+                parts = [stack([entry[variant][3][part] for entry in self.log], -1 if part != 1 else 0.0) for part in range(5)]
+                record[f"{variant}_labels"], record[f"{variant}_similarities"] = small(parts[0]), half(parts[1])
+                record[f"{variant}_positions"], record[f"{variant}_offsets"] = small(parts[2]), parts[3].to(torch.int8).cpu()
+                record[f"{variant}_guesses"] = small(parts[4])
+            for memory in ("previous", "suffix"):
+                record[f"{memory}_token"] = small(proposals[memory])
+                record[f"{memory}_share"] = half(from_lists(memory, 1, 0.0, torch.float32))
+                record[f"{memory}_seen"] = small(from_lists(memory, 2, 0, torch.long))
+            record["suffix_length"] = from_lists("suffix", 3, 0, torch.long).to(torch.int8).cpu()
+            answer["rounds"] = record
         return answer
 
 
@@ -409,9 +482,20 @@ def summarize(totals, delays, columns=None):
                 "rescued_where_suffix_memory_fails": {v: per_rejection(f"{v}|rescue_suffix_misses") for v in VARIANTS},
                 "D5_more_tokens_if_used_only_when_right": {
                     m: more_tokens(f"{m}|oracle_tokens")
-                    for m in VARIANTS + ("previous", "suffix", "raw_or_suffix", "centered_or_suffix")},
+                    for m in MEMORIES + ("raw_or_suffix", "centered_or_suffix")},
                 "rules": {},
             }
+            if get("editor|tokens"):
+                edited_tokens, still = get("editor|tokens"), max(get("editor|first_rejections"), 1)
+                row["with_editor"] = {
+                    "tokens_per_round": edited_tokens / rounds,
+                    "more_tokens_than_plain": edited_tokens / tokens - 1,
+                    "first_rejections": int(get("editor|first_rejections")),
+                    "target_token_in_top_16": get("editor|target_in_top") / still,
+                    "rescue_rate": {m: get(f"after_editor|{m}|rescue") / still for m in MEMORIES},
+                    "more_tokens_if_used_only_when_right": {
+                        m: get(f"after_editor|{m}|oracle_tokens") / edited_tokens for m in MEMORIES + ("centered_or_suffix",)},
+                }
             for rule in rule_list():
                 tag = "|".join(str(part) for part in rule)
                 row["rules"].setdefault(rule[0], []).append({

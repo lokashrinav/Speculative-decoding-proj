@@ -484,7 +484,7 @@ def test_hindsight_probe_labels_are_exact_and_drafts_are_untouched():
     first = table["clean"]["0-1k"]
     assert abs(first["tokens_per_round"] - row[names["tokens"]] / row[names["rounds"]]) < 1e-9
     assert table["clean"]["everything"]["rounds"] == first["rounds"] and "2k+" not in table["clean"]
-    assert len(first["rules"]["raw"]) == 18 and len(first["rules"]["suffix"]) == 8
+    assert len(first["rules"]["raw"]) == 36 and len(first["rules"]["suffix"]) == 16 and "with_editor" not in first
     # A second answer starts with an empty memory.
     probe.begin()
     assert probe.size == 0 and probe.pending == [] and probe.log == [] and probe.suffix.tokens == []
@@ -499,7 +499,7 @@ def test_hindsight_scoring_on_a_hand_made_answer():
     probe.begin()
     probe.prompt_length = 2
 
-    def entry(start, draft, raw, centered, previous=None, suffix=None, memory_size=0):
+    def entry(start, draft, raw, centered, previous=None, suffix=None, memory_size=0, sure=0.5, edited=None):
         draft = torch.tensor(draft)
         truth = 100 + start + 1 + torch.arange(len(draft))
         top = torch.stack((draft, truth, torch.full_like(draft, 555), torch.full_like(draft, 888)), dim=1)
@@ -507,8 +507,13 @@ def test_hindsight_scoring_on_a_hand_made_answer():
                                    torch.tensor([r[2] for r in rows]))
         silent = [(-1, 0.0, 0.0)] * len(draft)
         nothing = [(-1, 0.0, 0, 0)] * len(draft)
-        return dict(start=start, draft=draft, top=top, memory_size=memory_size, raw=as_tensors(raw or silent),
+        # The drafter gives its own token the probability `sure`, the other candidates share the rest.
+        log_probs = torch.tensor([[sure] + [(1 - sure) / 3] * 3] * len(draft)).log()
+        made = dict(start=start, draft=draft, top=top, top_log_probs=log_probs, memory_size=memory_size, raw=as_tensors(raw or silent),
                     centered=as_tensors(centered or silent), previous=previous or nothing, suffix=suffix or nothing)
+        if edited is not None:
+            made["edited"] = torch.tensor(edited)
+        return made
 
     quiet = (-1, 0.0, 0.0)  # (label, agreement, similarity)
     # Round A starts at position 2: two draft tokens are right, the third (truth 105) is wrong.
@@ -536,12 +541,15 @@ def test_hindsight_scoring_on_a_hand_made_answer():
     assert (get("previous|rescue"), get("previous|oracle_tokens"), get("suffix|rescue"), get("suffix|oracle_tokens")) == (1, 3, 0, 0)
     assert (get("raw_or_suffix|oracle_tokens"), get("centered_or_suffix|oracle_tokens")) == (3, 3)
     rule = lambda tag: (get(f"{tag}|rescues"), get(f"{tag}|breaks"), get(f"{tag}|net_tokens"))
-    assert rule("raw|0.9|0.9") == (1, 1, -1)        # +3 in round A, -4 in round B
-    assert rule("raw|0.95|0.9") == (0, 1, -4)       # too strict for round A's neighbour
-    assert rule("centered|0.5|0.6") == (0, 1, -2)   # trusts the wrong label on the first token
-    assert rule("centered|0.7|0.0") == (0, 0, 0)    # never acts
-    assert rule("previous|0.8|3") == (1, 0, 3) and rule("previous|0.9|5") == (0, 0, 0)
-    assert rule("suffix|1|0.0") == (0, 0, 0)        # its token is not among the candidates
+    assert rule("raw|0.9|0.9|1.0") == (1, 1, -1)        # +3 in round A, -4 in round B
+    assert rule("raw|0.95|0.9|1.0") == (0, 1, -4)       # too strict for round A's neighbour
+    assert rule("raw|0.9|0.9|0.6") == (1, 1, -1)        # the drafter gave its tokens 0.5, so the rule still acts
+    assert rule("raw|0.9|0.9|0.4") == (0, 0, 0)         # ... and now it is held back everywhere
+    assert rule("centered|0.5|0.6|1.0") == (0, 1, -2)   # trusts the wrong label on the first token
+    assert rule("centered|0.7|0.0|1.0") == (0, 0, 0)    # never acts
+    assert rule("previous|0.8|3|1.0") == (1, 0, 3) and rule("previous|0.9|5|1.0") == (0, 0, 0)
+    assert rule("suffix|3|0.0|1.0") == (0, 0, 0)        # its token is not among the candidates
+    assert get("editor|tokens") == 0                     # no editor ran
     # The two positions after round A's rejection get their labels two rounds later.
     assert dict(probe.delays) == {2: 2}
     table = summarize(probe.totals, probe.delays)
@@ -549,6 +557,25 @@ def test_hindsight_scoring_on_a_hand_made_answer():
     assert table["clean"]["0-1k"]["D1_rescue_rate"] == {"raw": 1.0, "centered": 1.0}
     assert table["clean"]["0-1k"]["best_rule"]["previous"]["more_tokens"] == 3 / 9
     assert table["D4_rounds_waited_after_first_rejection"]["median"] == 2
+
+    # The same answer with an editor's draft recorded: in round A the editor fixes the third token
+    # but breaks the fifth; the memories then have nothing left to fix there. In round B the editor
+    # breaks the fourth token (truth 109), which the suffix memory would put right.
+    probe = MemoryProbe()
+    probe.begin()
+    probe.prompt_length = 2
+    probe.log.append(entry(2, [103, 104, 999, 106, 107], raw=[quiet, quiet, (105, 1.0, 0.92), quiet, quiet], centered=None,
+                           edited=[103, 104, 105, 106, 555]))
+    probe.log.append(entry(5, [106, 107, 108, 109, 110], raw=None, centered=None, edited=[106, 107, 108, 888, 110],
+                           suffix=[(-1, 0.0, 0, 0)] * 3 + [(109, 1.0, 2, 3)] + [(-1, 0.0, 0, 0)]))
+    early = probe.finish(final, ended=True)["bins"]["0"]
+    get = lambda key: early[names[key]]
+    assert (get("tokens"), get("editor|tokens"), get("editor|first_rejections"), get("editor|target_in_top")) == (9, 9, 2, 2)
+    assert (get("after_editor|raw|rescue"), get("after_editor|raw|oracle_tokens")) == (0, 0)
+    assert (get("after_editor|suffix|rescue"), get("after_editor|suffix|oracle_tokens")) == (1, 2)
+    assert get("after_editor|centered_or_suffix|oracle_tokens") == 2
+    row = summarize(probe.totals, probe.delays)["clean"]["0-1k"]["with_editor"]
+    assert row["more_tokens_than_plain"] == 0.0 and row["rescue_rate"]["suffix"] == 0.5
 
 
 def test_hindsight_token_memory_and_repetition_detector():
@@ -568,12 +595,146 @@ def test_hindsight_token_memory_and_repetition_detector():
     torch.manual_seed(0)
     probe = MemoryProbe(capacity=32, neighbours=3)
     keys = torch.randn(20, 6) + 4.0
-    probe._add(keys, torch.arange(20), torch.arange(20))
+    probe._add(keys, torch.arange(20), torch.arange(20), torch.arange(20) % 15, torch.arange(20) + 100)
     queries = torch.randn(5, 6) + 4.0
     both = probe._similarities(queries)
     cosine = torch.nn.functional.cosine_similarity
     mean = keys.mean(dim=0)
     assert torch.allclose(both["raw"], cosine(queries[:, None], keys[None], dim=-1), atol=1e-5)
     assert torch.allclose(both["centered"], cosine((queries - mean)[:, None], (keys - mean)[None], dim=-1), atol=1e-4)
-    label, agreement, similarity = probe._read(keys[:5])["raw"]
+    label, agreement, similarity, nearest = probe._read(keys[:5])["raw"]
     assert label.tolist() == [0, 1, 2, 3, 4] and bool((similarity > 0.999).all())   # a stored state finds itself
+    labels, similarities, positions, offsets, guesses = nearest
+    assert labels.shape == (5, 3) and labels[:, 0].tolist() == [0, 1, 2, 3, 4] and offsets[:, 0].tolist() == [0, 1, 2, 3, 4]
+    assert guesses[:, 0].tolist() == [100, 101, 102, 103, 104]
+    assert bool((similarities[:, 0] >= similarities[:, 1]).all()) and positions[:, 0].tolist() == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.parametrize("budget,block_size", [(40, 4), (57, 4), (70, 3), (33, 2)])
+def test_replay_gives_the_same_rounds_as_decoding(budget, block_size):
+    """Decoding again without the target's check must reproduce every round: plain, with a
+    draft-replacing editor, with a second draft to choose from, and with the memory probe."""
+    from dflash.hindsight import MemoryProbe
+    from dflash.pair_editor import BigramTable, PairEditor, PairImprover
+    from dflash.replay import replay_decode
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4, 5]])
+    length = prompt.shape[1]
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, block_size=block_size, return_stats=True)
+    again = replay_decode(draft, target, plain.output_ids, length, ended=False, block_size=block_size)
+    assert again.acceptance_lengths == plain.acceptance_lengths
+    assert again.num_output_tokens == plain.num_output_tokens
+
+    # An editor whose edited draft replaces the first draft.
+    torch.manual_seed(3)
+    generator = torch.Generator().manual_seed(0)
+    table = BigramTable.count([(torch.randint(0, 32, (60,), generator=generator), 4) for _ in range(12)], 32)
+    editor = PairEditor(16, rank=8, top_k=8, bigram_weight=0.5).double().eval()
+    torch.nn.init.normal_(editor.up, std=1.0)
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=PairImprover(editor, table),
+                                   block_size=block_size, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    again = replay_decode(draft, target, live.output_ids, length, ended=False, improver=PairImprover(editor, table),
+                          block_size=block_size)
+    assert again.acceptance_lengths == live.acceptance_lengths and again.rounds_edited == live.rounds_edited
+    if block_size > 2:
+        assert live.rounds_edited > 0
+
+    # A second draft that the target checks next to the first one.
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=OracleImprover(plain.output_ids, wrong_from=3),
+                                   block_size=block_size, return_stats=True)
+    again = replay_decode(draft, target, live.output_ids, length, ended=False,
+                          improver=OracleImprover(plain.output_ids, wrong_from=3), block_size=block_size)
+    assert again.acceptance_lengths == live.acceptance_lengths and again.alternative_wins == live.alternative_wins
+
+    # The measuring probe sees the same drafts and builds the same memory.
+    first, second = MemoryProbe(capacity=64, neighbours=4), MemoryProbe(capacity=64, neighbours=4)
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=first, block_size=block_size, return_stats=True)
+    again = replay_decode(draft, target, live.output_ids, length, ended=False, improver=second, block_size=block_size)
+    assert again.acceptance_lengths == live.acceptance_lengths and len(first.log) == len(second.log)
+    for a, b in zip(first.log, second.log):
+        assert a["start"] == b["start"] and torch.equal(a["draft"], b["draft"]) and torch.equal(a["raw"][0], b["raw"][0])
+        assert torch.allclose(a["raw"][2], b["raw"][2], atol=1e-6) and torch.equal(a["raw"][3][2], b["raw"][3][2])
+    if first.size:
+        assert torch.equal(first.labels[: first.size], second.labels[: second.size])
+        assert torch.allclose(first.keys[: first.size], second.keys[: second.size], atol=1e-6)
+    assert first.finish(live.output_ids, ended=False) == second.finish(live.output_ids, ended=False)
+
+
+def test_replay_of_an_answer_that_stopped_by_itself():
+    from dflash.replay import replay_decode, target_features
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4, 5]])
+    free = dflash_generate_redraft(draft, target, prompt, 60, None, return_stats=True)
+    tested = 0
+    for stop in sorted(set(free.output_ids[0, 12:40].tolist())):
+        live = dflash_generate_redraft(draft, target, prompt, 60, [stop], return_stats=True)
+        if int(live.output_ids[0, -1]) != stop:
+            continue
+        again = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=True)
+        assert again.acceptance_lengths == live.acceptance_lengths
+        tested += 1
+    assert tested > 0
+    # The target's states are the same whether the finished answer is read in one piece or in parts.
+    whole = target_features(target, draft, free.output_ids, chunk=1000)
+    parts = target_features(target, draft, free.output_ids, chunk=7)
+    assert whole.shape[1] == free.output_ids.shape[1] and torch.allclose(whole, parts, atol=1e-9)
+
+
+def test_probe_with_an_editor_and_a_dump_of_every_round():
+    """With an editor attached the probe still leaves decoding alone, scores the editor's draft at
+    the same rounds, and hands back everything it recorded per round."""
+    from dflash.hindsight import MemoryProbe, accepted_length
+    from dflash.pair_editor import BigramTable, PairEditor, PairImprover
+
+    target, draft = make_models()
+    prompt = torch.tensor([[1, 2, 3, 4]])
+    plain = dflash_generate_redraft(draft, target, prompt, 90, None, return_stats=True)
+    torch.manual_seed(5)
+    generator = torch.Generator().manual_seed(0)
+    table = BigramTable.count([(torch.randint(0, 32, (60,), generator=generator), 4) for _ in range(12)], 32)
+    editor = PairEditor(16, rank=8, top_k=8, bigram_weight=0.5).double().eval()
+    torch.nn.init.normal_(editor.up, std=1.0)
+    probe = MemoryProbe(capacity=64, neighbours=4, top_k=8, editor=PairImprover(editor, table), dump=True)
+    probe.begin()
+    probed = dflash_generate_redraft(draft, target, prompt, 90, None, improver=probe, return_stats=True)
+    assert torch.equal(probed.output_ids, plain.output_ids) and probed.acceptance_lengths == plain.acceptance_lengths
+    answer = probe.finish(probed.output_ids, ended=False)
+    rounds = answer["rounds"]
+    count, width = rounds["draft"].shape
+    assert count == len(probe.log) and width == 3                          # blocks of 4: three drafted tokens
+    final = probed.output_ids[0]
+    for number in range(count):
+        first = int(rounds["starts"][number]) + 1
+        known = final[first : first + width]
+        assert rounds["truth"][number, : known.shape[0]].tolist() == known.tolist()
+        assert bool((rounds["truth"][number, known.shape[0] :] == -1).all())
+    assert rounds["top_tokens"].shape == (count, width, 8) and rounds["top_log_probs"].dtype == torch.float16
+    drafted = rounds["draft"] >= 0                                           # the last block before the length limit is shorter
+    assert int((~drafted).sum()) <= 2
+    assert bool((rounds["top_tokens"][:, :, 0] == rounds["draft"])[drafted].all())   # the draft is the drafter's first candidate
+    assert rounds["raw_labels"].shape == (count, width, 4) and rounds["centered_offsets"].dtype == torch.int8
+    assert int(rounds["raw_labels"][0].max()) == -1                          # nothing is stored before the first round
+    # Each neighbour's guess is what the drafter had drafted at that neighbour's position.
+    drafted_at = {}
+    for number in range(count):
+        for offset in range(width):
+            if int(rounds["draft"][number, offset]) >= 0:
+                drafted_at[(int(rounds["starts"][number]) + 1 + offset, offset)] = int(rounds["draft"][number, offset])
+    seen = 0
+    for name in ("raw", "centered"):
+        positions, offsets, guesses = rounds[f"{name}_positions"], rounds[f"{name}_offsets"], rounds[f"{name}_guesses"]
+        for cell in (positions >= 0).nonzero().tolist():
+            key = (int(positions[tuple(cell)]), int(offsets[tuple(cell)]))
+            assert drafted_at[key] == int(guesses[tuple(cell)])
+            assert int(rounds[f"{name}_labels"][tuple(cell)]) == int(final[key[0]])   # and its label is the target's token there
+            seen += 1
+    assert seen > 50
+    assert bool((rounds["edited"] != rounds["draft"])[drafted].any())        # the editor did change some drafts
+    names = {name: number for number, name in enumerate(probe.columns)}
+    row = answer["bins"]["0"]
+    truth, edited = rounds["truth"].long(), rounds["edited"].long()
+    assert row[names["editor|tokens"]] == int((accepted_length(edited, truth) + 1).sum())
+    assert row[names["tokens"]] == int((accepted_length(rounds["draft"].long(), truth) + 1).sum())

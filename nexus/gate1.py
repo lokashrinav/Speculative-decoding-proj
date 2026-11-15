@@ -21,7 +21,7 @@ import sys
 
 import numpy as np
 
-from dflash.hindsight import BIN_NAMES, VARIANTS, rule_list
+from dflash.hindsight import BIN_NAMES, VARIANTS
 
 FAR = (2, 3, 4)  # position bins beyond 2,000 tokens into the answer
 FAMILIES = VARIANTS + ("previous", "suffix")
@@ -74,9 +74,14 @@ class Counts:
                 "interval_95": [values[int(0.025 * len(values))], values[min(int(0.975 * len(values)), len(values) - 1)]]}
 
     def best_rule(self, family):
-        tags = ["|".join(str(part) for part in rule) for rule in rule_list() if rule[0] == family]
+        """The rule of this family with the most net tokens (the rules are read from the file's own columns)."""
+        tags = [name[: -len("|net_tokens")] for name in self.index if name.endswith("|net_tokens") and name.split("|")[0] == family]
         sums = self.table.sum(axis=0)
         return max(tags, key=lambda tag: sums[self.index[f"{tag}|net_tokens"]])
+
+
+def shifted(result, by):
+    return {"value": result["value"] + by, "interval_95": [bound + by for bound in result["interval_95"]]}
 
 
 def report(columns, answers):
@@ -123,6 +128,18 @@ def report(columns, answers):
                     [(1, f"{tag}|rescues"), (-1, f"{tag}|breaks")], "first_rejections"),
                 "more_tokens": scored_on.with_interval(f"{tag}|net_tokens", "tokens"),
             }
+        # With an editor's draft recorded: what the editor gains, and what a memory could still add to it.
+        if "editor|tokens" in index and table[:, index["editor|tokens"]].sum():
+            row["with_editor"] = {
+                "more_tokens_than_plain": shifted(every.with_interval("editor|tokens", "tokens"), -1.0),
+                "first_rejections": int(table[:, index["editor|first_rejections"]].sum()),
+            }
+            for memory in FAMILIES:
+                row["with_editor"][f"rescue_rate_{memory}"] = every.with_interval(f"after_editor|{memory}|rescue", "editor|first_rejections")
+                row["with_editor"][f"more_tokens_if_used_only_when_right_{memory}"] = every.with_interval(
+                    f"after_editor|{memory}|oracle_tokens", "editor|tokens")
+            row["with_editor"]["more_tokens_if_used_only_when_right_centered_or_suffix"] = every.with_interval(
+                "after_editor|centered_or_suffix|oracle_tokens", "editor|tokens")
         out["by_position"][name] = row
 
     far = out["by_position"].get("2k+")
@@ -163,7 +180,7 @@ def main():
         for group in ("2k+", "everything"):
             if group in part["by_position"]:
                 row = part["by_position"][group]
-                out["by_source"][source][group] = {key: row[key] for key in row if key.startswith(("D1_", "D3_", "D5_", "first_"))}
+                out["by_source"][source][group] = {key: row[key] for key in row if key.startswith(("D1_", "D3_", "D5_", "first_", "with_editor"))}
     print(json.dumps(out, indent=1))
 
 
