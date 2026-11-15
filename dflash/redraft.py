@@ -246,6 +246,9 @@ def dflash_generate_redraft(
     # branch. They are fed again at the front of the next verification pass.
     pending = output_ids[:, :0]
     stopped = stop_tokens is not None and torch.isin(output_ids[:, start], stop_tokens).any()
+    # A plug-in may ask for what the target predicted on each draft (see dflash/adapt.py).
+    canvas_top = int(getattr(improver, "canvas_top", 0) or 0)
+    canvas = None
 
     while start + 1 < max_length and not stopped:
         block_len = min(block_size, max_length - start)
@@ -275,6 +278,7 @@ def dflash_generate_redraft(
                     position_ids=position_ids, context_features=context_features,
                     accepted_ids=output_ids[:, :start], first_drafter=model,
                     draft_cache=draft_cache, target=target, draft_states=draft_states,
+                    canvas=canvas,
                 ))
 
             if timers is not None and improver is not None:
@@ -319,6 +323,10 @@ def dflash_generate_redraft(
             output_hidden_states=block_len > 1, attention_mask=attention_mask,
         )
         verified = output.logits.argmax(dim=-1)
+        if canvas_top and block_len > 1:
+            best = output.logits[0, num_pending : num_pending + block_len - 1].float().log_softmax(dim=-1)
+            best = best.topk(canvas_top, dim=-1)
+            canvas = (start, best.indices, best.values)
         if timers is not None:
             kind = "two" if alternative is not None else "one"
             timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock

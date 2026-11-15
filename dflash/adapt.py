@@ -15,6 +15,12 @@ Which positions of a past round are used is the question this module is built to
                exact, because the drafter's prediction for a position depends only on
                the committed context, not on its own draft tokens.
   "both"       the immediate positions first, and the rest when they become known.
+  "canvas"     every position of the round at once, as Test-Time Speculation does: the target
+               checked the whole draft, so it predicted something at every position. Up to the
+               first rejection that is the same as "immediate". After it, the target was reading
+               rejected draft tokens, so its prediction belongs to a text that was never written.
+  "canvas+hindsight"  "canvas" first, and then the positions after the first rejection once more
+               with their exact tokens when the answer has passed them.
 
 What the drafter is compared with can be the committed token alone ("ce"), or what the
 target itself predicted at that position: its most likely tokens with their probabilities
@@ -40,6 +46,7 @@ from torch import nn
 from .model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings
 
 ADAPTED = ("q_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
+LABELS = ("immediate", "hindsight", "both", "canvas", "canvas+hindsight")
 
 
 class LowRank(nn.Module):
@@ -98,8 +105,10 @@ class DraftTrainer:
 
     replace = False
 
-    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce"):
-        assert labels in ("immediate", "hindsight", "both") and loss in ("ce", "kl")
+    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32):
+        assert labels in LABELS and loss in ("ce", "kl")
+        # Asks decoding (or replay) for the target's `top` most likely tokens at every position of each draft.
+        self.canvas_top = top if labels.startswith("canvas") else 0
         self.model, self.adapters = model, adapters
         self.labels, self.rate, self.stride, self.decay, self.loss = labels, rate, stride, decay, loss
         self.predictions = None      # for "kl": (tokens, log-probabilities) the target predicted after every position
@@ -121,7 +130,8 @@ class DraftTrainer:
         self.pieces = deque()        # (first position, target states) for the context not yet dropped
         self.anchors = deque()       # past rounds that still have positions to train on
         self.round = 0
-        self.trained_on = []         # (anchor, first offset, labels) of every update, for checking
+        self.trained_on = []         # (anchor, first offset, labels) of every update on committed tokens, for checking
+        self.canvas_used = []        # (anchor, the target's first choices on that draft) of every "canvas" update
 
     def __call__(self, round_state):
         if self.optimizer is not None:
@@ -142,18 +152,23 @@ class DraftTrainer:
         committed = torch.cat((s.accepted_ids[0], s.block_ids[0, :1])).clone()        # positions 0 .. start
         clock = _clock(piece)
 
+        canvas = getattr(s, "canvas", None)
         waiting = deque()
         for anchor in self.anchors:
             known = min(start - anchor["start"], anchor["width"])    # offsets 0 .. known - 1 have their token now
-            first, last = anchor["done"], anchor["done"]
-            if self.labels in ("immediate", "both") and anchor["round"] == self.round - 1:
+            fresh = anchor["round"] == self.round - 1
+            first, last, soft = anchor["done"], anchor["done"], None
+            if self.labels in ("immediate", "both") and fresh:
                 last = known
-            if self.labels in ("hindsight", "both") and known >= anchor["width"]:
+            if self.labels.startswith("canvas") and fresh and canvas is not None \
+                    and canvas[0] == anchor["start"] and canvas[1].shape[0] == anchor["width"]:
+                first, last, soft = 0, anchor["width"], canvas
+            if soft is None and self.labels in ("hindsight", "both", "canvas+hindsight") and known >= anchor["width"]:
                 last = known
             if last > first and anchor["round"] % self.stride == 0:
-                self._train(s, anchor, first, last, committed)
-                anchor["done"] = last
-            finished = known >= anchor["width"] or (self.labels == "immediate" and anchor["round"] < self.round)
+                self._train(s, anchor, first, last, committed, soft)
+                anchor["done"] = known if soft is not None else last
+            finished = known >= anchor["width"] or (self.labels in ("immediate", "canvas") and anchor["round"] < self.round)
             if not finished:
                 waiting.append(anchor)
         self.anchors = waiting
@@ -183,8 +198,10 @@ class DraftTrainer:
         assert found.shape[1] == end - begin, "context for a past round is missing"
         return found
 
-    def _train(self, s, anchor, first, last, committed):
-        """One step on the positions first .. last - 1 of a past round's block."""
+    def _train(self, s, anchor, first, last, committed, soft=None):
+        """One step on the positions first .. last - 1 of a past round's block.
+
+        soft: what the target predicted on that round's draft, to learn from instead of the committed tokens."""
         model, position = self.model, anchor["start"]
         if self.cache is None:
             self.cache = _make_cache(model.config)
@@ -195,6 +212,14 @@ class DraftTrainer:
         block = torch.full((1, anchor["width"] + 1), model.mask_token_id, dtype=torch.long, device=committed.device)
         block[0, 0] = anchor["token"]
         labels = committed[position + 1 + first : position + 1 + last]
+        tokens = scores = None
+        if soft is not None:
+            tokens, scores = soft[1][first:last].clone(), soft[2][first:last].float().clone()
+            labels = tokens[:, 0]
+        elif self.loss == "kl":
+            # Row p of the predictions describes the token at p + 1, so position q is described by row q - 1.
+            rows = slice(position + first, position + last)
+            tokens, scores = self.predictions[0][rows].clone(), self.predictions[1][rows].float().clone()
         weights = torch.exp(-torch.arange(first, last, device=labels.device) / self.decay)
         with torch.enable_grad():
             noise = _raw_input_embeddings(s.target, block, self.scale)
@@ -205,9 +230,6 @@ class DraftTrainer:
             )[:, -block.shape[1] :, :]
             logits = model.compute_logits(states[:, 1 + first : 1 + last, :], _output_head(s.target))[0].float()
             if self.loss == "kl":
-                # Row p of the predictions describes the token at p + 1, so position q is described by row q - 1.
-                rows = slice(position + first, position + last)
-                tokens, scores = self.predictions[0][rows].clone(), self.predictions[1][rows].float().clone()
                 wanted = torch.log_softmax(scores, dim=-1)           # the target's top tokens, made to sum to one
                 given = torch.log_softmax(logits, dim=-1).gather(1, tokens)
                 each = (wanted.exp() * (wanted - given)).sum(dim=-1)
@@ -220,7 +242,10 @@ class DraftTrainer:
         _crop_to(self.cache, position)
         for layer in self.cache.layers:          # the kept context must not hold on to the training graph
             layer.keys, layer.values = layer.keys.detach(), layer.values.detach()
-        self.trained_on.append((position, first, labels.tolist()))
+        if soft is not None:
+            self.canvas_used.append((position, labels.tolist()))
+        else:
+            self.trained_on.append((position, first, labels.tolist()))
         self.totals["updates"] += 1
         self.totals["positions"] += last - first
 

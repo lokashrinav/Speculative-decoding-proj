@@ -129,3 +129,98 @@ def test_training_against_the_targets_own_predictions():
         again = replay_decode(draft, target, ids, start, ended=False, features=features, improver=trainer)
         assert again.acceptance_lengths == results[labels].acceptance_lengths
     detach_adapters(draft)
+
+
+class _Recorder:
+    """A plug-in that only keeps what decoding hands it."""
+
+    replace = False
+
+    def __init__(self, top):
+        self.canvas_top, self.seen = top, []
+
+    def start(self, first_drafter):
+        pass
+
+    def __call__(self, s):
+        self.seen.append((int(s.start), s.block_ids[0].clone(), s.canvas))
+        return None
+
+
+def test_the_canvas_is_what_the_target_predicted_on_the_draft():
+    """Decoding and replay hand a plug-in the target's predictions on the previous draft. Up to the first
+    rejection they are its predictions on the answer itself; after it they belong to the rejected draft."""
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    start = prompt.shape[1]
+    live_recorder = _Recorder(top=6)
+    live = dflash_generate_redraft(draft, target, prompt, 200, None, improver=live_recorder, return_stats=True)
+    ids = live.output_ids
+    features, (tokens, scores) = target_features(target, draft, ids, top=6, chunk=64)
+    recorder = _Recorder(top=6)
+    replayed = replay_decode(draft, target, ids, start, ended=False, features=features, improver=recorder)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    assert replay_decode(draft, target, ids, start, ended=False, features=features).acceptance_lengths == live.acceptance_lengths
+    assert recorder.seen[0][2] is None and len(recorder.seen) > 20
+    off_path = 0
+    for (was_at, block, _), (now_at, _, canvas) in zip(recorder.seen, recorder.seen[1:]):
+        assert canvas[0] == was_at and canvas[1].shape == (len(block) - 1, 6)
+        gained = now_at - was_at                                             # accepted tokens and the target's own next one
+        assert torch.equal(canvas[1][:gained, 0], ids[0, was_at + 1 : now_at + 1])
+        assert torch.allclose(canvas[2][:gained], scores[was_at:now_at], atol=1e-9)
+        # After the first rejection the target read a wrong token, so it no longer describes the answer.
+        rest = slice(gained, len(block) - 1)
+        off_path += int((canvas[1][rest, 0] != ids[0, was_at + 1 + gained : was_at + len(block)][: len(block) - 1 - gained]).sum())
+    assert off_path > 0
+    # Live decoding hands over the same thing.
+    assert len(live_recorder.seen) == len(recorder.seen)
+    for (a_start, a_block, a_canvas), (b_start, b_block, b_canvas) in zip(live_recorder.seen[1:], recorder.seen[1:]):
+        assert a_start == b_start and torch.equal(a_block, b_block) and a_canvas[0] == b_canvas[0]
+        assert torch.equal(a_canvas[1][:, 0], b_canvas[1][:, 0]) and torch.allclose(a_canvas[2], b_canvas[2], atol=1e-9)
+
+
+@pytest.mark.parametrize("labels,loss", [("canvas", "kl"), ("canvas", "ce"), ("canvas+hindsight", "kl")])
+def test_training_on_the_canvas_as_the_published_method_does(labels, loss):
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    start = prompt.shape[1]
+    plain = dflash_generate_redraft(draft, target, prompt, 300, None, return_stats=True)
+    ids = plain.output_ids
+    features, predictions = target_features(target, draft, ids, top=6, chunk=64)
+    adapters = attach_adapters(draft, rank=4)
+    trainer = DraftTrainer(draft, adapters, labels=labels, rate=3e-3, loss=loss, top=6)
+    assert trainer.canvas_top == 6
+    trainer.begin()
+    trainer.predictions = predictions
+    live = dflash_generate_redraft(draft, target, prompt, 300, None, improver=trainer, return_stats=True)
+    assert torch.equal(live.output_ids, ids) and live.acceptance_lengths != plain.acceptance_lengths
+    starts = [start]
+    for gained in live.acceptance_lengths:
+        starts.append(starts[-1] + gained)
+    gained_at = dict(zip(starts, live.acceptance_lengths))
+    width = draft.block_size - 1
+    assert len(trainer.canvas_used) > 20
+    wrong_labels = 0
+    for position, used in trainer.canvas_used:
+        gained = gained_at[position]
+        assert len(used) == min(width, ids.shape[1] - position - 1)          # the whole draft at once
+        assert used[:gained] == ids[0, position + 1 : position + 1 + gained].tolist()
+        wrong_labels += sum(a != b for a, b in zip(used[gained:], ids[0, position + 1 + gained :].tolist()))
+    assert wrong_labels > 0                    # some of what it learned from was not the answer's text
+    if labels == "canvas":
+        assert not trainer.trained_on
+    else:
+        assert trainer.trained_on              # ... and here those positions are learned again, exactly
+        for position, first, used in trainer.trained_on:
+            assert first == min(gained_at[position], width) and first + len(used) == width
+            assert ids[0, position + 1 + first : position + 1 + width].tolist() == used
+    used_live = list(trainer.canvas_used)
+    trainer.begin()
+    trainer.predictions = predictions
+    replayed = replay_decode(draft, target, ids, start, ended=False, features=features, improver=trainer)
+    assert replayed.acceptance_lengths == live.acceptance_lengths and trainer.canvas_used == used_live
+    detach_adapters(draft)

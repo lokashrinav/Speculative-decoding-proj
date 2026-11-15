@@ -8,7 +8,9 @@ and the result is simply how many rounds the answer takes.
 
 Settings are written as labels:rate (for example hindsight:1e-4), with :kl added to compare
 the drafter with the target's own predictions instead of the committed token alone, and
-"plain" is the frozen drafter. The same answers are used for every setting, so they can be compared
+"plain" is the frozen drafter. The labels "canvas" and "canvas+hindsight" need what the target
+predicted on every draft, so for those settings the target checks each draft again as it
+does in decoding (slower: about as slow as decoding itself). The same answers are used for every setting, so they can be compared
 answer by answer. Only validation answers are used here unless another part is named.
 """
 
@@ -96,7 +98,7 @@ def main():
         plain = parts[0] == "plain"
         trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else parts[0],
                                          rate=0.0 if plain else float(parts[1]), stride=args.stride, decay=args.decay,
-                                         loss=parts[2] if len(parts) > 2 else "ce")
+                                         loss=parts[2] if len(parts) > 2 else "ce", top=args.top)
     top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}
@@ -112,6 +114,7 @@ def main():
             status["cost"][name] = {
                 "drafting_ms_per_round": 1000 * seconds[name].get("draft", 0.0) / rounds,
                 "training_ms_per_round": 1000 * trainer.totals["seconds"] / rounds,
+                "target_check_ms_per_round": 1000 * seconds[name].get("target", 0.0) / rounds,
                 "training_ms_per_update": 1000 * trainer.totals["seconds"] / max(trainer.totals["updates"], 1),
                 "updates_per_round": trainer.totals["updates"] / rounds,
                 "positions_per_update": trainer.totals["positions"] / max(trainer.totals["updates"], 1)}

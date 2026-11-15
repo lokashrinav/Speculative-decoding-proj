@@ -76,6 +76,11 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
     scale = float(_draft_value(model.config, "input_embedding_scale", 1.0))
     if improver is not None:
         improver.start(model)
+    # A plug-in may ask for what the target predicted on each draft (the signal Test-Time Speculation
+    # trains on). Then the target does check every draft here too, which costs what decoding costs.
+    canvas_top = int(getattr(improver, "canvas_top", 0) or 0)
+    target_cache = _make_cache(target.config) if canvas_top else None
+    target_fed, canvas = 0, None
 
     acceptance_lengths = []
     rounds_edited = rounds_with_alternative = alternative_wins = 0
@@ -107,6 +112,7 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
                     position_ids=position_ids, context_features=context_features,
                     accepted_ids=ids[:, :start], first_drafter=model,
                     draft_cache=draft_cache, target=target, draft_states=draft_states,
+                    canvas=canvas,
                 ))
             if timers is not None and improver is not None:
                 timers["improve"] = timers.get("improve", 0.0) + _clock(device) - clock
@@ -116,8 +122,23 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
                 block_ids = alternative
             alternative = None
 
+        if canvas_top and block_len > 1:
+            clock = _clock(device) if timers is not None else None
+            output = target(
+                torch.cat((ids[:, target_fed:start], block_ids), dim=1),
+                position_ids=position_ids[:, target_fed : start + block_len],
+                past_key_values=target_cache, use_cache=True, logits_to_keep=block_len,
+            )
+            # Row k is what the target expects after the block's first k + 1 tokens: the token at
+            # start + 1 + k if the draft was right so far, and a token of another text if it was not.
+            best = output.logits[0, -block_len:-1].float().log_softmax(dim=-1).topk(canvas_top, dim=-1)
+            canvas = (start, best.indices, best.values)
+            if timers is not None:
+                timers["target"] = timers.get("target", 0.0) + _clock(device) - clock
+
         truth = ids[:, start + 1 : start + block_len]
         accepted = _matches(block_ids[:, 1:], truth)
+        own = accepted
         if alternative is not None and alternative.shape == block_ids.shape \
                 and bool((alternative[:, :1] == block_ids[:, :1]).all()) and bool((alternative != block_ids).any()):
             rounds_with_alternative += 1
@@ -126,6 +147,10 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
                 alternative_wins += 1
                 accepted = other
         produced = min(accepted + 1, length - start - 1)
+        if canvas_top and block_len > 1:
+            # The target keeps what it read of the committed text: the start token and the accepted draft tokens.
+            target_fed = start + min(produced, own + 1)
+            _crop_to(target_cache, target_fed)
         start += produced
         acceptance_lengths.append(produced)
         if timers is not None:
