@@ -62,6 +62,8 @@ def run(draft, target, stops, answers, probe, args, device, report):
         del features
         scored = probe.finish(ids, ended=ended)
         if "rounds" in scored:
+            scored["rounds"].update(source=source, origin=[name, index], ended=ended, tokens=len(generated),
+                                    repetition_from=scored["loop_start"])
             torch.save(scored["rounds"], os.path.join(args.out_dir, f"{name[:-3]}-{index:04d}.pt"))
         records.append({
             "source": source, "origin": [name, index], "prompt_tokens": prompt_length, "tokens": len(generated),
