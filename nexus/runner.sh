@@ -7,11 +7,19 @@ BRANCH=nexus-jobs
 cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
 git config user.name "nexus-runner"
 git config user.email "nexus-runner@users.noreply.github.com"
+# A connection to GitHub that goes quiet must not block the loop: ssh gives up after a
+# minute without an answer, and no pull or push may take longer than five minutes.
+export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -o ConnectTimeout=20"
+NET="timeout -k 10 300"
 LOGDIR="$HOME/specdec-slurm"
 mkdir -p nexus/status nexus/logs nexus/results "$LOGDIR"
 tick=0
 while true; do
-  git pull -q --rebase --autostash origin "$BRANCH" || { git rebase --abort 2>/dev/null; }
+  # A lock left behind by an interrupted git command would block every later one: set it aside.
+  for lock in .git/index.lock .git/shallow.lock; do
+    if [ -e "$lock" ] && [ -n "$(find "$lock" -mmin +5 2>/dev/null)" ]; then mv "$lock" "$lock.stale.$(date +%s)"; fi
+  done
+  $NET git pull -q --rebase --autostash origin "$BRANCH" || { git rebase --abort 2>/dev/null; }
   if [ -f nexus/STOP ]; then echo "STOP file found, exiting"; exit 0; fi
   submitted=0
   for f in nexus/queue/*.sbatch; do
@@ -34,9 +42,10 @@ while true; do
       [ -e "$l" ] && tail -c 20000 "$l" > "nexus/logs/$(basename "$l")"
     done
     git add -A nexus/status nexus/logs
-    find nexus/results -type f -size -1000k -print0 | xargs -0 -r git add
+    # Result files are added in small groups: a file that a job replaces at that moment must not stop the others.
+    find nexus/results -type f -size -1000k ! -name "*.tmp" -print0 | xargs -0 -r -n 20 git add 2>/dev/null
     git diff --cached --quiet || git commit -qm "runner: status update"
-    git push -q origin "HEAD:$BRANCH"
+    $NET git push -q origin "HEAD:$BRANCH" || echo "$(date -u +%FT%TZ) push failed"
   fi
   tick=$((tick + 1))
   sleep 60
