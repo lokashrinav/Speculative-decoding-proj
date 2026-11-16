@@ -303,6 +303,25 @@ def stepped_aside(results_dir, folder=os.path.join("nexus", "settings"), scripts
     return True
 
 
+def prompts_of_cut_answers(data_dir, part, min_tokens):
+    """The prompts (as saved tokens) of the answers in a folder that ran into their token limit.
+
+    Returns [(source, prompt tokens)] in the folder's fixed order, and notes for the status file."""
+    from nexus.fit_gate import split_of
+    from nexus.replay_memory import load_answers
+
+    prompts, seen = [], 0
+    for name, index, sequence, prompt_length, source in load_answers(data_dir):
+        if part != "all" and split_of([name, index]) != part:
+            continue
+        seen += 1
+        if sequence.shape[0] - prompt_length >= min_tokens:
+            prompts.append((source, sequence[:prompt_length].tolist()))
+    notes = {"again_from": data_dir, "part": part, "answers_of_that_part": seen,
+             "answers_that_ran_into_the_limit": len(prompts), "limit": min_tokens}
+    return prompts, notes
+
+
 def prepare_prompts(args):
     """Build the prompt list once, so that every shard cuts the same list."""
     from transformers import AutoTokenizer
@@ -348,7 +367,11 @@ def main():
     parser.add_argument("--capacity", type=int, default=32768)
     parser.add_argument("--max-hours", type=float, default=9.0)
     parser.add_argument("--save-every", type=int, default=5)
-    parser.add_argument("--prompts-file", required=True)
+    parser.add_argument("--prompts-file")
+    parser.add_argument("--again-from", help="instead of a prompts file: the folder of saved answers whose prompts are "
+                        "decoded again, with this job's token limit, when the saved answer ran into its own limit")
+    parser.add_argument("--again-part", default="validation", help="train, validation, test or all")
+    parser.add_argument("--again-min-tokens", type=int, default=16384, help="the limit the saved answers ran into")
     parser.add_argument("--only-write-prompts", action="store_true")
     parser.add_argument("--out-dir")
     parser.add_argument("--results-dir", required=True)
@@ -361,10 +384,14 @@ def main():
         return
     torch.manual_seed(args.seed)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    with open(args.prompts_file) as handle:
-        prepared = json.load(handle)
-    notes = prepared["notes"]
-    prompts = [tuple(pair) for pair in prepared["prompts"]][args.shard :: args.num_shards]
+    if args.again_from:
+        prompts, notes = prompts_of_cut_answers(args.again_from, args.again_part, args.again_min_tokens)
+        prompts = prompts[args.shard :: args.num_shards]
+    else:
+        with open(args.prompts_file) as handle:
+            prepared = json.load(handle)
+        notes = prepared["notes"]
+        prompts = [tuple(pair) for pair in prepared["prompts"]][args.shard :: args.num_shards]
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0, "prompt_sources": notes,
                              "prompts_in_this_shard": len(prompts)}, indent=1)
@@ -374,6 +401,8 @@ def main():
     shard_path = os.path.join(args.out_dir, f"shard{args.shard}of{args.num_shards}.pt")
 
     def encode(prompt):
+        if isinstance(prompt, list):             # the prompt's tokens as they were saved with an earlier answer
+            return torch.tensor([prompt], dtype=torch.long, device=device)
         text = apply_chat_template(tokenizer, [{"role": "user", "content": prompt}], args.reasoning)
         return tokenizer.encode(text, return_tensors="pt", add_special_tokens=False).to(device)
 

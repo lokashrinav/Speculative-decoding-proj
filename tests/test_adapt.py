@@ -836,3 +836,25 @@ def test_extra_weights_can_be_applied_the_cheaper_way_when_nothing_is_learned():
     assert dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True).acceptance_lengths \
         == plain.acceptance_lengths                                            # zero extra weights: the plain drafter
     detach_adapters(draft)
+
+
+def test_prompts_of_answers_that_ran_into_their_limit(tmp_path):
+    """nexus/probe_memory.py --again-from: those prompts are decoded again with a higher limit."""
+    from nexus.fit_gate import split_of
+    from nexus.probe_memory import prompts_of_cut_answers
+
+    sequences, lengths, sources = [], [], []
+    for number in range(40):
+        prompt = 3 + number % 4
+        generated = 50 if number % 3 == 0 else 20 + number % 7            # every third answer ran into a limit of 50
+        sequences.append(torch.arange(prompt + generated, dtype=torch.int32) + number)
+        lengths.append(prompt)
+        sources.append("kind-a" if number % 2 else "kind-b")
+    torch.save({"sequences": sequences, "prompt_lengths": lengths, "sources": sources}, tmp_path / "shard0of1.pt")
+    everything, notes = prompts_of_cut_answers(str(tmp_path), "all", 50)
+    assert len(everything) == 14 and notes["answers_that_ran_into_the_limit"] == 14 and notes["answers_of_that_part"] == 40
+    assert everything[1] == ("kind-a", sequences[3][: lengths[3]].tolist())
+    wanted = [number for number in range(0, 40, 3) if split_of(["shard0of1.pt", number]) == "validation"]
+    some, notes = prompts_of_cut_answers(str(tmp_path), "validation", 50)
+    assert [prompt for _, prompt in some] == [sequences[number][: lengths[number]].tolist() for number in wanted]
+    assert notes["part"] == "validation" and len(some) < 14
