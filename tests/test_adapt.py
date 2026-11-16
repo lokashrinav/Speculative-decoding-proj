@@ -225,3 +225,16 @@ def test_training_on_the_canvas_as_the_published_method_does(labels, loss):
     replayed = replay_decode(draft, target, ids, start, ended=False, features=features, improver=trainer)
     assert replayed.acceptance_lengths == live.acceptance_lengths and trainer.canvas_used == used_live
     detach_adapters(draft)
+
+
+def test_settings_of_a_queued_job_can_be_replaced_by_a_file(tmp_path):
+    from nexus.adapt_drafter import settings_for
+
+    folder = tmp_path / "settings"
+    folder.mkdir()
+    assert settings_for("/x/nexus/results/adapt-kl-2", "plain,immediate:1e-4:kl", str(folder)) == ("plain,immediate:1e-4:kl", "command line")
+    (folder / "adapt-kl.txt").write_text("plain,hindsight:1e-3:kl\nsecond line is ignored\n")
+    assert settings_for("/x/nexus/results/adapt-kl-2/", "plain,immediate:1e-4:kl", str(folder))[0] == "plain,hindsight:1e-3:kl"
+    assert settings_for("/x/nexus/results/adapt-drafter-0", "plain", str(folder)) == ("plain", "command line")
+    (folder / "adapt-drafter.txt").write_text("\n")
+    assert settings_for("/x/nexus/results/adapt-drafter-0", "plain", str(folder)) == ("plain", "command line")

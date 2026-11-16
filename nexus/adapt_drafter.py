@@ -47,6 +47,20 @@ def by_position(acceptance_lengths, prompt_length, repetition_from):
     return table
 
 
+def settings_for(results_dir, given, folder=os.path.join("nexus", "settings")):
+    """The settings of a job can still be chosen after it was queued: the first line of
+    nexus/settings/<job name without its number>.txt, if that file exists, replaces the
+    ones on the command line. Returns the settings and where they came from."""
+    family = os.path.basename(os.path.normpath(results_dir)).rsplit("-", 1)[0]
+    path = os.path.join(folder, family + ".txt")
+    if os.path.exists(path):
+        with open(path) as handle:
+            line = handle.readline().strip()
+        if line:
+            return line, path
+    return given, "command line"
+
+
 def canvas_agreement(used, acceptance_lengths, prompt_length, tokens):
     """How often the target's first choice on a draft was the token the answer really has there.
 
@@ -124,7 +138,8 @@ def main():
     stop_set = set(stop_token_ids(target, tokenizer) or [])
     adapters = attach_adapters(draft, rank=args.rank)
     trainers = {}
-    for setting in args.settings.split(","):
+    settings, settings_from = settings_for(args.results_dir, args.settings)
+    for setting in settings.split(","):
         parts = setting.split(":")
         plain = parts[0] == "plain"
         trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else parts[0],
@@ -138,6 +153,7 @@ def main():
     def report(done):
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "rank": args.rank, "stride": args.stride,
+                  "settings": settings, "settings_from": settings_from,
                   "adapter_parameters": sum(parameter.numel() for adapter in adapters for parameter in (adapter.down, adapter.up)),
                   "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names), "cost": {}}
         for name, trainer in trainers.items():
