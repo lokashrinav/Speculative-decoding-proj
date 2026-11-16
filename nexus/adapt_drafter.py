@@ -25,7 +25,7 @@ import time
 
 import torch
 
-from dflash.adapt import DraftTrainer, attach_adapters, choose_adapters, load_adapters
+from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, choose_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
@@ -168,7 +168,7 @@ def main():
     adapters = attach_adapters(draft, rank=args.rank)
     trainers = {}
     settings, settings_from = settings_for(args.results_dir, args.settings)
-    starts = {}
+    starts, started_from = {}, {}
     for setting in settings.split(","):
         options = parse_setting(setting)
         start_from = options["start_from"]
@@ -179,6 +179,7 @@ def main():
             while not os.path.exists(path) and time.time() < deadline:
                 time.sleep(30)
             starts[start_from] = load_adapters(path, adapters)
+            started_from[start_from] = adapter_notes(path)
         trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else options["labels"],
                                          rate=options["rate"], stride=options["stride"] or args.stride, decay=args.decay,
                                          loss=options["loss"], top=args.top, init=starts.get(start_from),
@@ -191,7 +192,7 @@ def main():
     def report(done):
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "rank": args.rank, "stride": args.stride,
-                  "settings": settings, "settings_from": settings_from,
+                  "settings": settings, "settings_from": settings_from, "saved_adapters_used": started_from,
                   "adapter_parameters": sum(parameter.numel() for adapter in adapters for parameter in (adapter.down, adapter.up)),
                   "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names), "cost": {}}
         for name, trainer in trainers.items():

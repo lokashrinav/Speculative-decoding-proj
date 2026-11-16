@@ -71,12 +71,18 @@ def main():
     parser.add_argument("--max-answers", type=int, default=0)
     parser.add_argument("--max-hours", type=float, default=2.5)
     parser.add_argument("--save-every", type=int, default=5)
+    parser.add_argument("--kinds", default="", help="train on these kinds of answers only (names of sources, with commas)")
+    parser.add_argument("--snapshots", default="", help="also keep the adapters as they are after these numbers of answers")
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     answers = [answer for answer in load_answers(args.data_dir) if split_of([answer[0], answer[1]]) == args.part]
     order = torch.randperm(len(answers), generator=torch.Generator().manual_seed(args.seed)).tolist()
     answers = [answers[number] for number in order]            # kinds of answers are mixed, the same way for every job
+    kinds = [kind for kind in args.kinds.split(",") if kind]
+    if kinds:
+        answers = [answer for answer in answers if answer[4] in kinds]
+    snapshots = {int(number) for number in args.snapshots.split(",") if number}
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0, "answers_available": len(answers)}, indent=1)
     target, draft, tokenizer = load_transformers_models(args.model, args.draft, device)
@@ -91,6 +97,7 @@ def main():
         status = {"done": done, "answers": len(records), "answers_available": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "labels": args.labels, "loss": args.loss,
                   "rate": args.rate, "rank": args.rank, "stride": args.stride, "updates": trainer.totals["updates"],
+                  "kinds": kinds or "all",
                   "groups": [name for name, _, _ in GROUPS], "in_order": summarize(records),
                   "ms_per_round": {kind: 1000 * seconds[kind].get("draft", 0.0) / max(seconds[kind].get("rounds", 0), 1)
                                    for kind in KINDS},
@@ -101,9 +108,9 @@ def main():
         write_json(os.path.join(args.results_dir, "answers.json"), {"groups": status["groups"], "answers": records},
                    separators=(",", ":"))
 
-    def save():
-        save_adapters(args.out, adapters, answers=len(records), updates=trainer.totals["updates"], labels=args.labels,
-                      loss=args.loss, rate=args.rate, stride=args.stride)
+    def save(path=None):
+        save_adapters(path or args.out, adapters, answers=len(records), updates=trainer.totals["updates"],
+                      labels=args.labels, loss=args.loss, rate=args.rate, stride=args.stride, kinds=args.kinds or "all")
 
     for name, index, sequence, prompt_length, source in answers:
         if time.time() - started > args.max_hours * 3600 or (args.max_answers and len(records) >= args.max_answers):
@@ -137,6 +144,8 @@ def main():
         records.append(record)
         if len(records) % args.save_every == 0:
             save()
+        if len(records) in snapshots:
+            save(args.out[: -len(".pt")] + f"-{len(records)}.pt")
         report(False)
     save()
     report(True)

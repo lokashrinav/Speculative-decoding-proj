@@ -138,6 +138,12 @@ def load_adapters(path, adapters):
     return state
 
 
+def adapter_notes(path):
+    """What a saved adapter file says about how it was made (answers seen, updates, labels, rate ...)."""
+    saved = torch.load(path, map_location="cpu")
+    return {key: value for key, value in saved.items() if key != "state"}
+
+
 def detach_adapters(model):
     """Puts the original linear layers back."""
     for layer in model.layers:
