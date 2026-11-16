@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 41,
+ "answers": 43,
  "answers_available": 366,
  "part": "train",
- "hours": 1.029,
+ "hours": 1.1,
  "labels": "immediate",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 52625,
+ "updates": 56241,
  "kinds": "all",
  "groups": [
   "0-2k",
@@ -121,59 +121,65 @@
    }
   },
   {
-   "answers": "41-41",
+   "answers": "41-43",
    "0-2k": {
-    "plain_tokens_per_round": 4.242616033755274,
-    "rounds": 474,
-    "frozen_more_tokens_per_round_than_plain": -0.030674846625766805,
-    "online_more_tokens_per_round_than_plain": -0.04099573557554659
+    "plain_tokens_per_round": 4.996677740863787,
+    "rounds": 1204,
+    "frozen_more_tokens_per_round_than_plain": -0.0041356492969396585,
+    "online_more_tokens_per_round_than_plain": -0.008394623938359103
    },
    "2k+": {
-    "plain_tokens_per_round": 3.7803108808290156,
-    "rounds": 965,
-    "frozen_more_tokens_per_round_than_plain": 0.010471204188481797,
-    "online_more_tokens_per_round_than_plain": 0.007530213661111951
+    "plain_tokens_per_round": 5.382008776206728,
+    "rounds": 4102,
+    "frozen_more_tokens_per_round_than_plain": 0.06795105441291338,
+    "online_more_tokens_per_round_than_plain": 0.06387983996820012
+   },
+   "8k+": {
+    "plain_tokens_per_round": 5.758064516129032,
+    "rounds": 1116,
+    "frozen_more_tokens_per_round_than_plain": 0.18960811161525326,
+    "online_more_tokens_per_round_than_plain": 0.19469734417831308
    },
    "everything": {
-    "plain_tokens_per_round": 3.9325920778318277,
-    "rounds": 1439,
-    "frozen_more_tokens_per_round_than_plain": -0.003462603878116366,
-    "online_more_tokens_per_round_than_plain": -0.008953168044077198
+    "plain_tokens_per_round": 5.29457218243498,
+    "rounds": 5306,
+    "frozen_more_tokens_per_round_than_plain": 0.05069306930693074,
+    "online_more_tokens_per_round_than_plain": 0.046548323471400366
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 3.603663312646864,
-    "rounds": 16597,
-    "frozen_more_tokens_per_round_than_plain": -0.0005319172662644478,
-    "online_more_tokens_per_round_than_plain": 0.003934227361546583
+    "plain_tokens_per_round": 3.6829803197322097,
+    "rounds": 17327,
+    "frozen_more_tokens_per_round_than_plain": 6.842379764115947e-05,
+    "online_more_tokens_per_round_than_plain": 0.0043615317776570794
    },
    "2k+": {
-    "plain_tokens_per_round": 5.567434210526316,
-    "rounds": 20672,
-    "frozen_more_tokens_per_round_than_plain": 0.061927305073108174,
-    "online_more_tokens_per_round_than_plain": 0.07248608024282377
+    "plain_tokens_per_round": 5.607921374270234,
+    "rounds": 23809,
+    "frozen_more_tokens_per_round_than_plain": 0.06516060294240522,
+    "online_more_tokens_per_round_than_plain": 0.07378377924828272
    },
    "8k+": {
-    "plain_tokens_per_round": 5.736310875599293,
-    "rounds": 3963,
-    "frozen_more_tokens_per_round_than_plain": 0.17903693925576136,
-    "online_more_tokens_per_round_than_plain": 0.19150403340235522
+    "plain_tokens_per_round": 5.741090765898799,
+    "rounds": 5079,
+    "frozen_more_tokens_per_round_than_plain": 0.18134768581834448,
+    "online_more_tokens_per_round_than_plain": 0.19220627766502196
    },
    "everything": {
-    "plain_tokens_per_round": 4.692908315221766,
-    "rounds": 37269,
-    "frozen_more_tokens_per_round_than_plain": 0.033183632734530955,
-    "online_more_tokens_per_round_than_plain": 0.04080093833780163
+    "plain_tokens_per_round": 4.797112018669778,
+    "rounds": 41136,
+    "frozen_more_tokens_per_round_than_plain": 0.036745803719945735,
+    "online_more_tokens_per_round_than_plain": 0.04337239385177316
    }
   }
  ],
  "ms_per_round": {
-  "plain": 12.013730052077891,
-  "frozen": 11.983009535291945,
-  "online": 12.141874998501486
+  "plain": 12.010083107881838,
+  "frozen": 11.980924495927857,
+  "online": 12.141192489733932
  },
- "training_ms_per_update": 30.986116592690454,
+ "training_ms_per_update": 30.977909211071996,
  "gpu_memory_peak_gb": 12.11
 }
