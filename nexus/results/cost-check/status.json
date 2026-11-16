@@ -1,0 +1,48 @@
+{
+ "done": false,
+ "block": 16,
+ "fresh_tokens_per_round": 4,
+ "positions_learned_from": 4,
+ "repeats": 40,
+ "rank": 16,
+ "text_tokens_before_repeating": 19132,
+ "milliseconds": [
+  {
+   "tokens_before": 1000,
+   "target_check": 49.22731360420585,
+   "draft_plain": 8.244526339694858,
+   "draft_with_extra_weights": 11.494996026158333,
+   "all": {
+    "draft_keeping_gradients": 13.954708585515618,
+    "update_from_that_draft": 17.323233652859926,
+    "update_in_two_passes": 31.277942238375545,
+    "trained_parameters": 4014080,
+    "at_the_same_time_as_the_check": {
+     "failed": "AcceleratorError: CUDA error: device-side assert triggered\nSearch for `cudaErrorAssert' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BLOCKING=1\n"
+    }
+   },
+   "last2": {
+    "draft_keeping_gradients": 13.071665307506919,
+    "update_from_that_draft": 7.065917132422328,
+    "update_in_two_passes": 20.137582439929247,
+    "trained_parameters": 1605632
+   },
+   "last1": {
+    "draft_keeping_gradients": 12.786475010216236,
+    "update_from_that_draft": 3.6458915565162897,
+    "update_in_two_passes": 16.432366566732526,
+    "trained_parameters": 802816,
+    "at_the_same_time_as_the_check": {
+     "failed": "AcceleratorError: CUDA error: device-side assert triggered\nSearch for `cudaErrorAssert' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing CUDA_LAUNCH_BLOCKING=1\n"
+    }
+   },
+   "attn": {
+    "draft_keeping_gradients": 13.931178720667958,
+    "update_from_that_draft": 15.621868195012212,
+    "update_in_two_passes": 29.55304691568017,
+    "trained_parameters": 1064960
+   }
+  }
+ ],
+ "gpu_memory_peak_gb": 14.63
+}

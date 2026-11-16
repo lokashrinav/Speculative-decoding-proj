@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/fs/classhomes/sloka/specdec-code/cost-check-8435569/nexus/cost_check.py", line 318, in <module>
+    main()
+  File "/fs/classhomes/sloka/specdec-code/cost-check-8435569/nexus/cost_check.py", line 275, in main
+    block_ids = torch.full((1, block), model.mask_token_id, dtype=torch.long, device=device)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: device-side assert triggered
+Search for `cudaErrorAssert' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
