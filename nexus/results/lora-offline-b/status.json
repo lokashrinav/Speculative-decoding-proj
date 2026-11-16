@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 41,
+ "answers": 45,
  "answers_available": 366,
  "part": "train",
- "hours": 1.326,
+ "hours": 1.464,
  "labels": "immediate",
  "loss": "ce",
  "rate": 3e-05,
  "rank": 16,
  "stride": 1,
- "updates": 65808,
+ "updates": 72653,
  "groups": [
   "0-2k",
   "2k+",
@@ -120,59 +120,65 @@
    }
   },
   {
-   "answers": "41-41",
+   "answers": "41-45",
    "0-2k": {
-    "plain_tokens_per_round": 3.040971168437026,
-    "rounds": 659,
-    "frozen_more_tokens_per_round_than_plain": 0.0426327439906915,
-    "online_more_tokens_per_round_than_plain": 0.05083156421655888
+    "plain_tokens_per_round": 3.042718446601942,
+    "rounds": 3090,
+    "frozen_more_tokens_per_round_than_plain": 0.05636211850628636,
+    "online_more_tokens_per_round_than_plain": 0.06287212415871157
    },
    "2k+": {
-    "plain_tokens_per_round": 3.1000848176420694,
-    "rounds": 1179,
-    "frozen_more_tokens_per_round_than_plain": 0.0837463519243089,
-    "online_more_tokens_per_round_than_plain": 0.09800799354799183
+    "plain_tokens_per_round": 3.0637016149705203,
+    "rounds": 7802,
+    "frozen_more_tokens_per_round_than_plain": 0.3490213740467516,
+    "online_more_tokens_per_round_than_plain": 0.38281247821054554
+   },
+   "8k+": {
+    "plain_tokens_per_round": 2.783982683982684,
+    "rounds": 2310,
+    "frozen_more_tokens_per_round_than_plain": 0.7120510490959269,
+    "online_more_tokens_per_round_than_plain": 0.7962677134768543
    },
    "everything": {
-    "plain_tokens_per_round": 3.0788900979325353,
-    "rounds": 1838,
-    "frozen_more_tokens_per_round_than_plain": 0.06860465116279069,
-    "online_more_tokens_per_round_than_plain": 0.080540858318636
+    "plain_tokens_per_round": 3.0577488064634593,
+    "rounds": 10892,
+    "frozen_more_tokens_per_round_than_plain": 0.25066023653691594,
+    "online_more_tokens_per_round_than_plain": 0.2739181286549708
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 2.987756733796412,
-    "rounds": 20011,
-    "frozen_more_tokens_per_round_than_plain": 0.03303011750392826,
-    "online_more_tokens_per_round_than_plain": 0.039554348196884526
+    "plain_tokens_per_round": 2.9937616968184653,
+    "rounds": 22442,
+    "frozen_more_tokens_per_round_than_plain": 0.03590118528781128,
+    "online_more_tokens_per_round_than_plain": 0.04237555603977072
    },
    "2k+": {
-    "plain_tokens_per_round": 3.500121624908781,
-    "rounds": 32888,
-    "frozen_more_tokens_per_round_than_plain": 0.29210803259715856,
-    "online_more_tokens_per_round_than_plain": 0.3177344928376391
+    "plain_tokens_per_round": 3.425881400116423,
+    "rounds": 39511,
+    "frozen_more_tokens_per_round_than_plain": 0.3105384219281728,
+    "online_more_tokens_per_round_than_plain": 0.3381460896370361
    },
    "8k+": {
-    "plain_tokens_per_round": 2.9151608355760605,
-    "rounds": 7803,
-    "frozen_more_tokens_per_round_than_plain": 0.6759504664844533,
-    "online_more_tokens_per_round_than_plain": 0.7384174219345596
+    "plain_tokens_per_round": 2.8851972708395137,
+    "rounds": 10113,
+    "frozen_more_tokens_per_round_than_plain": 0.6840640001633833,
+    "online_more_tokens_per_round_than_plain": 0.7513015523275719
    },
    "everything": {
-    "plain_tokens_per_round": 3.30630068621335,
-    "rounds": 52899,
-    "frozen_more_tokens_per_round_than_plain": 0.1800963726408782,
-    "online_more_tokens_per_round_than_plain": 0.19653924451481553
+    "plain_tokens_per_round": 3.269349345471567,
+    "rounds": 61953,
+    "frozen_more_tokens_per_round_than_plain": 0.19565762809997111,
+    "online_more_tokens_per_round_than_plain": 0.21336101372921523
    }
   }
  ],
  "ms_per_round": {
-  "plain": 11.831051300409671,
-  "frozen": 11.811664793972072,
-  "online": 12.01033410348274
+  "plain": 11.827288087851416,
+  "frozen": 11.811421858277676,
+  "online": 12.007930141797125
  },
- "training_ms_per_update": 31.466781205200828,
+ "training_ms_per_update": 31.41563834953919,
  "gpu_memory_peak_gb": 12.11
 }
