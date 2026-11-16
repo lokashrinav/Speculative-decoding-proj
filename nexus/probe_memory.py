@@ -131,6 +131,50 @@ def load_long_prompts(total, seed, notes):
     return chosen
 
 
+def load_bench_prompts(notes):
+    """(source, prompt) pairs of the math benchmarks the published Test-Time Speculation paper reports on:
+    AIME 2024, AIME 2025 and the hardest MATH-500 problems. In a fixed order, AIME first. These are kept
+    for final comparisons and are never used to choose anything."""
+    from datasets import load_dataset
+
+    def rows_of(names, splits=("train", "test")):
+        """Rows of the first of several places a set is published at that loads."""
+        problems = []
+        for name in names:
+            parts, found = (name if isinstance(name, (list, tuple)) else [name]), []
+            try:
+                for part in parts:
+                    for split in splits:
+                        try:
+                            found.extend(load_dataset(part, split=split))
+                            break
+                        except ValueError:          # no such split: try the next one
+                            continue
+                    else:
+                        raise ValueError(f"no usable split in {part}")
+                return found, "+".join(parts)
+            except Exception as error:
+                problems.append(f"{'+'.join(parts)}: {type(error).__name__}: {str(error)[:120]}")
+        raise RuntimeError("; ".join(problems))
+
+    plan = [
+        ("aime-2024", [["MathArena/aime_2024_I", "MathArena/aime_2024_II"]], None),
+        ("aime-2025", ["MathArena/aime_2025", ["MathArena/aime_2025_I", "MathArena/aime_2025_II"], "opencompass/AIME2025"], None),
+        ("math-500-level5", ["HuggingFaceH4/MATH-500"], lambda row: str(row.get("level", "")).replace("Level", "").strip() == "5"),
+    ]
+    chosen = []
+    for source, names, keep in plan:
+        try:
+            rows, origin = rows_of(names)
+            texts = [field(row, ("problem", "question")) for row in rows if keep is None or keep(row)]
+            texts = list(dict.fromkeys(text for text in texts if text))          # no repeats, order kept
+            chosen.extend((source, text + MATH_SUFFIX) for text in texts)
+            notes[source] = f"{len(texts)} problems from {origin}"
+        except Exception as error:
+            notes[source] = f"FAILED: {type(error).__name__}: {str(error)[:300]}"
+    return chosen
+
+
 def distinct_share(tokens, n=4):
     """Share of different 4-token windows: low values mean the text repeats itself."""
     windows = [tuple(tokens[i : i + n]) for i in range(max(len(tokens) - n + 1, 0))]
@@ -215,7 +259,7 @@ def prepare_prompts(args):
     from transformers import AutoTokenizer
 
     notes = {}
-    prompts = load_long_prompts(args.total, args.seed, notes)
+    prompts = load_bench_prompts(notes) if args.set == "bench" else load_long_prompts(args.total, args.seed, notes)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     kept, sizes, dropped = [], {}, {}
     for source, prompt in prompts:
@@ -244,6 +288,8 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
     parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16")
     parser.add_argument("--total", type=int, default=600)
+    parser.add_argument("--set", default="long", choices=("long", "bench"),
+                        help="long: the development prompts; bench: AIME 2024, AIME 2025 and MATH-500 level 5")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
