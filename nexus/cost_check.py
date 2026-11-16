@@ -12,6 +12,10 @@ This script times the target's check, the draft (plain, with the extra weights, 
 gradients kept), and the update for each choice of extra weights that is trained (all of them,
 the last two layers, the last layer, the attention ones). It does so with the drafter looking
 back at 1,000 up to 32,000 tokens, because some of these costs grow with the length of the text.
+
+It also times an update that runs at the same time as the target's next check, on a second
+stream of the same GPU (as Test-Time Speculation does it), to see how much of the update's
+cost that hides.
 The text itself does not matter for the timing, so one saved answer is repeated to make it long
 enough. Nothing is decoded and nothing is learned here; the numbers go into the estimate of real
 tokens per second for each way of learning.
@@ -19,7 +23,9 @@ tokens per second for each way of learning.
 
 import argparse
 import os
+import contextlib
 import statistics
+import threading
 import time
 
 import torch
@@ -145,6 +151,89 @@ def time_learning(model, head, adapters, trained, features, noise, positions, la
     return middle(drafts, skip), middle(updates, skip)
 
 
+def time_overlap(target, model, head, adapters, trained, ids, features, noise, positions, labels, length, fresh,
+                 repeats, skip, device):
+    """The target's check and an update of the drafter, one after the other and at the same time.
+
+    The draft that the update comes from is made on a second stream of the GPU, so its gradients
+    are worked out on that stream too, while the target checks a block on the first one.
+    Returns milliseconds: the check alone, the update alone, both at the same time."""
+    keep = length - fresh
+    block = noise.shape[1]
+    chosen = {id(adapter) for adapter in trained}
+    for adapter in adapters:
+        adapter.reset()
+        adapter.down.requires_grad_(id(adapter) in chosen)
+        adapter.up.requires_grad_(id(adapter) in chosen)
+    optimizer = torch.optim.Adam([parameter for adapter in trained for parameter in (adapter.down, adapter.up)], lr=1e-6)
+    side = torch.cuda.Stream(device=device) if device.type == "cuda" else None
+
+    def on_side():
+        return torch.cuda.stream(side) if side is not None else contextlib.nullcontext()
+
+    with torch.inference_mode():
+        target_cache = _make_cache(target.config)
+        for begin in range(0, length, 1024):
+            end = min(begin + 1024, length)
+            target(ids[:, begin:end], position_ids=positions[:, begin:end], past_key_values=target_cache, use_cache=True,
+                   logits_to_keep=1)
+        cache = prime(model, head, features, noise, positions, keep)
+    with torch.inference_mode(False):
+        for layer in cache.layers:
+            layer.keys, layer.values = layer.keys.clone(), layer.values.clone()
+        context = features[:, keep:length].clone()
+        steps = positions[:, keep : length + block].clone()
+        block_noise = noise.detach().clone()
+        wanted = labels.clone()
+        weights = torch.exp(-torch.arange(wanted.shape[0], device=device) / 7.0)
+
+    def draft_with_gradients():
+        with torch.inference_mode(False), torch.enable_grad(), on_side():
+            logits = one_draft(model, head, context, block_noise, steps, cache, keep)
+            for layer in cache.layers:
+                layer.keys, layer.values = layer.keys.detach(), layer.values.detach()
+            each = F.cross_entropy(logits[0, : wanted.shape[0]].float(), wanted, reduction="none")
+            return (each * weights).sum() / weights.sum()
+
+    def update(loss):
+        with torch.inference_mode(False), torch.enable_grad(), on_side():
+            optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            optimizer.step()
+            if side is not None:
+                side.synchronize()
+
+    def check():
+        with torch.inference_mode():
+            output = target(ids[:, length : length + block], position_ids=positions[:, length : length + block],
+                            past_key_values=target_cache, use_cache=True, output_hidden_states=True)
+            output.logits.argmax(dim=-1)
+            extract_context_feature(output.hidden_states, model.target_layer_ids)
+            if device.type == "cuda":
+                torch.cuda.current_stream(device).synchronize()
+        _crop_to(target_cache, length)
+
+    checks, updates, together = [], [], []
+    for _ in range(repeats):
+        loss = draft_with_gradients()
+        start = clock(device)
+        check()
+        checked = clock(device)
+        update(loss)
+        updates.append(clock(device) - checked)
+        checks.append(checked - start)
+        loss = draft_with_gradients()
+        start = clock(device)
+        worker = threading.Thread(target=update, args=(loss,))
+        worker.start()
+        check()
+        worker.join()
+        together.append(clock(device) - start)
+    for adapter in adapters:
+        adapter.reset()
+    return middle(checks, skip), middle(updates, skip), middle(together, skip)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
@@ -203,10 +292,21 @@ def main():
                            "update_in_two_passes": draft_ms + update_ms,
                            "trained_parameters": sum(parameter.numel() for adapter in trained
                                                      for parameter in (adapter.down, adapter.up))}
+        rows.append(row)
+        write_json(status_path, status, indent=1)        # the timings so far are kept whatever happens next
+        for choice in ("all", "last1"):
+            try:
+                check_ms, update_ms, both_ms = time_overlap(
+                    target, model, head, adapters, choose_adapters(adapters, choice), ids, features, noise, positions,
+                    labels, length, args.fresh, args.repeats, args.skip, device)
+                row[choice]["at_the_same_time_as_the_check"] = {
+                    "check_alone": check_ms, "update_alone": update_ms, "one_after_the_other": check_ms + update_ms,
+                    "at_the_same_time": both_ms, "added_to_the_check": both_ms - check_ms}
+            except Exception as error:                   # two streams at once is the untried part
+                row[choice]["at_the_same_time_as_the_check"] = {"failed": f"{type(error).__name__}: {error}"[:400]}
         detach_adapters(model)
         for parameter in model.parameters():
             parameter.requires_grad_(False)
-        rows.append(row)
         if device.type == "cuda":
             status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
         write_json(status_path, status, indent=1)
