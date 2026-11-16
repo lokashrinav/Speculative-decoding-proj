@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 4,
+ "answers": 8,
  "answers_available": 141,
  "part": "train",
- "hours": 0.073,
+ "hours": 0.184,
  "labels": "immediate",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 3686,
+ "updates": 9262,
  "kinds": [
   "longwriter",
   "ultrachat"
@@ -22,32 +22,32 @@
  ],
  "in_order": [
   {
-   "answers": "1-4",
+   "answers": "1-8",
    "0-2k": {
-    "plain_tokens_per_round": 2.377217553688142,
-    "rounds": 3213,
-    "frozen_more_tokens_per_round_than_plain": 0.003384739218608823,
-    "online_more_tokens_per_round_than_plain": 0.009372273780528628
+    "plain_tokens_per_round": 2.4710156895127993,
+    "rounds": 6055,
+    "frozen_more_tokens_per_round_than_plain": 0.002320612184437909,
+    "online_more_tokens_per_round_than_plain": 0.016858846955962514
    },
    "2k+": {
-    "plain_tokens_per_round": 3.2601941747572813,
-    "rounds": 515,
-    "frozen_more_tokens_per_round_than_plain": 0.006627279074185699,
-    "online_more_tokens_per_round_than_plain": 0.016574188946460344
+    "plain_tokens_per_round": 4.320590790616855,
+    "rounds": 2302,
+    "frozen_more_tokens_per_round_than_plain": 0.025330994141985252,
+    "online_more_tokens_per_round_than_plain": 0.0908541019561584
    },
    "everything": {
-    "plain_tokens_per_round": 2.499195278969957,
-    "rounds": 3728,
-    "frozen_more_tokens_per_round_than_plain": 0.003769520732364029,
-    "online_more_tokens_per_round_than_plain": 0.010298102981029622
+    "plain_tokens_per_round": 2.9804953930836424,
+    "rounds": 8357,
+    "frozen_more_tokens_per_round_than_plain": 0.008446965126100991,
+    "online_more_tokens_per_round_than_plain": 0.03607736176543508
    }
   }
  ],
  "ms_per_round": {
-  "plain": 12.278157902397854,
-  "frozen": 11.845880762789765,
-  "online": 11.927453098253304
+  "plain": 11.965307758194719,
+  "frozen": 11.803726553862457,
+  "online": 11.911258111257725
  },
- "training_ms_per_update": 31.26927603837618,
- "gpu_memory_peak_gb": 9.82
+ "training_ms_per_update": 30.95364507068133,
+ "gpu_memory_peak_gb": 12.01
 }
