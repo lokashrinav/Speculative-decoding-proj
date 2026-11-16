@@ -88,6 +88,11 @@ def main(paths):
             if second in names:
                 print(f"{first:28s} {second:28s} " + "  ".join(
                     f"{show(compare(answers, first, second, number)):^22s}" for number in range(len(groups))))
+    for first in names:            # an option (stride=, only=) over the same setting without it
+        second = ":".join(part for part in first.split(":") if "=" not in part.split("@")[0])
+        if second != first and second in names:
+            print(f"{first:28s} {second:28s} " + "  ".join(
+                f"{show(compare(answers, first, second, number)):^22s}" for number in range(len(groups))))
     for first in names:            # a start from saved adapters over the same setting from zero
         second = first.split("@")[0]
         if "@" in first and second in names:

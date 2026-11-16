@@ -287,3 +287,51 @@ def test_what_was_learned_can_be_kept_saved_and_used_as_a_starting_state(tmp_pat
     with pytest.raises(AssertionError):
         load_adapters(path, attach_adapters(draft, rank=2))
     detach_adapters(draft)
+
+
+def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
+    from dflash.adapt import choose_adapters
+    from nexus.adapt_drafter import parse_setting
+
+    assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "start_from": ""}
+    assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
+    read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
+    assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "start_from": "off-b"}
+    assert parse_setting("canvas+hindsight:1e-3:only=mlp")["only"] == "mlp"
+    with pytest.raises(ValueError):
+        parse_setting("immediate:3e-4:fast")
+
+    from tests.test_redraft import Qwen3Config, decoding
+
+    target, _ = make_models()
+    torch.manual_seed(3)
+    config = Qwen3Config(num_hidden_layers=2, vocab_size=32, hidden_size=16, intermediate_size=32, num_attention_heads=2,
+                         num_key_value_heads=1, head_dim=8, max_position_embeddings=128, bos_token_id=0, eos_token_id=30,
+                         pad_token_id=0, attention_dropout=0.0, tie_word_embeddings=False)
+    config.num_target_layers, config.target_layer_ids, config.mask_token_id = 2, [0], 31
+    config.block_size, config.is_causal = 4, False
+    draft = decoding.DFlashDraftModel(config).eval().double()            # a drafter with two layers
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    ids = dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True).output_ids
+    adapters = attach_adapters(draft, rank=4)
+    layers = len(draft.layers)
+    assert layers == 2
+    assert len(choose_adapters(adapters)) == 5 * layers and len(choose_adapters(adapters, "attn")) == 2 * layers
+    assert len(choose_adapters(adapters, "mlp")) == 3 * layers and len(choose_adapters(adapters, "last1")) == 5
+    assert choose_adapters(adapters, "last2") == adapters
+    with pytest.raises(ValueError):
+        choose_adapters(adapters, "some")
+    last = choose_adapters(adapters, "last1")
+    assert all(adapter.where[0] == 1 for adapter in last)
+    trainer = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3, trained=last)
+    trainer.begin()
+    replay_decode(draft, target, ids, prompt.shape[1], ended=False, improver=trainer)
+    moved = [adapter.where for adapter in adapters if float(adapter.up.abs().sum()) > 0]
+    assert moved and all(layer == 1 for layer, _ in moved)                 # the first layer's adapters did not move
+    assert not any(adapter.down.requires_grad or adapter.up.requires_grad for adapter in adapters if adapter.where[0] == 0)
+    everything = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3)
+    everything.begin()
+    assert all(adapter.up.requires_grad and float(adapter.up.abs().sum()) == 0.0 for adapter in adapters)
+    replay_decode(draft, target, ids, prompt.shape[1], ended=False, improver=everything)
+    assert any(layer == 0 for layer, _ in [adapter.where for adapter in adapters if float(adapter.up.abs().sum()) > 0])
+    detach_adapters(draft)

@@ -92,12 +92,27 @@ def attach_adapters(model, rank=16, scale=1.0, names=ADAPTED):
                     adapters.append(module)
                 elif isinstance(module, nn.Linear):
                     wrapped = LowRank(module, rank, scale, seed=1000 * number + len(adapters)).to(module.weight.device)
+                    wrapped.where = (number, name)          # which layer and which of its linear layers
                     setattr(parent, name, wrapped)
                     adapters.append(wrapped)
     for adapter in adapters:                 # also when they were attached before and have just been frozen above
         adapter.down.requires_grad_(True)
         adapter.up.requires_grad_(True)
     return adapters
+
+
+def choose_adapters(adapters, only="all"):
+    """The adapters a setting trains: "all", "attn" (attention), "mlp", or "lastK" (the last K layers)."""
+    if only in (None, "", "all"):
+        return list(adapters)
+    if only == "attn":
+        return [adapter for adapter in adapters if adapter.where[1] in ("q_proj", "o_proj")]
+    if only == "mlp":
+        return [adapter for adapter in adapters if adapter.where[1] in ("gate_proj", "up_proj", "down_proj")]
+    if only.startswith("last") and only[4:].isdigit():
+        layers = sorted({adapter.where[0] for adapter in adapters})[-int(only[4:]) :]
+        return [adapter for adapter in adapters if adapter.where[0] in layers]
+    raise ValueError(f"unknown choice of adapters: {only}")
 
 
 def adapter_state(adapters):
@@ -138,8 +153,10 @@ class DraftTrainer:
     replace = False
 
     def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32,
-                 init=None):
+                 init=None, trained=None):
         assert labels in LABELS and loss in ("ce", "kl")
+        # trained: the adapters this trainer changes (choose_adapters). The others stay as they start.
+        self.trained = list(adapters) if trained is None else list(trained)
         # init: a saved state of the adapters (load_adapters) that every request starts from, instead of zero.
         self.init = init
         # Asks decoding (or replay) for the target's `top` most likely tokens at every position of each draft.
@@ -147,7 +164,7 @@ class DraftTrainer:
         self.model, self.adapters = model, adapters
         self.labels, self.rate, self.stride, self.decay, self.loss = labels, rate, stride, decay, loss
         self.predictions = None      # for "kl": (tokens, log-probabilities) the target predicted after every position
-        self.parameters = [parameter for adapter in adapters for parameter in (adapter.down, adapter.up)]
+        self.parameters = [parameter for adapter in self.trained for parameter in (adapter.down, adapter.up)]
         self.scale = float(_draft_value(model.config, "input_embedding_scale", 1.0))
         self.totals = {"updates": 0, "positions": 0, "seconds": 0.0, "rounds": 0}
         self.frozen_target = False
@@ -165,6 +182,11 @@ class DraftTrainer:
             for number, adapter in enumerate(self.adapters):
                 adapter.reset(None if self.init is None else self.init[number])
             self.optimizer = torch.optim.Adam(self.parameters, lr=self.rate) if self.rate > 0 else None
+        # Only the adapters this trainer changes ask for gradients, so a step goes no deeper than it must.
+        chosen = {id(adapter) for adapter in self.trained}
+        for adapter in self.adapters:
+            adapter.down.requires_grad_(id(adapter) in chosen)
+            adapter.up.requires_grad_(id(adapter) in chosen)
         self.cache = None            # the drafter's cache of the context, kept separately for training
         self.pieces = deque()        # (first position, target states) for the context not yet dropped
         self.anchors = deque()       # past rounds that still have positions to train on

@@ -8,7 +8,9 @@ and the result is simply how many rounds the answer takes.
 
 Settings are written as labels:rate (for example hindsight:1e-4), with :kl added to compare
 the drafter with the target's own predictions instead of the committed token alone, and
-"plain" is the frozen drafter. A setting can end in @name: the adapters then start every
+"plain" is the frozen drafter. More can follow the rate: stride=N trains on every Nth
+round only, and only=attn, only=mlp or only=lastK trains part of the adapters (cheaper
+steps). A setting can end in @name: the adapters then start every
 answer from the saved state lora-<name>.pt (trained across other answers by
 nexus/train_adapter.py) instead of from zero, and "frozen@name" uses that state without any
 training during the answer. The labels "canvas" and "canvas+hindsight" need what the target
@@ -23,7 +25,7 @@ import time
 
 import torch
 
-from dflash.adapt import DraftTrainer, attach_adapters, load_adapters
+from dflash.adapt import DraftTrainer, attach_adapters, choose_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
@@ -48,6 +50,28 @@ def by_position(acceptance_lengths, prompt_length, repetition_from):
                     table[number][1] += gained
         start += gained
     return table
+
+
+def parse_setting(setting):
+    """labels:rate, then in any order kl, stride=N (train on every Nth round only) and
+    only=attn|mlp|lastK (which adapters are trained), and at the end @name (start from saved adapters).
+    "plain" and "frozen" take no rate."""
+    body, _, start_from = setting.partition("@")
+    parts = body.split(":")
+    untrained = parts[0] in ("plain", "frozen")
+    options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
+               "only": "all", "start_from": start_from}
+    for part in parts[1 if untrained else 2 :]:
+        key, _, value = part.partition("=")
+        if part in ("kl", "ce"):
+            options["loss"] = part
+        elif key == "stride":
+            options["stride"] = int(value)
+        elif key == "only":
+            options["only"] = value
+        else:
+            raise ValueError(f"cannot read the setting {setting}")
+    return options
 
 
 def settings_for(results_dir, given, folder=os.path.join("nexus", "settings")):
@@ -146,19 +170,19 @@ def main():
     settings, settings_from = settings_for(args.results_dir, args.settings)
     starts = {}
     for setting in settings.split(","):
-        body, _, start_from = setting.partition("@")
-        parts = body.split(":")
-        plain = parts[0] in ("plain", "frozen")
+        options = parse_setting(setting)
+        start_from = options["start_from"]
+        plain = options["labels"] in ("plain", "frozen")
         if start_from and start_from not in starts:
             path = os.path.join(args.adapter_dir, f"lora-{start_from}.pt")
             deadline = time.time() + 60 * args.wait_minutes          # the file may still be in the making
             while not os.path.exists(path) and time.time() < deadline:
                 time.sleep(30)
             starts[start_from] = load_adapters(path, adapters)
-        trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else parts[0],
-                                         rate=0.0 if plain else float(parts[1]), stride=args.stride, decay=args.decay,
-                                         loss=parts[2] if len(parts) > 2 else "ce", top=args.top,
-                                         init=starts.get(start_from))
+        trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else options["labels"],
+                                         rate=options["rate"], stride=options["stride"] or args.stride, decay=args.decay,
+                                         loss=options["loss"], top=args.top, init=starts.get(start_from),
+                                         trained=choose_adapters(adapters, options["only"]))
     top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}
