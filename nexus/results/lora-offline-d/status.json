@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 109,
+ "answers": 110,
  "answers_available": 366,
  "part": "train",
- "hours": 3.305,
+ "hours": 3.35,
  "labels": "immediate",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 166888,
+ "updates": 169202,
  "kinds": "all",
  "groups": [
   "0-2k",
@@ -283,59 +283,65 @@
    }
   },
   {
-   "answers": "101-109",
+   "answers": "101-110",
    "0-2k": {
-    "plain_tokens_per_round": 3.037809187279152,
-    "rounds": 5660,
-    "frozen_more_tokens_per_round_than_plain": 0.07935651776495445,
-    "online_more_tokens_per_round_than_plain": 0.08021549324413724
+    "plain_tokens_per_round": 3.0823831700658424,
+    "rounds": 6227,
+    "frozen_more_tokens_per_round_than_plain": 0.08115157833982667,
+    "online_more_tokens_per_round_than_plain": 0.08363473962041423
    },
    "2k+": {
-    "plain_tokens_per_round": 3.8806244260789717,
-    "rounds": 4356,
-    "frozen_more_tokens_per_round_than_plain": 0.18491357712528322,
-    "online_more_tokens_per_round_than_plain": 0.20253189938238347
+    "plain_tokens_per_round": 3.6233105653248074,
+    "rounds": 6881,
+    "frozen_more_tokens_per_round_than_plain": 0.24736185979162828,
+    "online_more_tokens_per_round_than_plain": 0.267087457446028
+   },
+   "8k+": {
+    "plain_tokens_per_round": 2.6209573091849934,
+    "rounds": 773,
+    "frozen_more_tokens_per_round_than_plain": 0.6104166666666668,
+    "online_more_tokens_per_round_than_plain": 0.6731601731601733
    },
    "everything": {
-    "plain_tokens_per_round": 3.40435303514377,
-    "rounds": 10016,
-    "frozen_more_tokens_per_round_than_plain": 0.12281578675302862,
-    "online_more_tokens_per_round_than_plain": 0.13022396099217892
+    "plain_tokens_per_round": 3.3663411657003355,
+    "rounds": 13108,
+    "frozen_more_tokens_per_round_than_plain": 0.162420850376098,
+    "online_more_tokens_per_round_than_plain": 0.1727668843884793
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 3.1453893712181005,
-    "rounds": 60816,
-    "frozen_more_tokens_per_round_than_plain": 0.06217965883991905,
-    "online_more_tokens_per_round_than_plain": 0.07008334334431132
+    "plain_tokens_per_round": 3.148917452714921,
+    "rounds": 61383,
+    "frozen_more_tokens_per_round_than_plain": 0.0625119858314307,
+    "online_more_tokens_per_round_than_plain": 0.07051513913169072
    },
    "2k+": {
-    "plain_tokens_per_round": 3.4295606031191355,
-    "rounds": 123624,
-    "frozen_more_tokens_per_round_than_plain": 0.3726758106020842,
-    "online_more_tokens_per_round_than_plain": 0.4105195274215967
+    "plain_tokens_per_round": 3.42455350418949,
+    "rounds": 126149,
+    "frozen_more_tokens_per_round_than_plain": 0.37266446203958403,
+    "online_more_tokens_per_round_than_plain": 0.4102340886594451
    },
    "8k+": {
-    "plain_tokens_per_round": 2.871166585671535,
-    "rounds": 39097,
-    "frozen_more_tokens_per_round_than_plain": 0.7463548513651392,
-    "online_more_tokens_per_round_than_plain": 0.8071192860898722
+    "plain_tokens_per_round": 2.8663155254577375,
+    "rounds": 39870,
+    "frozen_more_tokens_per_round_than_plain": 0.7434992467940036,
+    "online_more_tokens_per_round_than_plain": 0.8043155774333133
    },
    "everything": {
-    "plain_tokens_per_round": 3.33585990023856,
-    "rounds": 184440,
-    "frozen_more_tokens_per_round_than_plain": 0.2519463616345634,
-    "online_more_tokens_per_round_than_plain": 0.27656140441177457
+    "plain_tokens_per_round": 3.334332273958578,
+    "rounds": 187532,
+    "frozen_more_tokens_per_round_than_plain": 0.25289782337920497,
+    "online_more_tokens_per_round_than_plain": 0.27749302918344476
    }
   }
  ],
  "ms_per_round": {
-  "plain": 11.563735424648536,
-  "frozen": 11.565735515576316,
-  "online": 11.764231199716514
+  "plain": 11.56381492888866,
+  "frozen": 11.565145238000452,
+  "online": 11.763880907260628
  },
- "training_ms_per_update": 30.60011350352084,
+ "training_ms_per_update": 30.595227971307665,
  "gpu_memory_peak_gb": 12.27
 }
