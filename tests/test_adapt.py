@@ -295,17 +295,19 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
 
     assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "window": 0,
                                       "start_from": "", "trigger": None, "sharpen": None, "one_pass": False,
-                                      "after": 0}
+                                      "after": 0, "windows": None}
     assert parse_setting("frozen:window=2048@off-a") == {"labels": "frozen", "rate": 0.0, "loss": "ce", "stride": 0,
                                                          "only": "all", "window": 2048, "start_from": "off-a",
                                                          "trigger": None, "sharpen": None, "one_pass": False,
-                                                         "after": 0}
+                                                         "after": 0, "windows": None}
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:window=2048")                       # only for settings that do not train
     assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
     read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
     assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "window": 0,
-                    "start_from": "off-b", "trigger": None, "sharpen": None, "one_pass": False, "after": 0}
+                    "start_from": "off-b", "trigger": None, "sharpen": None, "one_pass": False, "after": 0,
+                    "windows": None}
+    assert parse_setting("immediate:3e-4:onepass:windows=4000-6000/8000-9000")["windows"] == [(4000, 6000), (8000, 9000)]
     assert parse_setting("immediate:3e-4:onepass:after=2000")["after"] == 2000
     assert parse_setting("rejected:3e-4:trigger=2")["trigger"] == 2
     assert parse_setting("rejected:3e-4:onepass:only=last1")["one_pass"] is True
@@ -858,3 +860,36 @@ def test_prompts_of_answers_that_ran_into_their_limit(tmp_path):
     some, notes = prompts_of_cut_answers(str(tmp_path), "validation", 50)
     assert [prompt for _, prompt in some] == [sequences[number][: lengths[number]].tolist() for number in wanted]
     assert notes["part"] == "validation" and len(some) < 14
+
+
+@pytest.mark.parametrize("one_pass", [False, True])
+def test_learning_in_a_window_of_the_answer_and_keeping_it_afterwards(one_pass):
+    """windows: a spell of learning while the text is between two lengths; what was learned stays."""
+    from dflash.adapt import OnePassTrainer
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    budget = 260
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    kind = OnePassTrainer if one_pass else DraftTrainer
+    trainer = kind(draft, adapters, labels="immediate", rate=3e-3, windows=[(60, 110), (180, 200)])
+    trainer.begin()
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=trainer, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    places = [position for position, _, _ in trainer.trained_on]
+    assert places and all(60 <= position < 110 or 180 <= position < 200 for position in places)
+    assert any(position < 110 for position in places) and any(position >= 180 for position in places)
+    # Before the first window the rounds are the plain drafter's; after it they are not (what was learned is kept).
+    position, same = prompt.shape[1], True
+    for own, other in zip(plain.acceptance_lengths, live.acceptance_lengths):
+        if position >= 60:
+            break
+        same = same and own == other
+        position += own
+    assert same and live.acceptance_lengths != plain.acceptance_lengths
+    assert any(float(adapter.up.detach().abs().sum()) > 0 for adapter in adapters)
+    trainer.begin()
+    replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    detach_adapters(draft)

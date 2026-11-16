@@ -30,7 +30,9 @@ Which positions of a past round are used is the question this module is built to
 A round can also be left out by how it went: with trigger = K, only rounds in which at most K
 draft tokens were accepted are learned from (an early rejection), which saves the other steps.
 With after = N, nothing is learned until the text is N tokens long: early in an answer the
-drafter is at its best and there is little to gain.
+drafter is at its best and there is little to gain. With windows = [(from, to), ...] the
+drafter learns only while the text is between those lengths, and keeps what it learned after
+each window: a short spell of learning, then drafting at the plain drafter's cost.
 
 What the drafter is compared with can be the committed token alone ("ce"), or what the
 target itself predicted at that position: its most likely tokens with their probabilities
@@ -188,8 +190,10 @@ class DraftTrainer:
     replace = False
 
     def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32,
-                 init=None, trained=None, trigger=None, sharpen=None, after=0):
+                 init=None, trained=None, trigger=None, sharpen=None, after=0, windows=None):
         assert labels in LABELS and loss in ("ce", "kl")
+        # windows: learn only from rounds that begin while the text is between these lengths [(from, to), ...].
+        self.windows = [tuple(window) for window in windows] if windows else None
         # after: learn only from rounds that begin once the text (the prompt included) has this many tokens.
         self.after = after
         # trigger: learn only from rounds in which at most this many draft tokens were accepted (None = every round).
@@ -216,6 +220,12 @@ class DraftTrainer:
 
     def start(self, first_drafter):
         pass
+
+    def open_at(self, start):
+        """Whether a round that begins when the text has `start` tokens may be learned from."""
+        if start < self.after:
+            return False
+        return self.windows is None or any(low <= start < high for low, high in self.windows)
 
     def begin(self, keep=False):
         """Forget what was learned: every request starts from the frozen drafter (or from `init`).
@@ -280,7 +290,7 @@ class DraftTrainer:
                 first, last, soft = 0, anchor["width"], canvas
             if soft is None and self.labels in ("hindsight", "both", "canvas+hindsight") and known >= anchor["width"]:
                 last = known
-            wanted = (self.trigger is None or accepted <= self.trigger) and anchor["start"] >= self.after
+            wanted = (self.trigger is None or accepted <= self.trigger) and self.open_at(anchor["start"])
             if last > first and anchor["round"] % self.stride == 0 and wanted:
                 self._train(s, anchor, first, last, committed, soft)
                 anchor["done"] = known if soft is not None else last
@@ -410,7 +420,7 @@ class OnePassTrainer(DraftTrainer):
 
         On rounds that may be learned from, the pass keeps its gradients until learn() is called."""
         block = noise.shape[1]
-        keep = self.round % self.stride == 0 and start >= self.after
+        keep = self.round % self.stride == 0 and self.open_at(start)
         self.round += 1
         if not keep:
             self.pending = None

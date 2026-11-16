@@ -13,6 +13,8 @@ round only, and only=attn, only=mlp or only=lastK trains part of the adapters (c
 steps). "plain" and "frozen" can take window=N: the drafter then sees only the last N tokens
 of the text so far (a control, for replay only). trigger=K learns only from rounds in which at
 most K draft tokens were accepted. after=N learns nothing until the text is N tokens long.
+windows=4000-6000/8000-9000 learns only while the text is between those lengths and keeps what
+was learned afterwards.
 The labels "rejected" and "accepted" split "immediate" into
 its two parts: the target's correction alone, and the tokens the draft already had right.
 Any setting, "plain" included, can take sharp (or sharp=N): the drafter's attention is then made
@@ -73,7 +75,7 @@ def parse_setting(setting):
     untrained = parts[0] in ("plain", "frozen")
     options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
                "only": "all", "window": 0, "start_from": start_from, "trigger": None, "sharpen": None,
-               "one_pass": False, "after": 0}
+               "one_pass": False, "after": 0, "windows": None}
     for part in parts[1 if untrained else 2 :]:
         key, _, value = part.partition("=")
         if part in ("kl", "ce"):
@@ -86,6 +88,9 @@ def parse_setting(setting):
             options["trigger"] = int(value)
         elif key == "after" and not untrained:       # learn nothing until the text is this many tokens long
             options["after"] = int(value)
+        elif key == "windows" and not untrained:     # learn only while the text is between these lengths
+            options["windows"] = [tuple(int(edge) for edge in window.split("-")) for window in value.split("/")]
+            assert all(len(window) == 2 and window[0] < window[1] for window in options["windows"]), setting
         elif part == "onepass" and not untrained:    # learn from the draft's own pass (no second run of the drafter)
             options["one_pass"] = True
         elif key == "stride":
@@ -118,7 +123,8 @@ def build_trainers(settings, draft, adapters, adapter_dir, wait_minutes=120, str
                                  rate=options["rate"], stride=options["stride"] or stride, decay=decay,
                                  loss=options["loss"], top=top, init=starts.get(start_from),
                                  trained=choose_adapters(adapters, options["only"]),
-                                 trigger=options["trigger"], sharpen=options["sharpen"], after=options["after"])
+                                 trigger=options["trigger"], sharpen=options["sharpen"], after=options["after"],
+                                 windows=options["windows"])
         trainers[setting].context_window = options["window"]
     return trainers, started_from
 
