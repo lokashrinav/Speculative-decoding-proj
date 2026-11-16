@@ -294,15 +294,19 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
     from nexus.adapt_drafter import parse_setting
 
     assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "window": 0,
-                                      "start_from": ""}
+                                      "start_from": "", "trigger": None, "sharpen": None}
     assert parse_setting("frozen:window=2048@off-a") == {"labels": "frozen", "rate": 0.0, "loss": "ce", "stride": 0,
-                                                         "only": "all", "window": 2048, "start_from": "off-a"}
+                                                         "only": "all", "window": 2048, "start_from": "off-a",
+                                                         "trigger": None, "sharpen": None}
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:window=2048")                       # only for settings that do not train
     assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
     read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
     assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "window": 0,
-                    "start_from": "off-b"}
+                    "start_from": "off-b", "trigger": None, "sharpen": None}
+    assert parse_setting("rejected:3e-4:trigger=2")["trigger"] == 2
+    with pytest.raises(ValueError):
+        parse_setting("plain:trigger=2")                                  # only for settings that train
     assert parse_setting("canvas+hindsight:1e-3:only=mlp")["only"] == "mlp"
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:fast")
@@ -384,3 +388,158 @@ def test_a_queued_job_can_be_told_to_step_aside(tmp_path):
     lone = tmp_path / "results" / "adapt-window"
     lone.mkdir()
     assert stepped_aside(str(lone), str(folder))
+
+
+def _starts(prompt, acceptance_lengths):
+    starts = [prompt.shape[1]]
+    for gained in acceptance_lengths:
+        starts.append(starts[-1] + gained)
+    return starts
+
+
+@pytest.mark.parametrize("labels", ["rejected", "accepted"])
+def test_the_correction_and_the_accepted_tokens_can_be_learned_from_separately(labels):
+    """"immediate" has two parts: the token the target wrote itself, and the draft tokens it accepted."""
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    budget = 300
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    trainer = DraftTrainer(draft, adapters, labels=labels, rate=3e-3)
+    trainer.begin()
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=trainer, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    final, width = live.output_ids[0], draft.block_size - 1
+    starts = _starts(prompt, live.acceptance_lengths)
+    gained = dict(zip(starts, live.acceptance_lengths))
+    assert trainer.trained_on, "nothing was trained"
+    for position, first, used in trainer.trained_on:
+        assert final[position + 1 + first : position + 1 + first + len(used)].tolist() == used
+        accepted = min(gained[position] - 1, width)
+        if labels == "rejected":
+            assert accepted < width and first == accepted and len(used) == 1    # the one token the target wrote itself
+        else:
+            assert first == 0 and len(used) == accepted >= 1                    # the draft tokens that were right
+    # Every round that had something of this kind was learned from (the last rounds have no later call).
+    trained = {position for position, _, _ in trainer.trained_on}
+    for position in starts[:-3]:
+        has = gained[position] <= width if labels == "rejected" else gained[position] >= 2
+        assert (position in trained) == has
+    trainer.begin()
+    replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    detach_adapters(draft)
+
+
+def test_learning_only_from_rounds_that_were_rejected_early():
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    budget = 300
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    every = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3)
+    every.begin()
+    dflash_generate_redraft(draft, target, prompt, budget, None, improver=every, return_stats=True)
+    early = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3, trigger=0)
+    early.begin()
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=early, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    gained = dict(zip(_starts(prompt, live.acceptance_lengths), live.acceptance_lengths))
+    assert early.trained_on
+    # Only rounds whose first draft token was already wrong: the target's own token is all there is to learn from.
+    assert all(gained[position] == 1 and len(used) == 1 for position, _, used in early.trained_on)
+    assert 0 < early.totals["updates"] < every.totals["updates"]
+    early.begin()
+    replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=early)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    detach_adapters(draft)
+
+
+def test_sharper_attention_on_long_texts_needs_no_training():
+    """The baseline SharpDraft: the drafter's queries are scaled up as it sees more tokens."""
+    import math
+
+    from dflash.sharp import QueryScale, set_query_scale
+    from nexus.adapt_drafter import parse_setting
+
+    rule = QueryScale()
+    assert rule(100) == 1.0 and rule(2048) == 1.0                              # short texts are left alone
+    assert rule(4096) == pytest.approx(1 + math.log((4096 - 32) / (2048 - 32)) / 5)
+    assert rule(8192) > rule(4096) and rule(10**9) == pytest.approx(math.exp(0.5))    # grows, up to the cap
+    assert QueryScale(fixed=1.3)(5) == 1.3
+    assert parse_setting("plain:sharp")["sharpen"].reference == 2048
+    read = parse_setting("immediate:3e-4:sharp=4096:trigger=2")
+    assert read["sharpen"].reference == 4096 and read["trigger"] == 2 and read["rate"] == 3e-4
+    assert parse_setting("frozen:scale=1.35@off-a")["sharpen"].fixed == 1.35
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    start, budget = prompt.shape[1], 110
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    ids = plain.output_ids
+
+    class Watch:
+        """Keeps the drafter's predictions of every round."""
+
+        replace = False
+
+        def __init__(self):
+            self.rounds = []
+
+        def start(self, first_drafter):
+            pass
+
+        def __call__(self, s):
+            self.rounds.append((int(s.start), s.draft_logits.clone()))
+
+    before = Watch()
+    replay_decode(draft, target, ids, start, ended=False, improver=before)
+    late = QueryScale(reference=60, top=8, slope=0.5, cap=3.0)                 # nothing changes until it sees 60 tokens
+    set_query_scale(draft, late)
+    after = Watch()
+    replay_decode(draft, target, ids, start, ended=False, improver=after)
+    short = long = 0
+    for (position, own), (other_position, other) in zip(before.rounds, after.rounds):
+        assert position == other_position
+        if position + draft.block_size <= late.reference:
+            assert torch.equal(own, other)                                     # a short text is drafted as before
+            short += 1
+        else:
+            assert not torch.equal(own, other)                                 # a long one is not
+            long += 1
+    assert short >= 5 and long >= 5
+    set_query_scale(draft, None)
+
+    # As a setting of a trainer it is switched on for that trainer's answers, with nothing trained.
+    adapters = attach_adapters(draft, rank=4)
+    strong = QueryScale(fixed=4.0)
+    sharp = DraftTrainer(draft, adapters, rate=0.0, sharpen=strong)
+    sharp.begin()
+    assert all(layer.self_attn.query_scale is strong for layer in draft.layers)
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=sharp, return_stats=True)
+    assert torch.equal(live.output_ids, ids)                                   # still the target's own text
+    assert live.acceptance_lengths != plain.acceptance_lengths                 # from other drafts
+    sharp.begin()
+    replayed = replay_decode(draft, target, ids, start, ended=False, improver=sharp)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    assert sharp.totals["updates"] == 0                                        # nothing was trained
+    # The same at every length, with a scale of one, is the plain drafter.
+    one = DraftTrainer(draft, adapters, rate=0.0, sharpen=QueryScale(fixed=1.0))
+    one.begin()
+    assert replay_decode(draft, target, ids, start, ended=False, improver=one).acceptance_lengths \
+        == plain.acceptance_lengths
+    # It can be combined with training during the answer, and decoding and replay still agree.
+    both = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3, sharpen=strong)
+    both.begin()
+    trained = dflash_generate_redraft(draft, target, prompt, budget, None, improver=both, return_stats=True)
+    assert torch.equal(trained.output_ids, ids) and both.totals["updates"] > 0
+    both.begin()
+    assert replay_decode(draft, target, ids, start, ended=False, improver=both).acceptance_lengths \
+        == trained.acceptance_lengths
+    # A trainer without the rule switches it off again.
+    off = DraftTrainer(draft, adapters, rate=0.0)
+    off.begin()
+    assert all(layer.self_attn.query_scale is None for layer in draft.layers)
+    assert replay_decode(draft, target, ids, start, ended=False, improver=off).acceptance_lengths \
+        == plain.acceptance_lengths
+    detach_adapters(draft)

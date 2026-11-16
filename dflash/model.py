@@ -376,6 +376,9 @@ class Qwen3DFlashAttention(nn.Module):
         is_causal = getattr(config, "is_causal", None)
         self.is_causal = layer_type == "sliding_attention" if is_causal is None else bool(is_causal)
         self.sliding_window = config.sliding_window if layer_type == "sliding_attention" else None
+        # A rule (dflash/sharp.py) that gives the number the queries are multiplied by, from how
+        # many tokens they can see. None leaves the queries as they are.
+        self.query_scale = None
 
     def forward(
         self,
@@ -405,6 +408,11 @@ class Qwen3DFlashAttention(nn.Module):
         if past_key_values is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             k, v = past_key_values.update(k, v, self.layer_idx, cache_kwargs)
+        if self.query_scale is not None:
+            sharper = float(self.query_scale(k.shape[-2]))
+            if sharper != 1.0:
+                # The change is worked out in 32-bit numbers and then added, as SharpDraft does it.
+                q = q + (q.float() * (sharper - 1.0)).to(q.dtype)
         if (
             attention_mask is None
             and (self.is_causal or self.sliding_window is not None)

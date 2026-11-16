@@ -11,7 +11,13 @@ the drafter with the target's own predictions instead of the committed token alo
 "plain" is the frozen drafter. More can follow the rate: stride=N trains on every Nth
 round only, and only=attn, only=mlp or only=lastK trains part of the adapters (cheaper
 steps). "plain" and "frozen" can take window=N: the drafter then sees only the last N tokens
-of the text so far (a control, for replay only). A setting can end in @name: the adapters then start every
+of the text so far (a control, for replay only). trigger=K learns only from rounds in which at
+most K draft tokens were accepted. The labels "rejected" and "accepted" split "immediate" into
+its two parts: the target's correction alone, and the tokens the draft already had right.
+Any setting, "plain" included, can take sharp (or sharp=N): the drafter's attention is then made
+sharper as the text grows beyond N tokens (2048 if not given), with no training at all; this is
+the baseline SharpDraft (dflash/sharp.py). scale=X sharpens by the same X at every length.
+A setting can end in @name: the adapters then start every
 answer from the saved state lora-<name>.pt (trained across other answers by
 nexus/train_adapter.py) instead of from zero, and "frozen@name" uses that state without any
 training during the answer. The labels "canvas" and "canvas+hindsight" need what the target
@@ -30,11 +36,13 @@ from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, choose_ad
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
+from dflash.sharp import QueryScale
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
 from nexus.replay_memory import load_answers
 
-GROUPS = (("0-2k", 0, 2000), ("2k+", 2000, 10**9), ("8k+", 8000, 10**9), ("everything", 0, 10**9))
+GROUPS = (("0-2k", 0, 2000), ("2k+", 2000, 10**9), ("8k+", 8000, 10**9), ("everything", 0, 10**9),
+          ("16k+", 16000, 10**9), ("24k+", 24000, 10**9))
 DEFAULT = "plain,immediate:3e-5,immediate:1e-4,immediate:3e-4,hindsight:3e-5,hindsight:1e-4,hindsight:3e-4,both:1e-4"
 
 
@@ -61,11 +69,17 @@ def parse_setting(setting):
     parts = body.split(":")
     untrained = parts[0] in ("plain", "frozen")
     options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
-               "only": "all", "window": 0, "start_from": start_from}
+               "only": "all", "window": 0, "start_from": start_from, "trigger": None, "sharpen": None}
     for part in parts[1 if untrained else 2 :]:
         key, _, value = part.partition("=")
         if part in ("kl", "ce"):
             options["loss"] = part
+        elif key == "sharp":                         # SharpDraft: sharper attention beyond `reference` tokens
+            options["sharpen"] = QueryScale(reference=int(value) if value else 2048)
+        elif key == "scale":                         # the same sharpening at every length
+            options["sharpen"] = QueryScale(fixed=float(value))
+        elif key == "trigger" and not untrained:     # learn only from rounds with at most K accepted draft tokens
+            options["trigger"] = int(value)
         elif key == "stride":
             options["stride"] = int(value)
         elif key == "only":
@@ -189,7 +203,8 @@ def main():
         trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else options["labels"],
                                          rate=options["rate"], stride=options["stride"] or args.stride, decay=args.decay,
                                          loss=options["loss"], top=args.top, init=starts.get(start_from),
-                                         trained=choose_adapters(adapters, options["only"]))
+                                         trained=choose_adapters(adapters, options["only"]),
+                                         trigger=options["trigger"], sharpen=options["sharpen"])
         trainers[setting].context_window = options["window"]
     top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)

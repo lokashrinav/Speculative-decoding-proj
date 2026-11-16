@@ -21,6 +21,14 @@ Which positions of a past round are used is the question this module is built to
                rejected draft tokens, so its prediction belongs to a text that was never written.
   "canvas+hindsight"  "canvas" first, and then the positions after the first rejection once more
                with their exact tokens when the answer has passed them.
+  "rejected"   only the position of the round's first rejection: the one token the target wrote
+               itself in that round, its correction of the draft. A round whose whole draft was
+               accepted teaches nothing.
+  "accepted"   only the positions before the first rejection, where the draft was already right.
+               ("immediate" is "accepted" and "rejected" together.)
+
+A round can also be left out by how it went: with trigger = K, only rounds in which at most K
+draft tokens were accepted are learned from (an early rejection), which saves the other steps.
 
 What the drafter is compared with can be the committed token alone ("ce"), or what the
 target itself predicted at that position: its most likely tokens with their probabilities
@@ -45,9 +53,10 @@ import torch.nn.functional as F
 from torch import nn
 
 from .model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings
+from .sharp import set_query_scale
 
 ADAPTED = ("q_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
-LABELS = ("immediate", "hindsight", "both", "canvas", "canvas+hindsight")
+LABELS = ("immediate", "hindsight", "both", "canvas", "canvas+hindsight", "rejected", "accepted")
 
 
 class LowRank(nn.Module):
@@ -159,8 +168,13 @@ class DraftTrainer:
     replace = False
 
     def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32,
-                 init=None, trained=None):
+                 init=None, trained=None, trigger=None, sharpen=None):
         assert labels in LABELS and loss in ("ce", "kl")
+        # trigger: learn only from rounds in which at most this many draft tokens were accepted (None = every round).
+        self.trigger = trigger
+        # sharpen: a rule for sharper attention on long texts (dflash/sharp.py), switched on for this
+        # trainer's requests and off for the others. It needs no training; it can be combined with it.
+        self.sharpen = sharpen
         # A control for replay only: the drafter sees just the last `context_window` tokens (0 = all).
         self.context_window = 0
         # trained: the adapters this trainer changes (choose_adapters). The others stay as they start.
@@ -186,6 +200,7 @@ class DraftTrainer:
 
         keep: go on from what the earlier answers taught instead. This is not what a request should
         do; it is for training across answers (nexus/train_adapter.py)."""
+        set_query_scale(self.model, self.sharpen)
         if not keep:
             for number, adapter in enumerate(self.adapters):
                 adapter.reset(None if self.init is None else self.init[number])
@@ -227,17 +242,28 @@ class DraftTrainer:
             known = min(start - anchor["start"], anchor["width"])    # offsets 0 .. known - 1 have their token now
             fresh = anchor["round"] == self.round - 1
             first, last, soft = anchor["done"], anchor["done"], None
+            if fresh:
+                # How many of the round's draft tokens were accepted. If that is fewer than the draft had,
+                # the next position holds the token the target wrote itself: its correction.
+                anchor["accepted"] = min(start - anchor["start"] - 1, anchor["width"])
+            accepted = anchor.get("accepted", anchor["width"])
             if self.labels in ("immediate", "both") and fresh:
                 last = known
+            if self.labels == "rejected" and fresh and accepted < anchor["width"]:
+                first, last = accepted, accepted + 1
+            if self.labels == "accepted" and fresh:
+                first, last = 0, accepted
             if self.labels.startswith("canvas") and fresh and canvas is not None \
                     and canvas[0] == anchor["start"] and canvas[1].shape[0] == anchor["width"]:
                 first, last, soft = 0, anchor["width"], canvas
             if soft is None and self.labels in ("hindsight", "both", "canvas+hindsight") and known >= anchor["width"]:
                 last = known
-            if last > first and anchor["round"] % self.stride == 0:
+            wanted = self.trigger is None or accepted <= self.trigger
+            if last > first and anchor["round"] % self.stride == 0 and wanted:
                 self._train(s, anchor, first, last, committed, soft)
                 anchor["done"] = known if soft is not None else last
-            finished = known >= anchor["width"] or (self.labels in ("immediate", "canvas") and anchor["round"] < self.round)
+            finished = known >= anchor["width"] or (
+                self.labels in ("immediate", "canvas", "rejected", "accepted") and anchor["round"] < self.round)
             if not finished:
                 waiting.append(anchor)
         self.anchors = waiting
