@@ -1,0 +1,104 @@
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 5 files:  40%|████      | 2/5 [00:00<00:01,  2.86it/s]Fetching 5 files: 100%|██████████| 5/5 [00:09<00:00,  2.10s/it]Fetching 5 files: 100%|██████████| 5/5 [00:09<00:00,  1.89s/it]
+.cache folder
+.gitattributes 1519
+README.md 2064
+config.json 1097
+dflash.py 14268
+model.safetensors 1074860544
+----- config.json
+{
+  "architectures": [
+    "DFlashDraftModel"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "auto_map": {
+    "AutoModel": "dflash.DFlashDraftModel"
+  },
+  "block_size": 16,
+  "bos_token_id": 151643,
+  "dflash_config": {
+    "mask_token_id": 151669,
+    "target_layer_ids": [
+      1,
+      9,
+      17,
+      25,
+      33
+    ]
+  },
+  "dtype": "bfloat16",
+  "eos_token_id": 151645,
+  "head_dim": 128,
+  "hidden_act": "silu",
+  "hidden_size": 2560,
+  "initializer_range": 0.02,
+  "intermediate_size": 9728,
+  "layer_types": [
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention"
+  ],
+  "max_position_embeddings": 40960,
+  "max_window_layers": 5,
+  "model_type": "qwen3",
+  "num_attention_heads": 32,
+  "num_hidden_layers": 5,
+  "num_key_value_heads": 8,
+  "num_target_layers": 36,
+  "rms_norm_eps": 1e-06,
+  "rope_scaling": null,
+  "rope_theta": 1000000,
+  "sliding_window": null,
+  "tie_word_embeddings": true,
+  "transformers_version": "4.57.1",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 151936
+}
+
+----- README.md
+---
+license: mit
+library_name: transformers
+pipeline_tag: text-generation
+---
+
+# Qwen3-4B-Thinking-Draft-OPD
+
+This repository contains **Qwen3-4B-Thinking-Draft-OPD**, a draft model for speculative decoding introduced in the paper [Draft-OPD: On-Policy Distillation for Speculative Draft Models](https://huggingface.co/papers/2605.29343).
+
+- **Project Page:** [https://www.haodilei.top/draft-opd/](https://www.haodilei.top/draft-opd/)
+- **GitHub Repository:** [https://github.com/bingyang-lei/Draft-OPD](https://github.com/bingyang-lei/Draft-OPD)
+
+## Model Details
+
+- **Target Model:** [`Qwen3-4B(enable_thinking=True)`](https://huggingface.co/Qwen/Qwen3-4B)
+- **Model type:** Draft model for speculative decoding
+- **Architecture:** Same as the original DFlash draft model
+- **Post-training method:** Draft-OPD (On-Policy Distillation)
+
+## Performance and Training Method
+
+Draft-OPD trains speculative draft models with on-policy target feedback. Instead of only learning from fixed target-generated trajectories, the drafter is supervised on draft-induced states exposed during speculative verification, including the positions where draft proposals are rejected. 
+
+Experiments show that Draft-OPD achieves over $5\times$ lossless acceleration for thinking models across diverse tasks, improving over EAGLE-3 and DFlash by 23% and 13%. For detailed training procedures, evaluation settings, and performance results, please refer to our paper: [https://arxiv.org/abs/2605.29343](https://arxiv.org/abs/2605.29343).
+
+## Citation
+
+If you find our work useful, please consider citing our paper:
+
+```bibtex
+@misc{lei2026draftopdonpolicydistillationspeculative,
+      title={Draft-OPD: On-Policy Distillation for Speculative Draft Models}, 
+      author={Haodi Lei and Yafy Li and Haoran Zhang and Shunkai Zhang and Qianjia Cheng and Xiaoye Qu and Ganqu Cui and Bowen Zhou and Ning Ding and Yun Luo and Yu Cheng},
+      year={2026},
+      eprint={2605.29343},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2605.29343}, 
+}
+```

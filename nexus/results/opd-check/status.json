@@ -1,0 +1,74 @@
+{
+ "done": false,
+ "answers": 5,
+ "answers_in_this_job": 25,
+ "part": "validation",
+ "hours": 0.071,
+ "rank": 16,
+ "stride": 1,
+ "settings": "plain,immediate:3e-4",
+ "settings_from": "command line",
+ "saved_adapters_used": {},
+ "adapter_parameters": 4014080,
+ "groups": [
+  "0-2k",
+  "2k+",
+  "8k+",
+  "everything"
+ ],
+ "by_setting": {
+  "plain": {
+   "0-2k": {
+    "rounds": 2647,
+    "tokens_per_round": 3.7612391386475257,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 1879,
+    "tokens_per_round": 5.529536987759447,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "everything": {
+    "rounds": 4526,
+    "tokens_per_round": 4.4953601414052144,
+    "more_tokens_per_round_than_plain": 0.0
+   }
+  },
+  "immediate:3e-4": {
+   "0-2k": {
+    "rounds": 2638,
+    "tokens_per_round": 3.775587566338135,
+    "more_tokens_per_round_than_plain": 0.0038148139912657086
+   },
+   "2k+": {
+    "rounds": 1879,
+    "tokens_per_round": 5.527408195848856,
+    "more_tokens_per_round_than_plain": -0.00038498556304145115
+   },
+   "everything": {
+    "rounds": 4517,
+    "tokens_per_round": 4.504317024573832,
+    "more_tokens_per_round_than_plain": 0.0019924728802303004
+   }
+  }
+ },
+ "cost": {
+  "plain": {
+   "drafting_ms_per_round": 11.816064677753914,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "immediate:3e-4": {
+   "drafting_ms_per_round": 11.933001222095942,
+   "training_ms_per_round": 30.5750716193308,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 30.60895356926357,
+   "updates_per_round": 0.9988930706220943,
+   "positions_per_update": 4.47052304964539
+  }
+ },
+ "gpu_memory_peak_gb": 10.15
+}
