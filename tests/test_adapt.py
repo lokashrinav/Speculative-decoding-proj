@@ -543,3 +543,33 @@ def test_sharper_attention_on_long_texts_needs_no_training():
     assert replay_decode(draft, target, ids, start, ended=False, improver=off).acceptance_lengths \
         == plain.acceptance_lengths
     detach_adapters(draft)
+
+
+def test_the_cost_of_a_round_can_be_timed_piece_by_piece():
+    """nexus/cost_check.py: the check, the draft, and an update made from the draft's own pass."""
+    from dflash.adapt import choose_adapters
+    from dflash.model import _output_head, _raw_input_embeddings
+    from dflash.replay import target_features
+    from nexus.cost_check import time_check, time_drafts, time_learning
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    ids = dflash_generate_redraft(draft, target, prompt, 100, None, return_stats=True).output_ids
+    device, block, length = ids.device, draft.block_size, 60
+    positions = torch.arange(ids.shape[1] + block)[None]
+    features = target_features(target, draft, ids)
+    block_ids = torch.full((1, block), draft.mask_token_id, dtype=torch.long)
+    block_ids[:, 0] = ids[:, length]
+    noise = _raw_input_embeddings(target, block_ids, 1.0)
+    head = _output_head(target)
+    for parameter in target.parameters():
+        parameter.requires_grad_(False)
+    assert time_check(target, draft, ids, positions, length, block, 3, 1, device) > 0
+    assert time_drafts(draft, head, features, noise, positions, length, 2, 3, 1, device) > 0
+    adapters = attach_adapters(draft, rank=4)
+    labels = ids[0, length + 1 : length + 3]
+    draft_ms, update_ms = time_learning(draft, head, adapters, choose_adapters(adapters, "all"), features, noise, positions,
+                                        labels, length, 2, 3, 1, device)
+    assert draft_ms > 0 and update_ms > 0
+    assert all(float(adapter.up.detach().abs().sum()) == 0.0 for adapter in adapters)   # left as they were found
+    detach_adapters(draft)
