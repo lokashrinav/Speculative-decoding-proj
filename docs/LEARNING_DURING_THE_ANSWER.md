@@ -80,32 +80,62 @@ at all 15 positions of the draft ("canvas"). We learn from the accepted tokens a
 correction ("immediate"). Both give the same: canvas +5.0% [3.5, 6.5], immediate +5.1%
 [3.6, 6.8]; beyond 8,000 tokens +18.6% and +18.7% (5.28 to 6.27 tokens per round).
 
-## Result 3: cheaper ways to learn, on the better drafter (Nov 16, 21 of 100 answers so far)
+## Result 3: cheaper ways to learn, on the better drafter (Nov 16, 100 answers)
 
-Jobs `cheap-opd-0..3`. Each line is compared with full learning on the same answers.
+Jobs `cheap-opd-0..3`, read together with `sharp-opd-0..3`. Gains are over the plain drafter.
 
-| variant | against full learning | beyond 8,000 tokens | updates per round |
-|---|---|---|---|
-| one pass (the draft keeps its gradients, no second run of the drafter) | -0.0% [-0.3, 0.1] | +0.0% | 1.00 |
-| the correction alone | -1.8% [-2.5, -1.0] | -4.3% | 0.96 |
-| the accepted tokens alone | -6.8% [-9.1, -4.8] | -11.4% | 0.79 |
-| every 4th round | -3.3% [-5.4, -1.2] | -9.7% | 0.25 |
-| only after an early rejection (at most 2 tokens accepted) | -4.4% [-6.1, -2.2] | -13.6% | 0.50 |
-| only the last layer's extra weights | -4.8% [-7.4, -2.0] | -15.4% | 1.00 |
+| variant | all | 2k+ | 8k+ | updates per round |
+|---|---|---|---|---|
+| full learning (the drafter is run a second time) | +5.2% | +8.2% | +18.9% | 1.00 |
+| one pass (the draft keeps its gradients, no second run) | +5.2% | +8.2% | +19.0% | 1.00 |
+| the correction alone | +3.7% | +5.8% | +14.6% | 0.94 |
+| the accepted tokens alone | -0.8% | +0.0% | +8.1% | 0.77 |
+| every 4th round | +2.7% | +4.3% | +10.9% | 0.25 |
+| only after an early rejection (at most 2 tokens accepted) | +1.9% | +2.4% | +4.5% | 0.49 |
+| only the last layer's extra weights | +1.6% | +2.0% | +3.4% | 1.00 |
+| sharper attention, no training (for comparison) | +1.5% | +2.6% | +7.3% | 0 |
 
-Reading so far. The one-pass update loses nothing and is cheaper (about 20 ms instead of 31 ms
-on an A5000, where a plain round takes about 68 ms). Most of the lesson is in the correction,
-but the accepted tokens add to it. Learning less often costs gain roughly in step with the
-saving, and choosing the rounds with an early rejection is worse than simply taking every 4th
-round. The last layer alone is not enough.
+Reading. The one-pass update gives exactly what the two-pass update gives (difference -0.0%
+[-0.2, 0.1]) and is cheaper. Most of the lesson is in the correction, but the accepted tokens add
+to it; the accepted tokens alone even hurt early in an answer and help late. Learning less often
+costs gain roughly in step with the saving. Choosing the rounds with an early rejection is worse
+than simply taking every 4th round, although it keeps twice as many updates. The last layer alone
+is not enough.
 
-Still open here: the full 100 answers, the second round (`cheap2-opd`: start learning only once
-the answer is long, every 2nd / 8th round, a larger step, attention weights only), the cost of
-every piece of a round (`cost-check`, also an update that runs at the same time as the next
-check), and real tokens per second with the target in the loop (`live-speed`).
+## Result 4: what a round costs (Nov 16, first numbers)
+
+Job `cost-check`, RTX A5000, with 1,000 tokens of text before the block (the job stopped after
+this length because of a mistake in its last part; it runs again as `adapt-amount-0`, for texts
+up to 32,000 tokens).
+
+| piece | milliseconds |
+|---|---|
+| the target's check of a block | 49.2 |
+| a draft, plain drafter | 8.2 |
+| a draft with the extra weights attached | 11.5 |
+| a draft that keeps its gradients (all extra weights) | 14.0 |
+| the update from that draft: all extra weights / last two layers / last layer | 17.3 / 7.1 / 3.6 |
+| a two-pass update, all extra weights | 31.3 |
+
+A plain round is about 61 ms (check, draft, about 4 ms around them). Full one-pass learning on
+every round makes it about 85 ms: 38% slower, for 5% more tokens per round on the better drafter
+and 21% on the public one. Every 4th round: about 70 ms, 14% slower, for 2.7% more tokens on the
+better drafter. So with the update done between two rounds, learning during the answer is slower
+in real time than doing nothing, on answers of up to 16,384 tokens, on both drafters; only far into
+long answers on the public drafter (+71% tokens beyond 8,000) does it come out ahead of the plain
+drafter, and there the free rule (sharper attention, +37.5%) is about as good in real time.
+
+What could still change this: an update that runs at the same time as the next round on the same
+GPU instead of between two rounds (being measured), and answers much longer than 16,384 tokens,
+where the plain drafters fall off more (being decoded and replayed, see below).
 
 ## Still to come
 
+- Real tokens per second with the target in the loop: `live-speed-0` (better drafter) and
+  `adapt-amount-1` (public drafter): plain, sharper attention, fixed weights taught ahead of time,
+  one-pass learning on every round and on every 4th round.
+- Second round on cheap learning (`cheap2-opd`): start learning only once the answer is long,
+  every 2nd / 8th round, a larger step, attention weights only.
 - Answers of up to 32,768 new tokens on the benchmark problems (AIME 2024, AIME 2025, hardest
   MATH-500): `bench3-decode-0..3`, then replays with both drafters (`long-eval`, `long-opd`).
   This is the test of where learning during the answer matters most: far into very long answers.
