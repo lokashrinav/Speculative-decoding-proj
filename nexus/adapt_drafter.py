@@ -143,7 +143,7 @@ def main():
     parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16")
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--results-dir", required=True)
-    parser.add_argument("--part", default="validation")
+    parser.add_argument("--part", default="validation", help="train, validation, test, or all (every answer in the folder)")
     parser.add_argument("--settings", default=DEFAULT)
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--stride", type=int, default=1)
@@ -159,7 +159,8 @@ def main():
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    answers = [answer for answer in load_answers(args.data_dir) if split_of([answer[0], answer[1]]) == args.part]
+    answers = [answer for answer in load_answers(args.data_dir)
+               if args.part == "all" or split_of([answer[0], answer[1]]) == args.part]
     answers = answers[args.shard :: args.num_shards]
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0, "answers_in_this_job": len(answers)}, indent=1)
