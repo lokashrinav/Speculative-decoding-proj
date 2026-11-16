@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 81,
+ "answers": 85,
  "answers_available": 366,
  "part": "train",
- "hours": 2.625,
+ "hours": 2.707,
  "labels": "immediate",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 132080,
+ "updates": 136319,
  "kinds": "all",
  "groups": [
   "0-2k",
@@ -229,59 +229,65 @@
    }
   },
   {
-   "answers": "81-81",
+   "answers": "81-85",
    "0-2k": {
-    "plain_tokens_per_round": 3.0468986384266263,
-    "rounds": 661,
-    "frozen_more_tokens_per_round_than_plain": 0.05876890611870755,
-    "online_more_tokens_per_round_than_plain": 0.08896210873146626
+    "plain_tokens_per_round": 3.211092985318108,
+    "rounds": 3065,
+    "frozen_more_tokens_per_round_than_plain": 0.06616595721785723,
+    "online_more_tokens_per_round_than_plain": 0.08403344883050501
    },
    "2k+": {
-    "plain_tokens_per_round": 2.9165048543689323,
-    "rounds": 515,
-    "frozen_more_tokens_per_round_than_plain": 0.012461446296882395,
-    "online_more_tokens_per_round_than_plain": 0.034136546184738936
+    "plain_tokens_per_round": 3.512958280657396,
+    "rounds": 3164,
+    "frozen_more_tokens_per_round_than_plain": 0.22277320539358603,
+    "online_more_tokens_per_round_than_plain": 0.2557414284968462
+   },
+   "8k+": {
+    "plain_tokens_per_round": 7.7,
+    "rounds": 20,
+    "frozen_more_tokens_per_round_than_plain": 0.8417945690672963,
+    "online_more_tokens_per_round_than_plain": 0.8417945690672963
    },
    "everything": {
-    "plain_tokens_per_round": 2.989795918367347,
-    "rounds": 1176,
-    "frozen_more_tokens_per_round_than_plain": 0.03795233892321259,
-    "online_more_tokens_per_round_than_plain": 0.06425339366515836
+    "plain_tokens_per_round": 3.3644244662064535,
+    "rounds": 6229,
+    "frozen_more_tokens_per_round_than_plain": 0.1402159985356033,
+    "online_more_tokens_per_round_than_plain": 0.16473448017950654
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 3.099072663739808,
-    "rounds": 44644,
-    "frozen_more_tokens_per_round_than_plain": 0.055419433892083036,
-    "online_more_tokens_per_round_than_plain": 0.06461002747240152
+    "plain_tokens_per_round": 3.107103383778269,
+    "rounds": 47048,
+    "frozen_more_tokens_per_round_than_plain": 0.05606820995371509,
+    "online_more_tokens_per_round_than_plain": 0.06552393373070209
    },
    "2k+": {
-    "plain_tokens_per_round": 3.3567733144829988,
-    "rounds": 97611,
-    "frozen_more_tokens_per_round_than_plain": 0.37791217832645607,
-    "online_more_tokens_per_round_than_plain": 0.4215239286719892
+    "plain_tokens_per_round": 3.3639636943945743,
+    "rounds": 100260,
+    "frozen_more_tokens_per_round_than_plain": 0.3749620222513239,
+    "online_more_tokens_per_round_than_plain": 0.4183493644294922
    },
    "8k+": {
-    "plain_tokens_per_round": 2.8064641164018007,
-    "rounds": 33539,
-    "frozen_more_tokens_per_round_than_plain": 0.7428683796367035,
-    "online_more_tokens_per_round_than_plain": 0.8113283054074596
+    "plain_tokens_per_round": 2.809380494055246,
+    "rounds": 33559,
+    "frozen_more_tokens_per_round_than_plain": 0.7429491212852923,
+    "online_more_tokens_per_round_than_plain": 0.8113717590329272
    },
    "everything": {
-    "plain_tokens_per_round": 3.275898913922182,
-    "rounds": 142255,
-    "frozen_more_tokens_per_round_than_plain": 0.2573023849156655,
-    "online_more_tokens_per_round_than_plain": 0.28616722841302455
+    "plain_tokens_per_round": 3.281926304070383,
+    "rounds": 147308,
+    "frozen_more_tokens_per_round_than_plain": 0.2539729539848037,
+    "online_more_tokens_per_round_than_plain": 0.2826477038826407
    }
   }
  ],
  "ms_per_round": {
-  "plain": 11.572132227681982,
-  "frozen": 11.574923751810534,
-  "online": 11.774544288212311
+  "plain": 11.571540699527386,
+  "frozen": 11.574767229442205,
+  "online": 11.773954192942515
  },
- "training_ms_per_update": 30.697693909895097,
+ "training_ms_per_update": 30.685576288431776,
  "gpu_memory_peak_gb": 12.27
 }
