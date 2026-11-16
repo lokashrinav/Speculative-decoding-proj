@@ -13,9 +13,9 @@ gradients kept), and the update for each choice of extra weights that is trained
 the last two layers, the last layer, the attention ones). It does so with the drafter looking
 back at 1,000 up to 32,000 tokens, because some of these costs grow with the length of the text.
 
-It also times an update that runs at the same time as the target's next check, on a second
-stream of the same GPU (as Test-Time Speculation does it), to see how much of the update's
-cost that hides.
+It also times an update that runs at the same time as the next round (the next draft and its
+check), on a second stream of the same GPU, as Test-Time Speculation does it, to see how much
+of the update's cost that hides.
 The text itself does not matter for the timing, so one saved answer is repeated to make it long
 enough. Nothing is decoded and nothing is learned here; the numbers go into the estimate of real
 tokens per second for each way of learning.
@@ -153,11 +153,11 @@ def time_learning(model, head, adapters, trained, features, noise, positions, la
 
 def time_overlap(target, model, head, adapters, trained, ids, features, noise, positions, labels, length, fresh,
                  repeats, skip, device):
-    """The target's check and an update of the drafter, one after the other and at the same time.
+    """A round of decoding with the update of the round before running at the same time.
 
     The draft that the update comes from is made on a second stream of the GPU, so its gradients
-    are worked out on that stream too, while the target checks a block on the first one.
-    Returns milliseconds: the check alone, the update alone, both at the same time."""
+    are worked out on that stream too, while the next draft and its check run on the first one.
+    Returns milliseconds: a round alone (draft and check), the update alone, both at the same time."""
     keep = length - fresh
     block = noise.shape[1]
     chosen = {id(adapter) for adapter in trained}
@@ -177,7 +177,8 @@ def time_overlap(target, model, head, adapters, trained, ids, features, noise, p
             end = min(begin + 1024, length)
             target(ids[:, begin:end], position_ids=positions[:, begin:end], past_key_values=target_cache, use_cache=True,
                    logits_to_keep=1)
-        cache = prime(model, head, features, noise, positions, keep)
+        plain_cache = prime(model, head, features, noise, positions, keep)      # for the next round's own draft
+        cache = prime(model, head, features, noise, positions, keep)            # for the draft that is learned from
     with torch.inference_mode(False):
         for layer in cache.layers:
             layer.keys, layer.values = layer.keys.clone(), layer.values.clone()
@@ -186,14 +187,18 @@ def time_overlap(target, model, head, adapters, trained, ids, features, noise, p
         block_noise = noise.detach().clone()
         wanted = labels.clone()
         weights = torch.exp(-torch.arange(wanted.shape[0], device=device) / 7.0)
+    clock(device)            # everything above is finished before the second stream reads it
 
     def draft_with_gradients():
+        clock(device)
         with torch.inference_mode(False), torch.enable_grad(), on_side():
             logits = one_draft(model, head, context, block_noise, steps, cache, keep)
             for layer in cache.layers:
                 layer.keys, layer.values = layer.keys.detach(), layer.values.detach()
             each = F.cross_entropy(logits[0, : wanted.shape[0]].float(), wanted, reduction="none")
-            return (each * weights).sum() / weights.sum()
+            loss = (each * weights).sum() / weights.sum()
+        clock(device)
+        return loss
 
     def update(loss):
         with torch.inference_mode(False), torch.enable_grad(), on_side():
@@ -203,8 +208,9 @@ def time_overlap(target, model, head, adapters, trained, ids, features, noise, p
             if side is not None:
                 side.synchronize()
 
-    def check():
+    def next_round():
         with torch.inference_mode():
+            one_draft(model, head, features[:, keep:length], noise, positions[:, keep : length + block], plain_cache, keep)
             output = target(ids[:, length : length + block], position_ids=positions[:, length : length + block],
                             past_key_values=target_cache, use_cache=True, output_hidden_states=True)
             output.logits.argmax(dim=-1)
@@ -213,25 +219,25 @@ def time_overlap(target, model, head, adapters, trained, ids, features, noise, p
                 torch.cuda.current_stream(device).synchronize()
         _crop_to(target_cache, length)
 
-    checks, updates, together = [], [], []
+    rounds, updates, together = [], [], []
     for _ in range(repeats):
         loss = draft_with_gradients()
         start = clock(device)
-        check()
-        checked = clock(device)
+        next_round()
+        after_round = clock(device)
         update(loss)
-        updates.append(clock(device) - checked)
-        checks.append(checked - start)
+        updates.append(clock(device) - after_round)
+        rounds.append(after_round - start)
         loss = draft_with_gradients()
         start = clock(device)
         worker = threading.Thread(target=update, args=(loss,))
         worker.start()
-        check()
+        next_round()
         worker.join()
         together.append(clock(device) - start)
     for adapter in adapters:
         adapter.reset()
-    return middle(checks, skip), middle(updates, skip), middle(together, skip)
+    return middle(rounds, skip), middle(updates, skip), middle(together, skip)
 
 
 def main():
@@ -271,12 +277,21 @@ def main():
     status = {"done": False, "block": block, "fresh_tokens_per_round": args.fresh,
               "positions_learned_from": args.learned, "repeats": args.repeats, "rank": args.rank,
               "text_tokens_before_repeating": int(sequence.shape[0]), "milliseconds": rows}
-    for length in lengths:
+
+    def block_at(length):
         block_ids = torch.full((1, block), model.mask_token_id, dtype=torch.long, device=device)
         block_ids[:, 0] = ids[:, length]
         with torch.inference_mode():
-            noise = _raw_input_embeddings(target, block_ids, scale)
-        labels = ids[0, length + 1 : length + 1 + args.learned]
+            return _raw_input_embeddings(target, block_ids, scale), ids[0, length + 1 : length + 1 + args.learned]
+
+    def without_adapters():
+        detach_adapters(model)
+        for parameter in model.parameters():
+            parameter.requires_grad_(False)
+
+    # First every piece on its own, for every length. These numbers are saved before anything else is tried.
+    for length in lengths:
+        noise, labels = block_at(length)
         row = {"tokens_before": length}
         row["target_check"] = time_check(target, model, ids, positions, length, block, args.repeats, args.skip, device)
         row["draft_plain"] = time_drafts(model, head, features, noise, positions, length, args.fresh, args.repeats,
@@ -292,24 +307,35 @@ def main():
                            "update_in_two_passes": draft_ms + update_ms,
                            "trained_parameters": sum(parameter.numel() for adapter in trained
                                                      for parameter in (adapter.down, adapter.up))}
+        without_adapters()
         rows.append(row)
-        write_json(status_path, status, indent=1)        # the timings so far are kept whatever happens next
-        for choice in ("all", "last1"):
-            try:
-                check_ms, update_ms, both_ms = time_overlap(
-                    target, model, head, adapters, choose_adapters(adapters, choice), ids, features, noise, positions,
-                    labels, length, args.fresh, args.repeats, args.skip, device)
-                row[choice]["at_the_same_time_as_the_check"] = {
-                    "check_alone": check_ms, "update_alone": update_ms, "one_after_the_other": check_ms + update_ms,
-                    "at_the_same_time": both_ms, "added_to_the_check": both_ms - check_ms}
-            except Exception as error:                   # two streams at once is the untried part
-                row[choice]["at_the_same_time_as_the_check"] = {"failed": f"{type(error).__name__}: {error}"[:400]}
-        detach_adapters(model)
-        for parameter in model.parameters():
-            parameter.requires_grad_(False)
         if device.type == "cuda":
             status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
         write_json(status_path, status, indent=1)
+
+    # Then an update that runs at the same time as the next round, on two streams of the GPU. This is the
+    # untried part: if it fails, the GPU is of no use to this process any more, so it comes last and stops.
+    failed = False
+    for row, length in zip(rows, lengths):
+        noise, labels = block_at(length)
+        adapters = attach_adapters(model, rank=args.rank)
+        for choice in ("all", "last2", "last1"):
+            if failed:
+                break
+            try:
+                round_ms, update_ms, both_ms = time_overlap(
+                    target, model, head, adapters, choose_adapters(adapters, choice), ids, features, noise, positions,
+                    labels, length, args.fresh, args.repeats, args.skip, device)
+                row[choice]["at_the_same_time_as_the_next_round"] = {
+                    "round_alone": round_ms, "update_alone": update_ms, "one_after_the_other": round_ms + update_ms,
+                    "at_the_same_time": both_ms, "added_to_the_round": both_ms - round_ms}
+            except Exception as error:
+                row[choice]["at_the_same_time_as_the_next_round"] = {"failed": f"{type(error).__name__}: {error}"[:400]}
+                failed = True
+        write_json(status_path, status, indent=1)
+        if failed:
+            break
+        without_adapters()
     status["done"] = True
     write_json(status_path, status, indent=1)
 

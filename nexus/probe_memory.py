@@ -254,11 +254,43 @@ def write_json(path, value, **options):
     os.replace(path + ".tmp", path)
 
 
-def stepped_aside(results_dir, folder=os.path.join("nexus", "settings")):
-    """A queued job cannot be taken back, but its plans can change before it starts. If the job's name,
-    or its name without the number at the end, is a line of nexus/settings/skip.txt, the job writes
-    that it stepped aside and does nothing else. Returns whether it did."""
+def other_work(name, folder):
+    """The line of nexus/settings/instead.txt for this job, as [script, arguments...], or None.
+
+    A line reads `job-name: script.py --its arguments`."""
+    path = os.path.join(folder, "instead.txt")
+    if not os.path.exists(path):
+        return None
+    with open(path) as handle:
+        for line in handle:
+            job, colon, work = line.split("#")[0].partition(":")
+            if colon and job.strip() == name and work.split():
+                return [os.path.expanduser(part) for part in work.split()]
+    return None
+
+
+def stepped_aside(results_dir, folder=os.path.join("nexus", "settings"), scripts="nexus"):
+    """A queued job cannot be taken back or moved, but its plans can change before it starts.
+
+    If the job's name, or its name without the number at the end, is a line of nexus/settings/skip.txt,
+    the job writes that it stepped aside and does nothing else. If nexus/settings/instead.txt gives the
+    job other work (a line `job-name: script.py arguments`), it runs that script instead, with the
+    results going to the job's own results folder: a job that waits near the front of the queue can
+    so be used for something more urgent. Returns whether the job's own work should be left undone."""
+    if os.environ.get("SPECDEC_OTHER_WORK"):           # this process is the other work: it does its own job
+        return False
     name = os.path.basename(os.path.normpath(results_dir))
+    work = other_work(name, folder)
+    if work is not None:
+        import subprocess
+
+        command = [sys.executable, os.path.join(scripts, work[0]), *work[1:], "--results-dir", results_dir]
+        with open(os.path.join(results_dir, "instead.txt"), "w") as handle:
+            handle.write(" ".join(command) + "\n")
+        code = subprocess.run(command, env={**os.environ, "SPECDEC_OTHER_WORK": "1"}).returncode
+        if code != 0:
+            raise SystemExit(code)
+        return True
     path = os.path.join(folder, "skip.txt")
     if not os.path.exists(path):
         return False

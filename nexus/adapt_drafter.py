@@ -126,7 +126,12 @@ def build_trainers(settings, draft, adapters, adapter_dir, wait_minutes=120, str
 def settings_for(results_dir, given, folder=os.path.join("nexus", "settings")):
     """The settings of a job can still be chosen after it was queued: the first line of
     nexus/settings/<job name without its number>.txt, if that file exists, replaces the
-    ones on the command line. Returns the settings and where they came from."""
+    ones on the command line. Returns the settings and where they came from.
+
+    A job that was given other work (nexus/settings/instead.txt) keeps the settings of that work:
+    the file named after the job belongs to the work it was queued for."""
+    if os.environ.get("SPECDEC_OTHER_WORK"):
+        return given, "nexus/settings/instead.txt"
     family = os.path.basename(os.path.normpath(results_dir)).rsplit("-", 1)[0]
     path = os.path.join(folder, family + ".txt")
     if os.path.exists(path):

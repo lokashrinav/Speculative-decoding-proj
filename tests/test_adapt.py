@@ -577,6 +577,11 @@ def test_the_cost_of_a_round_can_be_timed_piece_by_piece():
     draft_ms, update_ms = time_learning(draft, head, adapters, choose_adapters(adapters, "all"), features, noise, positions,
                                         labels, length, 2, 3, 1, device)
     assert draft_ms > 0 and update_ms > 0
+    from nexus.cost_check import time_overlap
+
+    round_ms, alone_ms, both_ms = time_overlap(target, draft, head, adapters, choose_adapters(adapters, "all"), ids,
+                                               features, noise, positions, labels, length, 2, 3, 1, device)
+    assert min(round_ms, alone_ms, both_ms) > 0
     assert all(float(adapter.up.detach().abs().sum()) == 0.0 for adapter in adapters)   # left as they were found
     detach_adapters(draft)
 
@@ -728,3 +733,50 @@ def test_learning_can_wait_until_the_text_is_long(one_pass):
     replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
     assert replayed.acceptance_lengths == live.acceptance_lengths
     detach_adapters(draft)
+
+
+def test_a_waiting_job_can_be_given_other_work(tmp_path, monkeypatch):
+    """nexus/settings/instead.txt: a queued job runs another script instead of its own work."""
+    import json
+    import sys
+
+    from nexus.probe_memory import other_work, stepped_aside
+
+    folder, scripts = tmp_path / "settings", tmp_path / "scripts"
+    folder.mkdir()
+    scripts.mkdir()
+    (scripts / "other.py").write_text(
+        "import argparse, json, os\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('--results-dir'); parser.add_argument('--word')\n"
+        "args = parser.parse_args()\n"
+        "json.dump({'word': args.word, 'marked': os.environ.get('SPECDEC_OTHER_WORK')},"
+        " open(os.path.join(args.results_dir, 'status.json'), 'w'))\n")
+    (scripts / "fails.py").write_text("raise SystemExit(3)\n")
+    (folder / "instead.txt").write_text(
+        "# job: script arguments\nwaiting-0: other.py --word hello   # the urgent thing\nbroken-1: fails.py\n")
+    (folder / "skip.txt").write_text("waiting\n")
+    monkeypatch.delenv("SPECDEC_OTHER_WORK", raising=False)
+    assert other_work("waiting-0", str(folder)) == ["other.py", "--word", "hello"]
+    assert other_work("waiting-1", str(folder)) is None
+    job = tmp_path / "results" / "waiting-0"
+    job.mkdir(parents=True)
+    assert stepped_aside(str(job), str(folder), str(scripts))                  # it did the other work, not its own
+    assert json.loads((job / "status.json").read_text()) == {"word": "hello", "marked": "1"}
+    assert "other.py --word hello" in (job / "instead.txt").read_text()
+    sibling = tmp_path / "results" / "waiting-1"                               # not named: the skip list still holds
+    sibling.mkdir()
+    assert stepped_aside(str(sibling), str(folder), str(scripts))
+    assert json.loads((sibling / "status.json").read_text())["stepped_aside"] is True
+    broken = tmp_path / "results" / "broken-1"                                 # the other work failed: so does the job
+    broken.mkdir()
+    with pytest.raises(SystemExit) as failure:
+        stepped_aside(str(broken), str(folder), str(scripts))
+    assert failure.value.code == 3
+    from nexus.adapt_drafter import settings_for
+
+    (folder / "waiting.txt").write_text("plain,frozen@off-a\n")
+    assert settings_for(str(job), "plain", str(folder)) == ("plain,frozen@off-a", str(folder / "waiting.txt"))
+    monkeypatch.setenv("SPECDEC_OTHER_WORK", "1")                              # the other work itself carries on,
+    assert not stepped_aside(str(job), str(folder), str(scripts))
+    assert settings_for(str(job), "plain", str(folder))[0] == "plain"          # with its own settings

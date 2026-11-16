@@ -1,0 +1,4 @@
+# A queued job cannot be moved up, but a job that waits near the front can be given more urgent work.
+# job-name: script.py arguments      (the results go to that job's own results folder)
+adapt-amount-0: cost_check.py --data-dir ~/specdec-data/long1
+adapt-amount-1: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 8000 --max-answers 6 --max-hours 3.2 --settings plain,plain:sharp,frozen@off-a,immediate:3e-4:onepass,immediate:3e-4:onepass:stride=4
