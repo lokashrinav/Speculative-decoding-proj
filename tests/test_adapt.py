@@ -294,16 +294,19 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
     from nexus.adapt_drafter import parse_setting
 
     assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "window": 0,
-                                      "start_from": "", "trigger": None, "sharpen": None, "one_pass": False}
+                                      "start_from": "", "trigger": None, "sharpen": None, "one_pass": False,
+                                      "after": 0}
     assert parse_setting("frozen:window=2048@off-a") == {"labels": "frozen", "rate": 0.0, "loss": "ce", "stride": 0,
                                                          "only": "all", "window": 2048, "start_from": "off-a",
-                                                         "trigger": None, "sharpen": None, "one_pass": False}
+                                                         "trigger": None, "sharpen": None, "one_pass": False,
+                                                         "after": 0}
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:window=2048")                       # only for settings that do not train
     assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
     read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
     assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "window": 0,
-                    "start_from": "off-b", "trigger": None, "sharpen": None, "one_pass": False}
+                    "start_from": "off-b", "trigger": None, "sharpen": None, "one_pass": False, "after": 0}
+    assert parse_setting("immediate:3e-4:onepass:after=2000")["after"] == 2000
     assert parse_setting("rejected:3e-4:trigger=2")["trigger"] == 2
     assert parse_setting("rejected:3e-4:onepass:only=last1")["one_pass"] is True
     with pytest.raises(ValueError):
@@ -693,3 +696,35 @@ def test_real_speed_is_counted_by_how_far_into_the_answer_a_round_began():
     assert [produced for _, produced, _ in rounds] == result.acceptance_lengths
     assert rounds[0][0] == 0 and all(later[2] >= earlier[2] for earlier, later in zip(rounds, rounds[1:]))
     assert all(later[0] == earlier[0] + earlier[1] for earlier, later in zip(rounds, rounds[1:]))
+
+
+@pytest.mark.parametrize("one_pass", [False, True])
+def test_learning_can_wait_until_the_text_is_long(one_pass):
+    from dflash.adapt import OnePassTrainer
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    budget, wait = 200, 90
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    kind = OnePassTrainer if one_pass else DraftTrainer
+    trainer = kind(draft, adapters, labels="immediate", rate=3e-3, after=wait)
+    trainer.begin()
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=trainer, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    assert trainer.trained_on and min(position for position, _, _ in trainer.trained_on) >= wait
+    # Until then the rounds are the plain drafter's rounds.
+    position = prompt.shape[1]
+    for own, other in zip(plain.acceptance_lengths, live.acceptance_lengths):
+        if position >= wait:
+            break
+        assert own == other
+        position += own
+    always = kind(draft, adapters, labels="immediate", rate=3e-3)
+    always.begin()
+    dflash_generate_redraft(draft, target, prompt, budget, None, improver=always, return_stats=True)
+    assert trainer.totals["updates"] < always.totals["updates"]
+    trainer.begin()
+    replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    detach_adapters(draft)

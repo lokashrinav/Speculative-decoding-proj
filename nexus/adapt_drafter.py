@@ -12,7 +12,8 @@ the drafter with the target's own predictions instead of the committed token alo
 round only, and only=attn, only=mlp or only=lastK trains part of the adapters (cheaper
 steps). "plain" and "frozen" can take window=N: the drafter then sees only the last N tokens
 of the text so far (a control, for replay only). trigger=K learns only from rounds in which at
-most K draft tokens were accepted. The labels "rejected" and "accepted" split "immediate" into
+most K draft tokens were accepted. after=N learns nothing until the text is N tokens long.
+The labels "rejected" and "accepted" split "immediate" into
 its two parts: the target's correction alone, and the tokens the draft already had right.
 Any setting, "plain" included, can take sharp (or sharp=N): the drafter's attention is then made
 sharper as the text grows beyond N tokens (2048 if not given), with no training at all; this is
@@ -72,7 +73,7 @@ def parse_setting(setting):
     untrained = parts[0] in ("plain", "frozen")
     options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
                "only": "all", "window": 0, "start_from": start_from, "trigger": None, "sharpen": None,
-               "one_pass": False}
+               "one_pass": False, "after": 0}
     for part in parts[1 if untrained else 2 :]:
         key, _, value = part.partition("=")
         if part in ("kl", "ce"):
@@ -83,6 +84,8 @@ def parse_setting(setting):
             options["sharpen"] = QueryScale(fixed=float(value))
         elif key == "trigger" and not untrained:     # learn only from rounds with at most K accepted draft tokens
             options["trigger"] = int(value)
+        elif key == "after" and not untrained:       # learn nothing until the text is this many tokens long
+            options["after"] = int(value)
         elif part == "onepass" and not untrained:    # learn from the draft's own pass (no second run of the drafter)
             options["one_pass"] = True
         elif key == "stride":
@@ -115,7 +118,7 @@ def build_trainers(settings, draft, adapters, adapter_dir, wait_minutes=120, str
                                  rate=options["rate"], stride=options["stride"] or stride, decay=decay,
                                  loss=options["loss"], top=top, init=starts.get(start_from),
                                  trained=choose_adapters(adapters, options["only"]),
-                                 trigger=options["trigger"], sharpen=options["sharpen"])
+                                 trigger=options["trigger"], sharpen=options["sharpen"], after=options["after"])
         trainers[setting].context_window = options["window"]
     return trainers, started_from
 
