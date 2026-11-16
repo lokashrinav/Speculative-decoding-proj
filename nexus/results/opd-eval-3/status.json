@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 14,
+ "answers": 15,
  "answers_in_this_job": 25,
  "part": "validation",
- "hours": 0.722,
+ "hours": 0.796,
  "rank": 16,
  "stride": 1,
  "settings": "plain,immediate:3e-4,canvas:3e-4:kl",
@@ -21,23 +21,23 @@
  "by_setting": {
   "plain": {
    "0-2k": {
-    "rounds": 7097,
-    "tokens_per_round": 3.8903762153022403,
+    "rounds": 7402,
+    "tokens_per_round": 4.0005403944879765,
     "more_tokens_per_round_than_plain": 0.0
    },
    "2k+": {
-    "rounds": 10344,
-    "tokens_per_round": 5.185131477184841,
+    "rounds": 11875,
+    "tokens_per_round": 5.271747368421052,
     "more_tokens_per_round_than_plain": 0.0
    },
    "8k+": {
-    "rounds": 3183,
-    "tokens_per_round": 5.263273641218976,
+    "rounds": 3697,
+    "tokens_per_round": 5.332702190965648,
     "more_tokens_per_round_than_plain": 0.0
    },
    "everything": {
-    "rounds": 17441,
-    "tokens_per_round": 4.658276474972765,
+    "rounds": 19277,
+    "tokens_per_round": 4.783628157908388,
     "more_tokens_per_round_than_plain": 0.0
    },
    "16k+": {
@@ -48,24 +48,24 @@
   },
   "immediate:3e-4": {
    "0-2k": {
-    "rounds": 7060,
-    "tokens_per_round": 3.9120396600566574,
-    "more_tokens_per_round_than_plain": 0.005568470388341185
+    "rounds": 7368,
+    "tokens_per_round": 4.020222584147666,
+    "more_tokens_per_round_than_plain": 0.004919882745543003
    },
    "2k+": {
-    "rounds": 9682,
-    "tokens_per_round": 5.538731667010948,
-    "more_tokens_per_round_than_plain": 0.06819502868576954
+    "rounds": 11115,
+    "tokens_per_round": 5.631399010346379,
+    "more_tokens_per_round_than_plain": 0.06822247289005556
    },
    "8k+": {
-    "rounds": 2716,
-    "tokens_per_round": 6.168262150220913,
-    "more_tokens_per_round_than_plain": 0.17194403534609726
+    "rounds": 3192,
+    "tokens_per_round": 6.176378446115288,
+    "more_tokens_per_round_than_plain": 0.15820802005012524
    },
    "everything": {
-    "rounds": 16742,
-    "tokens_per_round": 4.85276549994027,
-    "more_tokens_per_round_than_plain": 0.04175128419543683
+    "rounds": 18483,
+    "tokens_per_round": 4.989125142022399,
+    "more_tokens_per_round_than_plain": 0.042958394200075745
    },
    "16k+": {
     "rounds": 154,
@@ -75,24 +75,24 @@
   },
   "canvas:3e-4:kl": {
    "0-2k": {
-    "rounds": 7040,
-    "tokens_per_round": 3.9223011363636364,
-    "more_tokens_per_round_than_plain": 0.008206126938526959
+    "rounds": 7346,
+    "tokens_per_round": 4.031445684726382,
+    "more_tokens_per_round_than_plain": 0.007725278885069464
    },
    "2k+": {
-    "rounds": 9704,
-    "tokens_per_round": 5.52679307502061,
-    "more_tokens_per_round_than_plain": 0.06589256209589234
+    "rounds": 11140,
+    "tokens_per_round": 5.619299820466787,
+    "more_tokens_per_round_than_plain": 0.06592737241690516
    },
    "8k+": {
-    "rounds": 2720,
-    "tokens_per_round": 6.158088235294118,
-    "more_tokens_per_round_than_plain": 0.17001103402024587
+    "rounds": 3192,
+    "tokens_per_round": 6.1757518796992485,
+    "more_tokens_per_round_than_plain": 0.15809052494284148
    },
    "everything": {
-    "rounds": 16744,
-    "tokens_per_round": 4.85218585762064,
-    "more_tokens_per_round_than_plain": 0.041626851409459986
+    "rounds": 18486,
+    "tokens_per_round": 4.988315481986368,
+    "more_tokens_per_round_than_plain": 0.04278913772584669
    },
    "16k+": {
     "rounds": 155,
@@ -100,15 +100,15 @@
     "more_tokens_per_round_than_plain": 0.1567183134366268
    },
    "what_the_target_predicted_on_the_drafts": {
-    "share_of_positions_after_the_first_rejection": 0.6789424775761056,
-    "first_choice_is_the_answers_token_after_the_first_rejection": 0.12466810780328486,
-    "first_choice_is_the_answers_token_up_to_it": 0.9892672140718749
+    "share_of_positions_after_the_first_rejection": 0.6700222501553177,
+    "first_choice_is_the_answers_token_after_the_first_rejection": 0.1262446292931961,
+    "first_choice_is_the_answers_token_up_to_it": 0.988889497017131
    }
   }
  },
  "cost": {
   "plain": {
-   "drafting_ms_per_round": 11.381448498846371,
+   "drafting_ms_per_round": 11.383717464285137,
    "training_ms_per_round": 0.0,
    "target_check_ms_per_round": 0.0,
    "training_ms_per_update": 0.0,
@@ -116,20 +116,20 @@
    "positions_per_update": 0.0
   },
   "immediate:3e-4": {
-   "drafting_ms_per_round": 11.557648502967352,
-   "training_ms_per_round": 31.165317782620196,
+   "drafting_ms_per_round": 11.56589863586048,
+   "training_ms_per_round": 31.06459344134641,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 31.191400664552088,
-   "updates_per_round": 0.9991637797156852,
-   "positions_per_update": 4.812948350071736
+   "training_ms_per_update": 31.08982459261456,
+   "updates_per_round": 0.9991884434345074,
+   "positions_per_update": 4.947260125622699
   },
   "canvas:3e-4:kl": {
-   "drafting_ms_per_round": 11.55868224704298,
-   "training_ms_per_round": 31.565708748864324,
-   "target_check_ms_per_round": 54.553183268674914,
-   "training_ms_per_update": 31.594012032457663,
-   "updates_per_round": 0.9991041567128524,
-   "positions_per_update": 14.997788271863232
+   "drafting_ms_per_round": 11.574560464879237,
+   "training_ms_per_round": 31.484630262255703,
+   "target_check_ms_per_round": 54.55320570053156,
+   "training_ms_per_update": 31.511904441150996,
+   "updates_per_round": 0.9991344801471383,
+   "positions_per_update": 14.9979967514889
   }
  },
  "gpu_memory_peak_gb": 13.09

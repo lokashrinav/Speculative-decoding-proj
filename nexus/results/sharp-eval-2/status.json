@@ -1,0 +1,151 @@
+{
+ "done": false,
+ "answers": 1,
+ "answers_in_this_job": 25,
+ "part": "validation",
+ "hours": 0.042,
+ "rank": 16,
+ "stride": 1,
+ "settings": "plain,plain:sharp,plain:sharp=4096,immediate:3e-4,immediate:3e-4:sharp",
+ "settings_from": "nexus/settings/sharp-eval.txt",
+ "saved_adapters_used": {},
+ "adapter_parameters": 4014080,
+ "groups": [
+  "0-2k",
+  "2k+",
+  "8k+",
+  "everything",
+  "16k+",
+  "24k+"
+ ],
+ "by_setting": {
+  "plain": {
+   "0-2k": {
+    "rounds": 451,
+    "tokens_per_round": 4.450110864745011,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 835,
+    "tokens_per_round": 4.69940119760479,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "everything": {
+    "rounds": 1286,
+    "tokens_per_round": 4.611975116640746,
+    "more_tokens_per_round_than_plain": 0.0
+   }
+  },
+  "plain:sharp": {
+   "0-2k": {
+    "rounds": 451,
+    "tokens_per_round": 4.450110864745011,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 774,
+    "tokens_per_round": 5.069767441860465,
+    "more_tokens_per_round_than_plain": 0.078811369509044
+   },
+   "everything": {
+    "rounds": 1225,
+    "tokens_per_round": 4.841632653061224,
+    "more_tokens_per_round_than_plain": 0.04979591836734709
+   }
+  },
+  "plain:sharp=4096": {
+   "0-2k": {
+    "rounds": 451,
+    "tokens_per_round": 4.450110864745011,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 819,
+    "tokens_per_round": 4.791208791208791,
+    "more_tokens_per_round_than_plain": 0.019536019536019467
+   },
+   "everything": {
+    "rounds": 1270,
+    "tokens_per_round": 4.67007874015748,
+    "more_tokens_per_round_than_plain": 0.012598425196850505
+   }
+  },
+  "immediate:3e-4": {
+   "0-2k": {
+    "rounds": 442,
+    "tokens_per_round": 4.524886877828054,
+    "more_tokens_per_round_than_plain": 0.01680317982085322
+   },
+   "2k+": {
+    "rounds": 758,
+    "tokens_per_round": 5.186015831134565,
+    "more_tokens_per_round_than_plain": 0.10354822094733995
+   },
+   "everything": {
+    "rounds": 1200,
+    "tokens_per_round": 4.9425,
+    "more_tokens_per_round_than_plain": 0.07166666666666677
+   }
+  },
+  "immediate:3e-4:sharp": {
+   "0-2k": {
+    "rounds": 441,
+    "tokens_per_round": 4.535147392290249,
+    "more_tokens_per_round_than_plain": 0.01910885596557166
+   },
+   "2k+": {
+    "rounds": 742,
+    "tokens_per_round": 5.297843665768194,
+    "more_tokens_per_round_than_plain": 0.12734440900011257
+   },
+   "everything": {
+    "rounds": 1183,
+    "tokens_per_round": 5.0135249366018595,
+    "more_tokens_per_round_than_plain": 0.08706677937447171
+   }
+  }
+ },
+ "cost": {
+  "plain": {
+   "drafting_ms_per_round": 11.656790309836204,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "plain:sharp": {
+   "drafting_ms_per_round": 11.675019012954163,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "plain:sharp=4096": {
+   "drafting_ms_per_round": 11.610944135349214,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "immediate:3e-4": {
+   "drafting_ms_per_round": 11.719775937187174,
+   "training_ms_per_round": 31.705878501137096,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 31.732322102889505,
+   "updates_per_round": 0.9991666666666666,
+   "positions_per_update": 4.896580483736447
+  },
+  "immediate:3e-4:sharp": {
+   "drafting_ms_per_round": 11.98653084881736,
+   "training_ms_per_round": 32.6387678680033,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 32.66638103878841,
+   "updates_per_round": 0.9991546914623838,
+   "positions_per_update": 4.969543147208122
+  }
+ },
+ "gpu_memory_peak_gb": 10.03
+}
