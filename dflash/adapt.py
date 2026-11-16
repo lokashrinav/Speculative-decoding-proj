@@ -161,6 +161,8 @@ class DraftTrainer:
     def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32,
                  init=None, trained=None):
         assert labels in LABELS and loss in ("ce", "kl")
+        # A control for replay only: the drafter sees just the last `context_window` tokens (0 = all).
+        self.context_window = 0
         # trained: the adapters this trainer changes (choose_adapters). The others stay as they start.
         self.trained = list(adapters) if trained is None else list(trained)
         # init: a saved state of the adapters (load_adapters) that every request starts from, instead of zero.

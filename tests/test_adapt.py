@@ -293,10 +293,16 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
     from dflash.adapt import choose_adapters
     from nexus.adapt_drafter import parse_setting
 
-    assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "start_from": ""}
+    assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "window": 0,
+                                      "start_from": ""}
+    assert parse_setting("frozen:window=2048@off-a") == {"labels": "frozen", "rate": 0.0, "loss": "ce", "stride": 0,
+                                                         "only": "all", "window": 2048, "start_from": "off-a"}
+    with pytest.raises(ValueError):
+        parse_setting("immediate:3e-4:window=2048")                       # only for settings that do not train
     assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
     read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
-    assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "start_from": "off-b"}
+    assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "window": 0,
+                    "start_from": "off-b"}
     assert parse_setting("canvas+hindsight:1e-3:only=mlp")["only"] == "mlp"
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:fast")
@@ -334,4 +340,23 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
     assert all(adapter.up.requires_grad and float(adapter.up.abs().sum()) == 0.0 for adapter in adapters)
     replay_decode(draft, target, ids, prompt.shape[1], ended=False, improver=everything)
     assert any(layer == 0 for layer, _ in [adapter.where for adapter in adapters if float(adapter.up.abs().sum()) > 0])
+    detach_adapters(draft)
+
+
+def test_a_limited_context_window_for_the_drafter_in_replay():
+    """A control: the drafter sees only the last few tokens of the text so far."""
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    start = prompt.shape[1]
+    ids = dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True).output_ids
+    plain = replay_decode(draft, target, ids, start, ended=False)
+    adapters = attach_adapters(draft, rank=4)
+    viewer = DraftTrainer(draft, adapters, rate=0.0)
+    viewer.begin()
+    viewer.context_window = 10_000                                           # longer than the text: nothing changes
+    assert replay_decode(draft, target, ids, start, ended=False, improver=viewer).acceptance_lengths == plain.acceptance_lengths
+    viewer.context_window = 6
+    short = replay_decode(draft, target, ids, start, ended=False, improver=viewer)
+    assert short.acceptance_lengths != plain.acceptance_lengths              # it saw less, so it drafted differently
+    assert sum(short.acceptance_lengths) == sum(plain.acceptance_lengths)    # the same text is covered
     detach_adapters(draft)

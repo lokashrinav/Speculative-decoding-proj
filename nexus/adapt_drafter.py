@@ -10,7 +10,8 @@ Settings are written as labels:rate (for example hindsight:1e-4), with :kl added
 the drafter with the target's own predictions instead of the committed token alone, and
 "plain" is the frozen drafter. More can follow the rate: stride=N trains on every Nth
 round only, and only=attn, only=mlp or only=lastK trains part of the adapters (cheaper
-steps). A setting can end in @name: the adapters then start every
+steps). "plain" and "frozen" can take window=N: the drafter then sees only the last N tokens
+of the text so far (a control, for replay only). A setting can end in @name: the adapters then start every
 answer from the saved state lora-<name>.pt (trained across other answers by
 nexus/train_adapter.py) instead of from zero, and "frozen@name" uses that state without any
 training during the answer. The labels "canvas" and "canvas+hindsight" need what the target
@@ -60,7 +61,7 @@ def parse_setting(setting):
     parts = body.split(":")
     untrained = parts[0] in ("plain", "frozen")
     options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
-               "only": "all", "start_from": start_from}
+               "only": "all", "window": 0, "start_from": start_from}
     for part in parts[1 if untrained else 2 :]:
         key, _, value = part.partition("=")
         if part in ("kl", "ce"):
@@ -69,6 +70,8 @@ def parse_setting(setting):
             options["stride"] = int(value)
         elif key == "only":
             options["only"] = value
+        elif key == "window" and untrained:          # the drafter sees only the last N tokens (a control)
+            options["window"] = int(value)
         else:
             raise ValueError(f"cannot read the setting {setting}")
     return options
@@ -185,6 +188,7 @@ def main():
                                          rate=options["rate"], stride=options["stride"] or args.stride, decay=args.decay,
                                          loss=options["loss"], top=args.top, init=starts.get(start_from),
                                          trained=choose_adapters(adapters, options["only"]))
+        trainers[setting].context_window = options["window"]
     top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}

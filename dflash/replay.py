@@ -79,6 +79,9 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
     # A plug-in may ask for what the target predicted on each draft (the signal Test-Time Speculation
     # trains on). Then the target does check every draft here too, which costs what decoding costs.
     canvas_top = int(getattr(improver, "canvas_top", 0) or 0)
+    # A control: let the drafter see only the last `context_window` tokens of the text so far (0 = all).
+    # It was trained on short texts, so a long context may itself be what hurts it.
+    context_window = int(getattr(improver, "context_window", 0) or 0)
     target_cache = _make_cache(target.config) if canvas_top else None
     target_fed, canvas = 0, None
 
@@ -98,7 +101,14 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
                 position_ids=position_ids[:, fed : start + block_len],
                 past_key_values=draft_cache, use_cache=True,
             )[:, -block_len:, :]
-            _crop_to(draft_cache, start)
+            if context_window:
+                draft_cache.crop(-block_len)                 # the block's own entries go, as always
+                for layer in draft_cache.layers:             # ... and so does context older than the window
+                    if layer.keys is not None and layer.keys.shape[-2] > context_window:
+                        layer.keys = layer.keys[..., -context_window:, :]
+                        layer.values = layer.values[..., -context_window:, :]
+            else:
+                _crop_to(draft_cache, start)
             context_features, fed = features[:, fed:start], start
             draft_logits = model.compute_logits(draft_states[:, 1:, :], head)
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
