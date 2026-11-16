@@ -1,0 +1,151 @@
+{
+ "done": false,
+ "answers": 2,
+ "answers_in_this_job": 25,
+ "part": "validation",
+ "hours": 0.041,
+ "rank": 16,
+ "stride": 1,
+ "settings": "plain,plain:sharp,plain:sharp=4096,immediate:3e-4,immediate:3e-4:sharp",
+ "settings_from": "nexus/settings/sharp-opd.txt",
+ "saved_adapters_used": {},
+ "adapter_parameters": 4014080,
+ "groups": [
+  "0-2k",
+  "2k+",
+  "8k+",
+  "everything",
+  "16k+",
+  "24k+"
+ ],
+ "by_setting": {
+  "plain": {
+   "0-2k": {
+    "rounds": 693,
+    "tokens_per_round": 4.252525252525253,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 495,
+    "tokens_per_round": 7.929292929292929,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "everything": {
+    "rounds": 1188,
+    "tokens_per_round": 5.784511784511785,
+    "more_tokens_per_round_than_plain": 0.0
+   }
+  },
+  "plain:sharp": {
+   "0-2k": {
+    "rounds": 693,
+    "tokens_per_round": 4.252525252525253,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 496,
+    "tokens_per_round": 7.913306451612903,
+    "more_tokens_per_round_than_plain": -0.002016129032258007
+   },
+   "everything": {
+    "rounds": 1189,
+    "tokens_per_round": 5.7796467619848615,
+    "more_tokens_per_round_than_plain": -0.000841042893187538
+   }
+  },
+  "plain:sharp=4096": {
+   "0-2k": {
+    "rounds": 693,
+    "tokens_per_round": 4.252525252525253,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 495,
+    "tokens_per_round": 7.929292929292929,
+    "more_tokens_per_round_than_plain": 0.0
+   },
+   "everything": {
+    "rounds": 1188,
+    "tokens_per_round": 5.784511784511785,
+    "more_tokens_per_round_than_plain": 0.0
+   }
+  },
+  "immediate:3e-4": {
+   "0-2k": {
+    "rounds": 690,
+    "tokens_per_round": 4.271014492753623,
+    "more_tokens_per_round_than_plain": 0.004347826086956497
+   },
+   "2k+": {
+    "rounds": 507,
+    "tokens_per_round": 7.741617357001973,
+    "more_tokens_per_round_than_plain": -0.023668639053254337
+   },
+   "everything": {
+    "rounds": 1197,
+    "tokens_per_round": 5.741019214703425,
+    "more_tokens_per_round_than_plain": -0.007518796992481147
+   }
+  },
+  "immediate:3e-4:sharp": {
+   "0-2k": {
+    "rounds": 688,
+    "tokens_per_round": 4.28343023255814,
+    "more_tokens_per_round_than_plain": 0.00726744186046524
+   },
+   "2k+": {
+    "rounds": 494,
+    "tokens_per_round": 7.945344129554656,
+    "more_tokens_per_round_than_plain": 0.002024291497975783
+   },
+   "everything": {
+    "rounds": 1182,
+    "tokens_per_round": 5.813874788494078,
+    "more_tokens_per_round_than_plain": 0.005076142131979822
+   }
+  }
+ },
+ "cost": {
+  "plain": {
+   "drafting_ms_per_round": 11.701346086949636,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "plain:sharp": {
+   "drafting_ms_per_round": 11.735660099574028,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "plain:sharp=4096": {
+   "drafting_ms_per_round": 11.664559998822332,
+   "training_ms_per_round": 0.0,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 0.0,
+   "updates_per_round": 0.0,
+   "positions_per_update": 0.0
+  },
+  "immediate:3e-4": {
+   "drafting_ms_per_round": 11.767113928697885,
+   "training_ms_per_round": 31.32439799585015,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 31.376823766554498,
+   "updates_per_round": 0.9983291562238931,
+   "positions_per_update": 5.644351464435147
+  },
+  "immediate:3e-4:sharp": {
+   "drafting_ms_per_round": 11.958258056322935,
+   "training_ms_per_round": 31.295966875050752,
+   "target_check_ms_per_round": 0.0,
+   "training_ms_per_update": 31.349010886703383,
+   "updates_per_round": 0.9983079526226735,
+   "positions_per_update": 5.717796610169492
+  }
+ },
+ "gpu_memory_peak_gb": 10.03
+}
