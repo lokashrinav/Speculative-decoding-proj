@@ -31,7 +31,7 @@ from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
 from nexus.fit_gate import split_of
-from nexus.probe_memory import write_json
+from nexus.probe_memory import stepped_aside, write_json
 from nexus.replay_memory import load_answers
 
 GROUPS = (("0-2k", 0, 2000), ("2k+", 2000, 10**9), ("8k+", 8000, 10**9), ("everything", 0, 10**9))
@@ -160,6 +160,8 @@ def main():
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
     parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
     args = parser.parse_args()
+    if stepped_aside(args.results_dir):
+        return
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     answers = [answer for answer in load_answers(args.data_dir)

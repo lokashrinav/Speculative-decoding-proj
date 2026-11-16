@@ -360,3 +360,27 @@ def test_a_limited_context_window_for_the_drafter_in_replay():
     assert short.acceptance_lengths != plain.acceptance_lengths              # it saw less, so it drafted differently
     assert sum(short.acceptance_lengths) == sum(plain.acceptance_lengths)    # the same text is covered
     detach_adapters(draft)
+
+
+def test_a_queued_job_can_be_told_to_step_aside(tmp_path):
+    import json
+
+    from nexus.probe_memory import stepped_aside
+
+    folder = tmp_path / "settings"
+    folder.mkdir()
+    results = tmp_path / "results" / "bench-decode-2"
+    results.mkdir(parents=True)
+    assert not stepped_aside(str(results), str(folder))                       # no list: carry on
+    (folder / "skip.txt").write_text("adapt-window   # the whole family\nbench-decode-3\n\n")
+    assert not stepped_aside(str(results), str(folder)) and not (results / "status.json").exists()
+    other = tmp_path / "results" / "bench-decode-3"
+    other.mkdir()
+    assert stepped_aside(str(other) + "/", str(folder))                       # named itself
+    assert json.loads((other / "status.json").read_text())["stepped_aside"] is True
+    family = tmp_path / "results" / "adapt-window-1"
+    family.mkdir()
+    assert stepped_aside(str(family), str(folder))                            # named by its family
+    lone = tmp_path / "results" / "adapt-window"
+    lone.mkdir()
+    assert stepped_aside(str(lone), str(folder))

@@ -254,6 +254,23 @@ def write_json(path, value, **options):
     os.replace(path + ".tmp", path)
 
 
+def stepped_aside(results_dir, folder=os.path.join("nexus", "settings")):
+    """A queued job cannot be taken back, but its plans can change before it starts. If the job's name,
+    or its name without the number at the end, is a line of nexus/settings/skip.txt, the job writes
+    that it stepped aside and does nothing else. Returns whether it did."""
+    name = os.path.basename(os.path.normpath(results_dir))
+    path = os.path.join(folder, "skip.txt")
+    if not os.path.exists(path):
+        return False
+    with open(path) as handle:
+        listed = {line.split("#")[0].strip() for line in handle}
+    if name not in listed and name.rsplit("-", 1)[0] not in listed:
+        return False
+    write_json(os.path.join(results_dir, "status.json"),
+               {"done": True, "stepped_aside": True, "why": "listed in nexus/settings/skip.txt"}, indent=1)
+    return True
+
+
 def prepare_prompts(args):
     """Build the prompt list once, so that every shard cuts the same list."""
     from transformers import AutoTokenizer
@@ -304,6 +321,8 @@ def main():
     parser.add_argument("--out-dir")
     parser.add_argument("--results-dir", required=True)
     args = parser.parse_args()
+    if stepped_aside(args.results_dir):
+        return
 
     if args.only_write_prompts:
         prepare_prompts(args)

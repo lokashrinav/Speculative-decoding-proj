@@ -25,7 +25,7 @@ from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
 from nexus.adapt_drafter import GROUPS, by_position
 from nexus.fit_gate import split_of
-from nexus.probe_memory import write_json
+from nexus.probe_memory import stepped_aside, write_json
 from nexus.replay_memory import load_answers
 
 KINDS = ("plain", "frozen", "online")
@@ -74,6 +74,8 @@ def main():
     parser.add_argument("--kinds", default="", help="train on these kinds of answers only (names of sources, with commas)")
     parser.add_argument("--snapshots", default="", help="also keep the adapters as they are after these numbers of answers")
     args = parser.parse_args()
+    if stepped_aside(args.results_dir):
+        return
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     answers = [answer for answer in load_answers(args.data_dir) if split_of([answer[0], answer[1]]) == args.part]

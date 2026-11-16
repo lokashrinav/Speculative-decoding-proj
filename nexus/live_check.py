@@ -20,7 +20,7 @@ from dflash.adapt import adapter_notes, attach_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.redraft import dflash_generate_redraft
 from nexus.fit_gate import split_of
-from nexus.probe_memory import write_json
+from nexus.probe_memory import stepped_aside, write_json
 from nexus.replay_memory import load_answers
 
 KINDS = ("plain", "frozen")
@@ -69,6 +69,8 @@ def main():
     parser.add_argument("--max-answers", type=int, default=12)
     parser.add_argument("--max-hours", type=float, default=1.5)
     args = parser.parse_args()
+    if stepped_aside(args.results_dir):
+        return
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     answers = [answer for answer in load_answers(args.data_dir)
