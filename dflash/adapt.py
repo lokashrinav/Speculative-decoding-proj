@@ -77,9 +77,22 @@ class LowRank(nn.Module):
         self.up = nn.Parameter(torch.zeros(base.out_features, rank))
         self.register_buffer("down_at_start", self.down.detach().clone(), persistent=False)
         self.scale = scale
+        # fast: when no gradients are kept for this adapter, work the update out in the layer's own
+        # number format, from copies of the two halves that are renewed whenever they change. This
+        # saves the conversions of every call (about a quarter of a draft's time with 25 adapters).
+        # Off by default, so that replays stay number for number what they were.
+        self.fast = False
+        self._copies = None          # (versions of the two halves, number format, down, up times scale)
 
     def forward(self, x):
         out = self.base(x)
+        if self.fast and not (torch.is_grad_enabled() and (self.down.requires_grad or self.up.requires_grad)):
+            versions = (self.down._version, self.up._version)
+            if self._copies is None or self._copies[0] != versions or self._copies[1] != out.dtype:
+                with torch.inference_mode(False), torch.no_grad():
+                    self._copies = (versions, out.dtype, self.down.detach().to(out.dtype),
+                                    (self.up.detach() * self.scale).to(out.dtype))
+            return out + F.linear(F.linear(x, self._copies[2]), self._copies[3])
         update = F.linear(F.linear(x.to(self.down.dtype), self.down), self.up) * self.scale
         return out + update.to(out.dtype)
 

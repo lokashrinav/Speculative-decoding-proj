@@ -94,6 +94,8 @@ def main():
     target, draft, tokenizer = load_transformers_models(args.model, args.draft, device)
     stops = stop_token_ids(target, tokenizer)
     adapters = attach_adapters(draft, rank=args.rank)
+    for adapter in adapters:
+        adapter.fast = True                 # the cheaper way to apply the extra weights when nothing is learned
     settings, settings_from = settings_for(args.results_dir, args.settings)
     trainers, started_from = build_trainers(settings, draft, adapters, args.adapter_dir)
     names = list(trainers)

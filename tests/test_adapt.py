@@ -780,3 +780,59 @@ def test_a_waiting_job_can_be_given_other_work(tmp_path, monkeypatch):
     monkeypatch.setenv("SPECDEC_OTHER_WORK", "1")                              # the other work itself carries on,
     assert not stepped_aside(str(job), str(folder), str(scripts))
     assert settings_for(str(job), "plain", str(folder))[0] == "plain"          # with its own settings
+
+
+def test_extra_weights_can_be_applied_the_cheaper_way_when_nothing_is_learned():
+    """LowRank.fast: the same update from copies in the layer's own number format, renewed when the halves change."""
+    from dflash.adapt import LowRank, OnePassTrainer
+
+    torch.manual_seed(0)
+    base = torch.nn.Linear(12, 7).double()
+    adapter = LowRank(base, rank=3)
+    with torch.no_grad():
+        adapter.up.normal_()
+    x = torch.randn(2, 5, 12, dtype=torch.float64)
+    with torch.inference_mode():
+        slow = adapter(x)
+        adapter.fast = True
+        quick = adapter(x)
+        assert torch.allclose(slow, quick, atol=1e-5) and not torch.equal(slow, base(x))
+        copies = adapter._copies
+        assert adapter(x) is not None and adapter._copies is copies            # nothing changed: the copies are kept
+    with torch.no_grad():
+        adapter.up.mul_(2.0)                                                    # a step changes one half ...
+    with torch.inference_mode():
+        doubled = adapter(x)                                                    # ... and the copies follow
+    assert torch.allclose(doubled - base(x), 2 * (quick - base(x)), atol=1e-5)
+    adapter.reset()
+    with torch.inference_mode():
+        assert torch.allclose(adapter(x), base(x))                              # back to the frozen layer
+    # With gradients kept the exact path is used, and they reach both halves.
+    out = adapter(x)
+    out.sum().backward()
+    assert adapter.down.grad is not None and adapter.up.grad is not None
+
+    # In decoding: lossless, the drafter still learns, and replay follows the same rounds.
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    plain = dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    for one in adapters:
+        one.fast = True
+    from dflash.adapt import choose_adapters
+
+    # (Training only the attention ones leaves the others on the cheaper path inside a pass that keeps gradients.)
+    for options in ({}, {"stride": 3}, {"trained": choose_adapters(adapters, "attn")}):
+        trainer = OnePassTrainer(draft, adapters, labels="immediate", rate=3e-3, **options)
+        trainer.begin()
+        live = dflash_generate_redraft(draft, target, prompt, 200, None, improver=trainer, return_stats=True)
+        assert torch.equal(live.output_ids, plain.output_ids) and trainer.totals["updates"] > 0
+        assert live.acceptance_lengths != plain.acceptance_lengths
+        trainer.begin()
+        replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
+        assert replayed.acceptance_lengths == live.acceptance_lengths
+    idle = DraftTrainer(draft, adapters, rate=0.0)
+    idle.begin()
+    assert dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True).acceptance_lengths \
+        == plain.acceptance_lengths                                            # zero extra weights: the plain drafter
+    detach_adapters(draft)

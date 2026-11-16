@@ -307,6 +307,16 @@ def main():
                            "update_in_two_passes": draft_ms + update_ms,
                            "trained_parameters": sum(parameter.numel() for adapter in trained
                                                      for parameter in (adapter.down, adapter.up))}
+        # The same with the cheaper way to apply extra weights that are not being trained (LowRank.fast),
+        # as real decoding uses it (nexus/live_speed.py).
+        for adapter in adapters:
+            adapter.fast = True
+        row["draft_with_extra_weights_fast"] = time_drafts(model, head, features, noise, positions, length, args.fresh,
+                                                           args.repeats, args.skip, device)
+        for choice in CHOICES:
+            draft_ms, update_ms = time_learning(model, head, adapters, choose_adapters(adapters, choice), features, noise,
+                                                positions, labels, length, args.fresh, args.repeats, args.skip, device)
+            row[choice]["fast"] = {"draft_keeping_gradients": draft_ms, "update_from_that_draft": update_ms}
         without_adapters()
         rows.append(row)
         if device.type == "cuda":
@@ -319,6 +329,8 @@ def main():
     for row, length in zip(rows, lengths):
         noise, labels = block_at(length)
         adapters = attach_adapters(model, rank=args.rank)
+        for adapter in adapters:
+            adapter.fast = True
         for choice in ("all", "last2", "last1"):
             if failed:
                 break
