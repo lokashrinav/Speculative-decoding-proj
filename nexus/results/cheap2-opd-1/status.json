@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 9,
+ "answers": 11,
  "answers_in_this_job": 25,
  "part": "validation",
- "hours": 0.696,
+ "hours": 0.804,
  "rank": 16,
  "stride": 1,
  "settings": "plain,immediate:3e-4:onepass:after=2000,immediate:3e-4:onepass:after=4000,immediate:3e-4:onepass:stride=2,immediate:3e-4:onepass:stride=4:sharp,immediate:1e-3:onepass:stride=4,immediate:3e-4:onepass:stride=8:sharp,immediate:3e-4:onepass:only=attn,immediate:3e-4:onepass:only=mlp",
@@ -21,13 +21,13 @@
  "by_setting": {
   "plain": {
    "0-2k": {
-    "rounds": 4408,
-    "tokens_per_round": 4.094147005444646,
+    "rounds": 5541,
+    "tokens_per_round": 3.979245623533658,
     "more_tokens_per_round_than_plain": 0.0
    },
    "2k+": {
-    "rounds": 7898,
-    "tokens_per_round": 5.569004811344644,
+    "rounds": 8925,
+    "tokens_per_round": 5.544761904761905,
     "more_tokens_per_round_than_plain": 0.0
    },
    "8k+": {
@@ -36,8 +36,8 @@
     "more_tokens_per_round_than_plain": 0.0
    },
    "everything": {
-    "rounds": 12306,
-    "tokens_per_round": 5.040711847879083,
+    "rounds": 14466,
+    "tokens_per_round": 4.9451126780035946,
     "more_tokens_per_round_than_plain": 0.0
    },
    "16k+": {
@@ -48,14 +48,14 @@
   },
   "immediate:3e-4:onepass:after=2000": {
    "0-2k": {
-    "rounds": 4393,
-    "tokens_per_round": 4.107898930116094,
-    "more_tokens_per_round_than_plain": 0.003358923031625327
+    "rounds": 5526,
+    "tokens_per_round": 3.9898660875859573,
+    "more_tokens_per_round_than_plain": 0.002668964184942224
    },
    "2k+": {
-    "rounds": 7398,
-    "tokens_per_round": 5.9455258177885915,
-    "more_tokens_per_round_than_plain": 0.06761010614983398
+    "rounds": 8388,
+    "tokens_per_round": 5.8998569384835475,
+    "more_tokens_per_round_than_plain": 0.06404152961314402
    },
    "8k+": {
     "rounds": 2069,
@@ -63,9 +63,9 @@
     "more_tokens_per_round_than_plain": 0.1784970417198184
    },
    "everything": {
-    "rounds": 11791,
-    "tokens_per_round": 5.2608769400390125,
-    "more_tokens_per_round_than_plain": 0.04367738105334573
+    "rounds": 13914,
+    "tokens_per_round": 5.14129653586316,
+    "more_tokens_per_round_than_plain": 0.039672272531263486
    },
    "16k+": {
     "rounds": 55,
@@ -75,14 +75,14 @@
   },
   "immediate:3e-4:onepass:after=4000": {
    "0-2k": {
-    "rounds": 4408,
-    "tokens_per_round": 4.094147005444646,
+    "rounds": 5541,
+    "tokens_per_round": 3.979245623533658,
     "more_tokens_per_round_than_plain": 0.0
    },
    "2k+": {
-    "rounds": 7447,
-    "tokens_per_round": 5.90627098160333,
-    "more_tokens_per_round_than_plain": 0.06056129985228953
+    "rounds": 8468,
+    "tokens_per_round": 5.8440009447331125,
+    "more_tokens_per_round_than_plain": 0.05396787907416156
    },
    "8k+": {
     "rounds": 2081,
@@ -90,9 +90,9 @@
     "more_tokens_per_round_than_plain": 0.17116000265761988
    },
    "everything": {
-    "rounds": 11855,
-    "tokens_per_round": 5.232475748629271,
-    "more_tokens_per_round_than_plain": 0.038043019822859625
+    "rounds": 14009,
+    "tokens_per_round": 5.106431579698765,
+    "more_tokens_per_round_than_plain": 0.032621885930473216
    },
    "16k+": {
     "rounds": 57,
@@ -102,14 +102,14 @@
   },
   "immediate:3e-4:onepass:stride=2": {
    "0-2k": {
-    "rounds": 4374,
-    "tokens_per_round": 4.125971650663009,
-    "more_tokens_per_round_than_plain": 0.007773205304069553
+    "rounds": 5520,
+    "tokens_per_round": 3.9943840579710144,
+    "more_tokens_per_round_than_plain": 0.0038043478260869623
    },
    "2k+": {
-    "rounds": 7527,
-    "tokens_per_round": 5.843496745051149,
-    "more_tokens_per_round_than_plain": 0.04928922545502856
+    "rounds": 8533,
+    "tokens_per_round": 5.799484354857611,
+    "more_tokens_per_round_than_plain": 0.04593929450369161
    },
    "8k+": {
     "rounds": 2132,
@@ -117,9 +117,9 @@
     "more_tokens_per_round_than_plain": 0.14411306635778698
    },
    "everything": {
-    "rounds": 11901,
-    "tokens_per_round": 5.212251071338543,
-    "more_tokens_per_round_than_plain": 0.03403075371817499
+    "rounds": 14053,
+    "tokens_per_round": 5.090443321710667,
+    "more_tokens_per_round_than_plain": 0.029388742617234787
    },
    "16k+": {
     "rounds": 55,
@@ -129,14 +129,14 @@
   },
   "immediate:3e-4:onepass:stride=4:sharp": {
    "0-2k": {
-    "rounds": 4401,
-    "tokens_per_round": 4.1004317200636216,
-    "more_tokens_per_round_than_plain": 0.0015350485975753614
+    "rounds": 5539,
+    "tokens_per_round": 3.9805018956490343,
+    "more_tokens_per_round_than_plain": 0.0003157060996552552
    },
    "2k+": {
-    "rounds": 7599,
-    "tokens_per_round": 5.78826161337018,
-    "more_tokens_per_round_than_plain": 0.03937091265909598
+    "rounds": 8633,
+    "tokens_per_round": 5.73242210123943,
+    "more_tokens_per_round_than_plain": 0.033844590570491384
    },
    "8k+": {
     "rounds": 2195,
@@ -144,9 +144,9 @@
     "more_tokens_per_round_than_plain": 0.11161731207289294
    },
    "everything": {
-    "rounds": 12000,
-    "tokens_per_round": 5.16925,
-    "more_tokens_per_round_than_plain": 0.025500000000000078
+    "rounds": 14172,
+    "tokens_per_round": 5.047699689528648,
+    "more_tokens_per_round_than_plain": 0.020745131244708004
    },
    "16k+": {
     "rounds": 57,
@@ -156,14 +156,14 @@
   },
   "immediate:1e-3:onepass:stride=4": {
    "0-2k": {
-    "rounds": 4446,
-    "tokens_per_round": 4.05982905982906,
-    "more_tokens_per_round_than_plain": -0.008382196723749402
+    "rounds": 5587,
+    "tokens_per_round": 3.9471988544836227,
+    "more_tokens_per_round_than_plain": -0.008053478493639021
    },
    "2k+": {
-    "rounds": 7754,
-    "tokens_per_round": 5.6716533402115035,
-    "more_tokens_per_round_than_plain": 0.01843211351833518
+    "rounds": 8770,
+    "tokens_per_round": 5.6419612314709235,
+    "more_tokens_per_round_than_plain": 0.01752993697088101
    },
    "8k+": {
     "rounds": 2249,
@@ -171,9 +171,9 @@
     "more_tokens_per_round_than_plain": 0.08442578310902737
    },
    "everything": {
-    "rounds": 12200,
-    "tokens_per_round": 5.084262295081968,
-    "more_tokens_per_round_than_plain": 0.008639741472468598
+    "rounds": 14357,
+    "tokens_per_round": 4.98244758654315,
+    "more_tokens_per_round_than_plain": 0.007549860027583399
    },
    "16k+": {
     "rounds": 66,
@@ -183,14 +183,14 @@
   },
   "immediate:3e-4:onepass:stride=8:sharp": {
    "0-2k": {
-    "rounds": 4411,
-    "tokens_per_round": 4.091135796871458,
-    "more_tokens_per_round_than_plain": -0.0007354910727883635
+    "rounds": 5545,
+    "tokens_per_round": 3.97619477006312,
+    "more_tokens_per_round_than_plain": -0.000766691418216392
    },
    "2k+": {
-    "rounds": 7662,
-    "tokens_per_round": 5.740668232837379,
-    "more_tokens_per_round_than_plain": 0.030824793173645393
+    "rounds": 8683,
+    "tokens_per_round": 5.699412645399056,
+    "more_tokens_per_round_than_plain": 0.027891322169187216
    },
    "8k+": {
     "rounds": 2235,
@@ -198,9 +198,9 @@
     "more_tokens_per_round_than_plain": 0.0914706009423274
    },
    "everything": {
-    "rounds": 12073,
-    "tokens_per_round": 5.1379938706203925,
-    "more_tokens_per_round_than_plain": 0.0192992628178581
+    "rounds": 14228,
+    "tokens_per_round": 5.027832443070003,
+    "more_tokens_per_round_than_plain": 0.01672757942086034
    },
    "16k+": {
     "rounds": 63,
@@ -210,14 +210,14 @@
   },
   "immediate:3e-4:onepass:only=attn": {
    "0-2k": {
-    "rounds": 4379,
-    "tokens_per_round": 4.121032199132222,
-    "more_tokens_per_round_than_plain": 0.006566738725263921
+    "rounds": 5515,
+    "tokens_per_round": 3.997824116047144,
+    "more_tokens_per_round_than_plain": 0.0046688478850389625
    },
    "2k+": {
-    "rounds": 7419,
-    "tokens_per_round": 5.928696589836905,
-    "more_tokens_per_round_than_plain": 0.06458816084330388
+    "rounds": 8413,
+    "tokens_per_round": 5.882324973255676,
+    "more_tokens_per_round_than_plain": 0.06087963275823771
    },
    "8k+": {
     "rounds": 2092,
@@ -225,9 +225,9 @@
     "more_tokens_per_round_than_plain": 0.16509163535459215
    },
    "everything": {
-    "rounds": 11798,
-    "tokens_per_round": 5.2577555517884385,
-    "more_tokens_per_round_than_plain": 0.043058145448380936
+    "rounds": 13928,
+    "tokens_per_round": 5.1361286616886845,
+    "more_tokens_per_round_than_plain": 0.03862722573233768
    },
    "16k+": {
     "rounds": 58,
@@ -237,14 +237,14 @@
   },
   "immediate:3e-4:onepass:only=mlp": {
    "0-2k": {
-    "rounds": 4379,
-    "tokens_per_round": 4.121032199132222,
-    "more_tokens_per_round_than_plain": 0.006566738725263921
+    "rounds": 5520,
+    "tokens_per_round": 3.9942028985507245,
+    "more_tokens_per_round_than_plain": 0.00375882175470843
    },
    "2k+": {
-    "rounds": 7642,
-    "tokens_per_round": 5.755692227165664,
-    "more_tokens_per_round_than_plain": 0.03352258116938911
+    "rounds": 8643,
+    "tokens_per_round": 5.725789656369316,
+    "more_tokens_per_round_than_plain": 0.0326484265179976
    },
    "8k+": {
     "rounds": 2270,
@@ -252,9 +252,9 @@
     "more_tokens_per_round_than_plain": 0.07480716492013251
    },
    "everything": {
-    "rounds": 12021,
-    "tokens_per_round": 5.160219615672573,
-    "more_tokens_per_round_than_plain": 0.02370851010731223
+    "rounds": 14163,
+    "tokens_per_round": 5.050907293652474,
+    "more_tokens_per_round_than_plain": 0.02139377250582508
    },
    "16k+": {
     "rounds": 66,
@@ -265,7 +265,7 @@
  },
  "cost": {
   "plain": {
-   "drafting_ms_per_round": 11.76806316892334,
+   "drafting_ms_per_round": 11.775276323941275,
    "training_ms_per_round": 0.0,
    "target_check_ms_per_round": 0.0,
    "training_ms_per_update": 0.0,
@@ -273,68 +273,68 @@
    "positions_per_update": 0.0
   },
   "immediate:3e-4:onepass:after=2000": {
-   "drafting_ms_per_round": 13.63826060112791,
-   "training_ms_per_round": 12.402015723723357,
+   "drafting_ms_per_round": 13.548120551809415,
+   "training_ms_per_round": 11.814820997159831,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 17.61025139095201,
-   "updates_per_round": 0.7042497831743278,
-   "positions_per_update": 6.374160322436184
+   "training_ms_per_update": 17.584463176914802,
+   "updates_per_round": 0.6718897744157774,
+   "positions_per_update": 6.284780860474467
   },
   "immediate:3e-4:onepass:after=4000": {
-   "drafting_ms_per_round": 12.940834077946267,
-   "training_ms_per_round": 7.773503256696446,
+   "drafting_ms_per_round": 12.832726848380576,
+   "training_ms_per_round": 7.06220292305684,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 17.433646417409967,
-   "updates_per_round": 0.44589084065244666,
-   "positions_per_update": 7.265036932817447
+   "training_ms_per_update": 17.42867496210021,
+   "updates_per_round": 0.4052059573326177,
+   "positions_per_update": 7.22069536423841
   },
   "immediate:3e-4:onepass:stride=2": {
-   "drafting_ms_per_round": 13.128178283485056,
-   "training_ms_per_round": 8.76646000470741,
+   "drafting_ms_per_round": 13.131834391360012,
+   "training_ms_per_round": 8.757080987193834,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 17.52608722687023,
-   "updates_per_round": 0.5001949317738792,
-   "positions_per_update": 5.7326578332034295
+   "training_ms_per_update": 17.50597997132969,
+   "updates_per_round": 0.5002336916605462,
+   "positions_per_update": 5.539108382274426
   },
   "immediate:3e-4:onepass:stride=4:sharp": {
-   "drafting_ms_per_round": 12.75847357580551,
-   "training_ms_per_round": 4.50305726938914,
+   "drafting_ms_per_round": 12.7577984566667,
+   "training_ms_per_round": 4.491975106516333,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 17.9969314771973,
-   "updates_per_round": 0.2502125028977668,
-   "positions_per_update": 5.652872143298333
+   "training_ms_per_update": 17.95008455441072,
+   "updates_per_round": 0.25024813074836233,
+   "positions_per_update": 5.473823373876256
   },
   "immediate:1e-3:onepass:stride=4": {
-   "drafting_ms_per_round": 12.480867425549105,
-   "training_ms_per_round": 4.416386925625308,
+   "drafting_ms_per_round": 12.482501469601775,
+   "training_ms_per_round": 4.407302251392523,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 17.638659502040806,
-   "updates_per_round": 0.2503810975609756,
-   "positions_per_update": 5.607914764079148
+   "training_ms_per_update": 17.602707580267605,
+   "updates_per_round": 0.2503763827976697,
+   "positions_per_update": 5.456732026143791
   },
   "immediate:3e-4:onepass:stride=8:sharp": {
-   "drafting_ms_per_round": 12.425879517252698,
-   "training_ms_per_round": 2.301438339390312,
+   "drafting_ms_per_round": 12.417226726705275,
+   "training_ms_per_round": 2.2991701336473938,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 18.38612320402628,
-   "updates_per_round": 0.12517257248044178,
-   "positions_per_update": 5.753063725490196
+   "training_ms_per_update": 18.35590743063839,
+   "updates_per_round": 0.12525505166853157,
+   "positions_per_update": 5.508670520231214
   },
   "immediate:3e-4:onepass:only=attn": {
-   "drafting_ms_per_round": 14.454366135737741,
-   "training_ms_per_round": 15.919719826116365,
+   "drafting_ms_per_round": 14.45125170406135,
+   "training_ms_per_round": 15.88434028437716,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 15.919719826116365,
+   "training_ms_per_update": 15.88434028437716,
    "updates_per_round": 1.0,
-   "positions_per_update": 5.756499133448873
+   "positions_per_update": 5.5661764705882355
   },
   "immediate:3e-4:onepass:only=mlp": {
-   "drafting_ms_per_round": 14.325613403884388,
-   "training_ms_per_round": 15.089336238385,
+   "drafting_ms_per_round": 14.324963701759886,
+   "training_ms_per_round": 15.064380008833503,
    "target_check_ms_per_round": 0.0,
-   "training_ms_per_update": 15.089336238385,
+   "training_ms_per_update": 15.064380008833503,
    "updates_per_round": 1.0,
-   "positions_per_update": 5.665301707486672
+   "positions_per_update": 5.4871063970831955
   }
  },
  "gpu_memory_peak_gb": 12.12
