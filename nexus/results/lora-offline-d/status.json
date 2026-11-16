@@ -1,0 +1,44 @@
+{
+ "done": false,
+ "answers": 1,
+ "answers_available": 366,
+ "part": "train",
+ "hours": 0.014,
+ "labels": "immediate",
+ "loss": "ce",
+ "rate": 0.0001,
+ "rank": 16,
+ "stride": 1,
+ "updates": 749,
+ "kinds": "all",
+ "groups": [
+  "0-2k",
+  "2k+",
+  "8k+",
+  "everything"
+ ],
+ "in_order": [
+  {
+   "answers": "1-1",
+   "0-2k": {
+    "plain_tokens_per_round": 2.2054054054054055,
+    "rounds": 740,
+    "frozen_more_tokens_per_round_than_plain": 0.0,
+    "online_more_tokens_per_round_than_plain": -0.013333333333333308
+   },
+   "everything": {
+    "plain_tokens_per_round": 2.2054054054054055,
+    "rounds": 740,
+    "frozen_more_tokens_per_round_than_plain": 0.0,
+    "online_more_tokens_per_round_than_plain": -0.013333333333333308
+   }
+  }
+ ],
+ "ms_per_round": {
+  "plain": 11.663817430569514,
+  "frozen": 11.534263034401512,
+  "online": 11.841805611426631
+ },
+ "training_ms_per_update": 30.624138865276713,
+ "gpu_memory_peak_gb": 9.46
+}
