@@ -36,6 +36,7 @@ returns a draft: the drafter's own drafts change because its adapters do. Decodi
 stays lossless, since the target still checks every draft.
 """
 
+import os
 import time
 from collections import deque
 
@@ -67,10 +68,15 @@ class LowRank(nn.Module):
         return out + update.to(out.dtype)
 
     @torch.no_grad()
-    def reset(self):
-        """Back to the frozen layer: both halves of the update return to where they started."""
-        self.up.zero_()
-        self.down.copy_(self.down_at_start)
+    def reset(self, state=None):
+        """Back to the frozen layer: both halves of the update return to where they started.
+        With a saved state (down, up), back to that state instead."""
+        if state is None:
+            self.up.zero_()
+            self.down.copy_(self.down_at_start)
+        else:
+            self.down.copy_(state[0])
+            self.up.copy_(state[1])
 
 
 def attach_adapters(model, rank=16, scale=1.0, names=ADAPTED):
@@ -94,6 +100,29 @@ def attach_adapters(model, rank=16, scale=1.0, names=ADAPTED):
     return adapters
 
 
+def adapter_state(adapters):
+    """A copy of what the adapters hold now: (down, up) of each."""
+    return [(adapter.down.detach().clone(), adapter.up.detach().clone()) for adapter in adapters]
+
+
+def save_adapters(path, adapters, **notes):
+    """Writes the adapters to a file (16 MB at rank 16 for the Qwen3-4B drafter)."""
+    state = [(down.float().cpu(), up.float().cpu()) for down, up in adapter_state(adapters)]
+    torch.save({"state": state, "rank": int(adapters[0].down.shape[0]), **notes}, path + ".tmp")
+    os.replace(path + ".tmp", path)
+
+
+def load_adapters(path, adapters):
+    """Reads saved adapters as a starting state for the attached ones, which they must fit."""
+    saved = torch.load(path, map_location="cpu")
+    assert len(saved["state"]) == len(adapters), "the saved adapters belong to another drafter"
+    state = []
+    for adapter, (down, up) in zip(adapters, saved["state"]):
+        assert down.shape == adapter.down.shape and up.shape == adapter.up.shape, "the saved adapters have another rank"
+        state.append((down.to(adapter.down), up.to(adapter.up)))
+    return state
+
+
 def detach_adapters(model):
     """Puts the original linear layers back."""
     for layer in model.layers:
@@ -108,8 +137,11 @@ class DraftTrainer:
 
     replace = False
 
-    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32):
+    def __init__(self, model, adapters, labels="hindsight", rate=1e-4, stride=1, decay=7.0, loss="ce", top=32,
+                 init=None):
         assert labels in LABELS and loss in ("ce", "kl")
+        # init: a saved state of the adapters (load_adapters) that every request starts from, instead of zero.
+        self.init = init
         # Asks decoding (or replay) for the target's `top` most likely tokens at every position of each draft.
         self.canvas_top = top if labels.startswith("canvas") else 0
         self.model, self.adapters = model, adapters
@@ -124,11 +156,15 @@ class DraftTrainer:
     def start(self, first_drafter):
         pass
 
-    def begin(self):
-        """Forget what was learned: every request starts from the frozen drafter."""
-        for adapter in self.adapters:
-            adapter.reset()
-        self.optimizer = torch.optim.Adam(self.parameters, lr=self.rate) if self.rate > 0 else None
+    def begin(self, keep=False):
+        """Forget what was learned: every request starts from the frozen drafter (or from `init`).
+
+        keep: go on from what the earlier answers taught instead. This is not what a request should
+        do; it is for training across answers (nexus/train_adapter.py)."""
+        if not keep:
+            for number, adapter in enumerate(self.adapters):
+                adapter.reset(None if self.init is None else self.init[number])
+            self.optimizer = torch.optim.Adam(self.parameters, lr=self.rate) if self.rate > 0 else None
         self.cache = None            # the drafter's cache of the context, kept separately for training
         self.pieces = deque()        # (first position, target states) for the context not yet dropped
         self.anchors = deque()       # past rounds that still have positions to train on

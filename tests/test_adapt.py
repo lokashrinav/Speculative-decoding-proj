@@ -238,3 +238,52 @@ def test_settings_of_a_queued_job_can_be_replaced_by_a_file(tmp_path):
     assert settings_for("/x/nexus/results/adapt-drafter-0", "plain", str(folder)) == ("plain", "command line")
     (folder / "adapt-drafter.txt").write_text("\n")
     assert settings_for("/x/nexus/results/adapt-drafter-0", "plain", str(folder)) == ("plain", "command line")
+
+
+def test_what_was_learned_can_be_kept_saved_and_used_as_a_starting_state(tmp_path):
+    from dflash.adapt import adapter_state, load_adapters, save_adapters
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    start = prompt.shape[1]
+    ids = dflash_generate_redraft(draft, target, prompt, 200, None, return_stats=True).output_ids
+    plain = replay_decode(draft, target, ids, start, ended=False)
+    adapters = attach_adapters(draft, rank=4)
+    trainer = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3)
+    trainer.begin()
+    once = replay_decode(draft, target, ids, start, ended=False, improver=trainer)
+    learned = adapter_state(adapters)
+    assert any(float(up.abs().sum()) > 0 for _, up in learned)
+    # Going on without a reset: the second pass over the same answer starts from what the first one taught.
+    optimizer = trainer.optimizer
+    trainer.begin(keep=True)
+    assert trainer.optimizer is optimizer and all(torch.equal(a.up, up) for a, (_, up) in zip(adapters, learned))
+    twice = replay_decode(draft, target, ids, start, ended=False, improver=trainer)
+    assert once.rounds < plain.rounds and twice.rounds < plain.rounds
+    assert twice.acceptance_lengths != once.acceptance_lengths            # it did not start from zero this time
+    path = str(tmp_path / "lora-test.pt")
+    save_adapters(path, adapters, answers=2)
+    kept = adapter_state(adapters)
+    # A request starts from zero again ...
+    trainer.begin()
+    assert all(float(adapter.up.abs().sum()) == 0.0 for adapter in adapters)
+    assert replay_decode(draft, target, ids, start, ended=False).acceptance_lengths == plain.acceptance_lengths
+    # ... unless it is told to start from the saved state, with or without more training.
+    state = load_adapters(path, adapters)
+    assert all(torch.allclose(a, b) and torch.allclose(c, d) for (a, c), (b, d) in zip(state, kept))
+    frozen = DraftTrainer(draft, adapters, rate=0.0, init=state)
+    frozen.begin()
+    with_saved = replay_decode(draft, target, ids, start, ended=False, improver=frozen)
+    assert with_saved.acceptance_lengths != plain.acceptance_lengths and frozen.totals["updates"] == 0
+    frozen.begin()
+    assert replay_decode(draft, target, ids, start, ended=False, improver=frozen).acceptance_lengths == with_saved.acceptance_lengths
+    warm = DraftTrainer(draft, adapters, labels="immediate", rate=3e-3, init=state)
+    warm.begin()
+    warmed = replay_decode(draft, target, ids, start, ended=False, improver=warm)
+    # Its first draft is made before any training, so it is the saved state's draft; after that it learns on.
+    assert warmed.acceptance_lengths[0] == with_saved.acceptance_lengths[0] and warm.totals["updates"] > 20
+    assert warmed.acceptance_lengths != with_saved.acceptance_lengths
+    detach_adapters(draft)
+    with pytest.raises(AssertionError):
+        load_adapters(path, attach_adapters(draft, rank=2))
+    detach_adapters(draft)

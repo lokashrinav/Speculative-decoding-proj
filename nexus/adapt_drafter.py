@@ -8,7 +8,10 @@ and the result is simply how many rounds the answer takes.
 
 Settings are written as labels:rate (for example hindsight:1e-4), with :kl added to compare
 the drafter with the target's own predictions instead of the committed token alone, and
-"plain" is the frozen drafter. The labels "canvas" and "canvas+hindsight" need what the target
+"plain" is the frozen drafter. A setting can end in @name: the adapters then start every
+answer from the saved state lora-<name>.pt (trained across other answers by
+nexus/train_adapter.py) instead of from zero, and "frozen@name" uses that state without any
+training during the answer. The labels "canvas" and "canvas+hindsight" need what the target
 predicted on every draft, so for those settings the target checks each draft again as it
 does in decoding (slower: about as slow as decoding itself). The same answers are used for every setting, so they can be compared
 answer by answer. Only validation answers are used here unless another part is named.
@@ -20,7 +23,7 @@ import time
 
 import torch
 
-from dflash.adapt import DraftTrainer, attach_adapters
+from dflash.adapt import DraftTrainer, attach_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
@@ -125,6 +128,8 @@ def main():
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--max-hours", type=float, default=5.0)
+    parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"), help="where lora-<name>.pt files are")
+    parser.add_argument("--wait-minutes", type=float, default=120, help="how long to wait for a lora-<name>.pt file")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
     parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
     args = parser.parse_args()
@@ -139,12 +144,21 @@ def main():
     adapters = attach_adapters(draft, rank=args.rank)
     trainers = {}
     settings, settings_from = settings_for(args.results_dir, args.settings)
+    starts = {}
     for setting in settings.split(","):
-        parts = setting.split(":")
-        plain = parts[0] == "plain"
+        body, _, start_from = setting.partition("@")
+        parts = body.split(":")
+        plain = parts[0] in ("plain", "frozen")
+        if start_from and start_from not in starts:
+            path = os.path.join(args.adapter_dir, f"lora-{start_from}.pt")
+            deadline = time.time() + 60 * args.wait_minutes          # the file may still be in the making
+            while not os.path.exists(path) and time.time() < deadline:
+                time.sleep(30)
+            starts[start_from] = load_adapters(path, adapters)
         trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else parts[0],
                                          rate=0.0 if plain else float(parts[1]), stride=args.stride, decay=args.decay,
-                                         loss=parts[2] if len(parts) > 2 else "ce", top=args.top)
+                                         loss=parts[2] if len(parts) > 2 else "ce", top=args.top,
+                                         init=starts.get(start_from))
     top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}
