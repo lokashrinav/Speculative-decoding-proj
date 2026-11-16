@@ -84,6 +84,9 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
     context_window = int(getattr(improver, "context_window", 0) or 0)
     target_cache = _make_cache(target.config) if canvas_top else None
     target_fed, canvas = 0, None
+    # A plug-in that learns from the draft's own pass makes the draft itself, and is told how the
+    # check went right after it (dflash.adapt.OnePassTrainer).
+    learner = improver if getattr(improver, "learns_from_the_draft", False) else None
 
     acceptance_lengths = []
     rounds_edited = rounds_with_alternative = alternative_wins = 0
@@ -96,12 +99,20 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         if block_len > 1:
             clock = _clock(device) if timers is not None else None
             noise = _raw_input_embeddings(target, block_ids, scale)
-            draft_states = model(
-                target_hidden=features[:, fed:start], noise_embedding=noise,
-                position_ids=position_ids[:, fed : start + block_len],
-                past_key_values=draft_cache, use_cache=True,
-            )[:, -block_len:, :]
-            if context_window:
+            taught = learner is not None and block_len > 2 and not context_window
+            if taught:
+                draft_states, draft_logits = learner.draft(
+                    model, head, features[:, fed:start], noise, position_ids[:, fed : start + block_len],
+                    draft_cache, start)
+            else:
+                draft_states = model(
+                    target_hidden=features[:, fed:start], noise_embedding=noise,
+                    position_ids=position_ids[:, fed : start + block_len],
+                    past_key_values=draft_cache, use_cache=True,
+                )[:, -block_len:, :]
+            if taught:
+                pass                                         # the learner has cut the cache back already
+            elif context_window:
                 draft_cache.crop(-block_len)                 # the block's own entries go, as always
                 for layer in draft_cache.layers:             # ... and so does context older than the window
                     if layer.keys is not None and layer.keys.shape[-2] > context_window:
@@ -110,7 +121,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
             else:
                 _crop_to(draft_cache, start)
             context_features, fed = features[:, fed:start], start
-            draft_logits = model.compute_logits(draft_states[:, 1:, :], head)
+            if not taught:
+                draft_logits = model.compute_logits(draft_states[:, 1:, :], head)
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
             if timers is not None:
                 now = _clock(device)
@@ -149,6 +161,11 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         truth = ids[:, start + 1 : start + block_len]
         accepted = _matches(block_ids[:, 1:], truth)
         own = accepted
+        if learner is not None and block_len > 2:
+            clock = _clock(device) if timers is not None else None
+            learner.learn(start, own, truth[0, : own + 1], canvas)
+            if timers is not None:
+                timers["learn"] = timers.get("learn", 0.0) + _clock(device) - clock
         if alternative is not None and alternative.shape == block_ids.shape \
                 and bool((alternative[:, :1] == block_ids[:, :1]).all()) and bool((alternative != block_ids).any()):
             rounds_with_alternative += 1

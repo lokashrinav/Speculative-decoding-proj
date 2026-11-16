@@ -17,6 +17,8 @@ its two parts: the target's correction alone, and the tokens the draft already h
 Any setting, "plain" included, can take sharp (or sharp=N): the drafter's attention is then made
 sharper as the text grows beyond N tokens (2048 if not given), with no training at all; this is
 the baseline SharpDraft (dflash/sharp.py). scale=X sharpens by the same X at every length.
+onepass learns from the draft's own pass instead of running the drafter again (the labels can then
+be immediate, rejected, accepted or canvas), and the update is applied before the next draft.
 A setting can end in @name: the adapters then start every
 answer from the saved state lora-<name>.pt (trained across other answers by
 nexus/train_adapter.py) instead of from zero, and "frozen@name" uses that state without any
@@ -32,7 +34,7 @@ import time
 
 import torch
 
-from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, choose_adapters, load_adapters
+from dflash.adapt import DraftTrainer, OnePassTrainer, adapter_notes, attach_adapters, choose_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.replay import replay_decode, target_features
@@ -69,7 +71,8 @@ def parse_setting(setting):
     parts = body.split(":")
     untrained = parts[0] in ("plain", "frozen")
     options = {"labels": parts[0], "rate": 0.0 if untrained else float(parts[1]), "loss": "ce", "stride": 0,
-               "only": "all", "window": 0, "start_from": start_from, "trigger": None, "sharpen": None}
+               "only": "all", "window": 0, "start_from": start_from, "trigger": None, "sharpen": None,
+               "one_pass": False}
     for part in parts[1 if untrained else 2 :]:
         key, _, value = part.partition("=")
         if part in ("kl", "ce"):
@@ -80,6 +83,8 @@ def parse_setting(setting):
             options["sharpen"] = QueryScale(fixed=float(value))
         elif key == "trigger" and not untrained:     # learn only from rounds with at most K accepted draft tokens
             options["trigger"] = int(value)
+        elif part == "onepass" and not untrained:    # learn from the draft's own pass (no second run of the drafter)
+            options["one_pass"] = True
         elif key == "stride":
             options["stride"] = int(value)
         elif key == "only":
@@ -89,6 +94,30 @@ def parse_setting(setting):
         else:
             raise ValueError(f"cannot read the setting {setting}")
     return options
+
+
+def build_trainers(settings, draft, adapters, adapter_dir, wait_minutes=120, stride=1, decay=7.0, top=32):
+    """A trainer for every setting of a comma-separated list, and what the saved adapters they start from say."""
+    trainers, starts, started_from = {}, {}, {}
+    for setting in settings.split(","):
+        options = parse_setting(setting)
+        start_from = options["start_from"]
+        plain = options["labels"] in ("plain", "frozen")
+        if start_from and start_from not in starts:
+            path = os.path.join(adapter_dir, f"lora-{start_from}.pt")
+            deadline = time.time() + 60 * wait_minutes               # the file may still be in the making
+            while not os.path.exists(path) and time.time() < deadline:
+                time.sleep(30)
+            starts[start_from] = load_adapters(path, adapters)
+            started_from[start_from] = adapter_notes(path)
+        kind = OnePassTrainer if options["one_pass"] else DraftTrainer
+        trainers[setting] = kind(draft, adapters, labels="hindsight" if plain else options["labels"],
+                                 rate=options["rate"], stride=options["stride"] or stride, decay=decay,
+                                 loss=options["loss"], top=top, init=starts.get(start_from),
+                                 trained=choose_adapters(adapters, options["only"]),
+                                 trigger=options["trigger"], sharpen=options["sharpen"])
+        trainers[setting].context_window = options["window"]
+    return trainers, started_from
 
 
 def settings_for(results_dir, given, folder=os.path.join("nexus", "settings")):
@@ -186,27 +215,11 @@ def main():
     target, draft, tokenizer = load_transformers_models(args.model, args.draft, device)
     stop_set = set(stop_token_ids(target, tokenizer) or [])
     adapters = attach_adapters(draft, rank=args.rank)
-    trainers = {}
     settings, settings_from = settings_for(args.results_dir, args.settings)
-    starts, started_from = {}, {}
-    for setting in settings.split(","):
-        options = parse_setting(setting)
-        start_from = options["start_from"]
-        plain = options["labels"] in ("plain", "frozen")
-        if start_from and start_from not in starts:
-            path = os.path.join(args.adapter_dir, f"lora-{start_from}.pt")
-            deadline = time.time() + 60 * args.wait_minutes          # the file may still be in the making
-            while not os.path.exists(path) and time.time() < deadline:
-                time.sleep(30)
-            starts[start_from] = load_adapters(path, adapters)
-            started_from[start_from] = adapter_notes(path)
-        trainers[setting] = DraftTrainer(draft, adapters, labels="hindsight" if plain else options["labels"],
-                                         rate=options["rate"], stride=options["stride"] or args.stride, decay=args.decay,
-                                         loss=options["loss"], top=args.top, init=starts.get(start_from),
-                                         trained=choose_adapters(adapters, options["only"]),
-                                         trigger=options["trigger"], sharpen=options["sharpen"])
-        trainers[setting].context_window = options["window"]
-    top = args.top if any(trainer.loss == "kl" for trainer in trainers.values()) else 0
+    trainers, started_from = build_trainers(settings, draft, adapters, args.adapter_dir, args.wait_minutes,
+                                            stride=args.stride, decay=args.decay, top=args.top)
+    top = args.top if any(trainer.loss == "kl" and not isinstance(trainer, OnePassTrainer)
+                          for trainer in trainers.values()) else 0
     names = list(trainers)
     seconds = {name: {} for name in names}
     records, started = [], time.time()

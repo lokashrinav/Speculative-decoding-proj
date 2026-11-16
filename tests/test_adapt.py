@@ -294,17 +294,20 @@ def test_a_setting_can_train_part_of_the_adapters_and_skip_rounds():
     from nexus.adapt_drafter import parse_setting
 
     assert parse_setting("plain") == {"labels": "plain", "rate": 0.0, "loss": "ce", "stride": 0, "only": "all", "window": 0,
-                                      "start_from": "", "trigger": None, "sharpen": None}
+                                      "start_from": "", "trigger": None, "sharpen": None, "one_pass": False}
     assert parse_setting("frozen:window=2048@off-a") == {"labels": "frozen", "rate": 0.0, "loss": "ce", "stride": 0,
                                                          "only": "all", "window": 2048, "start_from": "off-a",
-                                                         "trigger": None, "sharpen": None}
+                                                         "trigger": None, "sharpen": None, "one_pass": False}
     with pytest.raises(ValueError):
         parse_setting("immediate:3e-4:window=2048")                       # only for settings that do not train
     assert parse_setting("frozen@off-a")["start_from"] == "off-a" and parse_setting("frozen@off-a")["rate"] == 0.0
     read = parse_setting("immediate:3e-4:kl:stride=5:only=last1@off-b")
     assert read == {"labels": "immediate", "rate": 3e-4, "loss": "kl", "stride": 5, "only": "last1", "window": 0,
-                    "start_from": "off-b", "trigger": None, "sharpen": None}
+                    "start_from": "off-b", "trigger": None, "sharpen": None, "one_pass": False}
     assert parse_setting("rejected:3e-4:trigger=2")["trigger"] == 2
+    assert parse_setting("rejected:3e-4:onepass:only=last1")["one_pass"] is True
+    with pytest.raises(ValueError):
+        parse_setting("plain:onepass")                                    # only for settings that train
     with pytest.raises(ValueError):
         parse_setting("plain:trigger=2")                                  # only for settings that train
     assert parse_setting("canvas+hindsight:1e-3:only=mlp")["only"] == "mlp"
@@ -573,3 +576,120 @@ def test_the_cost_of_a_round_can_be_timed_piece_by_piece():
     assert draft_ms > 0 and update_ms > 0
     assert all(float(adapter.up.detach().abs().sum()) == 0.0 for adapter in adapters)   # left as they were found
     detach_adapters(draft)
+
+
+@pytest.mark.parametrize("labels", ["immediate", "rejected", "accepted", "canvas"])
+def test_learning_from_the_drafts_own_pass(labels):
+    """The draft keeps its gradients and the update follows the check: the drafter is not run again."""
+    from dflash.adapt import OnePassTrainer
+
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    budget = 300
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    # Keeping the gradients does not change a draft: with steps too small to matter, the rounds are the plain ones.
+    still = OnePassTrainer(draft, adapters, labels="immediate", rate=1e-30)
+    still.begin()
+    same = dflash_generate_redraft(draft, target, prompt, budget, None, improver=still, return_stats=True)
+    assert same.acceptance_lengths == plain.acceptance_lengths and still.totals["updates"] > 0
+
+    trainer = OnePassTrainer(draft, adapters, labels=labels, rate=3e-3, loss="kl" if labels == "canvas" else "ce")
+    trainer.begin()
+    assert all(float(adapter.up.detach().abs().sum()) == 0.0 for adapter in adapters)
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=trainer, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)                    # the answer is still the target's own text
+    if labels != "accepted":                                                 # (this tiny drafter is rarely right)
+        assert live.acceptance_lengths != plain.acceptance_lengths           # ... from other drafts
+    final, width = live.output_ids[0], draft.block_size - 1
+    starts = _starts(prompt, live.acceptance_lengths)
+    gained = dict(zip(starts, live.acceptance_lengths))
+    if labels == "canvas":
+        assert trainer.canvas_used and not trainer.trained_on
+        assert all(position in gained and len(used) == width for position, used in trainer.canvas_used[:-2])
+    else:
+        seen = set()
+        for position, first, used in trainer.trained_on:
+            assert position not in seen                                      # a round is learned from once
+            seen.add(position)
+            assert final[position + 1 + first : position + 1 + first + len(used)].tolist() == used
+            accepted = min(gained[position] - 1, width)
+            if labels == "immediate":
+                assert first == 0 and len(used) == min(accepted + 1, width)
+            elif labels == "rejected":
+                assert accepted < width and first == accepted and len(used) == 1
+            else:
+                assert first == 0 and len(used) == accepted >= 1
+        for position in starts[:-3]:                                         # every round that had such tokens was used
+            has = {"immediate": True, "rejected": gained[position] <= width, "accepted": gained[position] >= 2}[labels]
+            assert (position in seen) == has
+    updates = trainer.totals["updates"]
+    assert updates > 0
+    # A second answer starts from the frozen drafter again, and replay follows the same rounds.
+    trainer.begin()
+    second = dflash_generate_redraft(draft, target, prompt, budget, None, improver=trainer, return_stats=True)
+    assert second.acceptance_lengths == live.acceptance_lengths and trainer.totals["updates"] == 2 * updates
+    trainer.begin()
+    replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
+    assert replayed.acceptance_lengths == live.acceptance_lengths
+    detach_adapters(draft)
+
+
+def test_one_pass_learning_can_skip_rounds_too():
+    from dflash.adapt import OnePassTrainer
+
+    target, draft = make_models()
+    prompt = torch.tensor([[2, 7, 1, 8]])
+    budget = 200
+    plain = dflash_generate_redraft(draft, target, prompt, budget, None, return_stats=True)
+    adapters = attach_adapters(draft, rank=4)
+    every = OnePassTrainer(draft, adapters, labels="immediate", rate=1e-3)
+    every.begin()
+    dflash_generate_redraft(draft, target, prompt, budget, None, improver=every, return_stats=True)
+    second = OnePassTrainer(draft, adapters, labels="immediate", rate=1e-3, stride=2)
+    second.begin()
+    dflash_generate_redraft(draft, target, prompt, budget, None, improver=second, return_stats=True)
+    assert 0.35 * every.totals["updates"] < second.totals["updates"] < 0.65 * every.totals["updates"]
+    early = OnePassTrainer(draft, adapters, labels="immediate", rate=1e-3, trigger=0)
+    early.begin()
+    live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=early, return_stats=True)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    gained = dict(zip(_starts(prompt, live.acceptance_lengths), live.acceptance_lengths))
+    assert early.trained_on and all(gained[position] == 1 and len(used) == 1 for position, _, used in early.trained_on)
+    # With no learning rate it is not asked to make the drafts at all: plain decoding.
+    idle = OnePassTrainer(draft, adapters, labels="immediate", rate=0.0)
+    idle.begin()
+    assert not idle.learns_from_the_draft
+    same = dflash_generate_redraft(draft, target, prompt, budget, None, improver=idle, return_stats=True)
+    assert same.acceptance_lengths == plain.acceptance_lengths and idle.totals["updates"] == 0
+    detach_adapters(draft)
+
+
+def test_real_speed_is_counted_by_how_far_into_the_answer_a_round_began():
+    """nexus/live_speed.py: rounds, tokens and seconds per position group from the clock of every round."""
+    from nexus.adapt_drafter import GROUPS
+    from nexus.live_speed import by_position, summarize
+
+    names = [name for name, _, _ in GROUPS]
+    clock = [[0, 3, 0.5], [3, 1, 0.75], [2500, 4, 1.75], [9000, 2, 2.0]]       # [tokens before, produced, seconds so far]
+    table = by_position(clock)
+    assert table[names.index("0-2k")] == [2, 4, 0.75]
+    assert table[names.index("2k+")] == [2, 6, 1.25] and table[names.index("8k+")] == [1, 2, 0.25]
+    assert table[names.index("everything")] == [4, 10, 2.0]
+    slow = by_position([[0, 3, 1.0], [3, 1, 1.5], [2500, 4, 3.5], [9000, 2, 4.0]])
+    records = [{"settings": {"plain": {"table": slow, "differs_from_plain_at": None},
+                             "other": {"table": table, "differs_from_plain_at": None}}}]
+    out = summarize(records, ["plain", "other"])
+    assert out["other"]["everything"]["tokens_per_second"] == pytest.approx(5.0)
+    assert out["other"]["everything"]["more_tokens_per_second_than_plain"] == pytest.approx(1.0)
+    assert out["other"]["everything"]["more_tokens_per_round_than_plain"] == pytest.approx(0.0)
+    assert out["other"]["answers_with_the_plain_drafters_tokens"] == 1
+
+    # The clock of every round comes from decoding itself.
+    target, draft = make_models()
+    prompt = torch.tensor([[3, 1, 4, 1, 5]])
+    rounds = []
+    result = dflash_generate_redraft(draft, target, prompt, 60, None, return_stats=True, round_clock=rounds)
+    assert [produced for _, produced, _ in rounds] == result.acceptance_lengths
+    assert rounds[0][0] == 0 and all(later[2] >= earlier[2] for earlier, later in zip(rounds, rounds[1:]))
+    assert all(later[0] == earlier[0] + earlier[1] for earlier, later in zip(rounds, rounds[1:]))

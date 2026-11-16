@@ -198,6 +198,7 @@ def dflash_generate_redraft(
     return_stats: bool = False,
     round_log: list | None = None,
     timers: dict | None = None,
+    round_clock: list | None = None,
 ):
     """Greedy DFlash decoding that verifies the first draft and an improved draft together.
 
@@ -206,6 +207,8 @@ def dflash_generate_redraft(
     [block length, split (0 if no alternative), tokens accepted from the first
     draft, tokens accepted from the alternative (-1 if none), confidences].
     timers, if given, accumulates seconds spent in each part of a round.
+    round_clock, if given, receives [tokens written before the round, tokens it produced,
+    seconds since decoding began] at the end of every round.
     """
     if isinstance(model, DFlash2DraftModel):
         raise ValueError("Two-draft decoding supports the original DFlash drafter only")
@@ -234,7 +237,7 @@ def dflash_generate_redraft(
     _crop_to(target_cache, num_input_tokens)
     time_to_first_token = _cuda_time() - prefill_start if return_stats else None
 
-    decode_start = _cuda_time() if return_stats else None
+    decode_start = _cuda_time() if return_stats or round_clock is not None else None
     stop_tokens = (
         torch.tensor(stop_token_ids, dtype=torch.long, device=device)
         if stop_token_ids is not None else None
@@ -249,6 +252,9 @@ def dflash_generate_redraft(
     # A plug-in may ask for what the target predicted on each draft (see dflash/adapt.py).
     canvas_top = int(getattr(improver, "canvas_top", 0) or 0)
     canvas = None
+    # A plug-in that learns from the draft's own pass makes the draft itself, and is told how the
+    # check went right after it (dflash.adapt.OnePassTrainer).
+    learner = improver if getattr(improver, "learns_from_the_draft", False) else None
 
     while start + 1 < max_length and not stopped:
         block_len = min(block_size, max_length - start)
@@ -259,14 +265,19 @@ def dflash_generate_redraft(
                 target, block_ids, float(_draft_value(model.config, "input_embedding_scale", 1.0)),
             )
             clock = _cuda_time() if timers is not None else None
-            draft_states = model(
-                target_hidden=context_features, noise_embedding=noise,
-                position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
-                past_key_values=draft_cache, use_cache=True,
-            )[:, -block_len:, :]
-            hidden = draft_states[:, 1:, :]
-            _crop_to(draft_cache, start)
-            draft_logits = model.compute_logits(hidden, _output_head(target))
+            if learner is not None and block_len > 2:
+                draft_states, draft_logits = learner.draft(
+                    model, _output_head(target), context_features, noise,
+                    position_ids[:, start - context_features.shape[1] : start + block_len], draft_cache, start)
+            else:
+                draft_states = model(
+                    target_hidden=context_features, noise_embedding=noise,
+                    position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
+                    past_key_values=draft_cache, use_cache=True,
+                )[:, -block_len:, :]
+                hidden = draft_states[:, 1:, :]
+                _crop_to(draft_cache, start)
+                draft_logits = model.compute_logits(hidden, _output_head(target))
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
             if timers is not None:
                 now = _cuda_time()
@@ -359,6 +370,12 @@ def dflash_generate_redraft(
         bonus = verified[0, winner_rows[accepted]]
         output_ids[:, start : start + accepted + 1] = winner_ids[:, : accepted + 1]
         output_ids[:, start + accepted + 1] = bonus
+        if learner is not None and block_len > 2:
+            # What the target made of this draft: the accepted tokens, then its own token.
+            clock = _cuda_time() if timers is not None else None
+            learner.learn(start, first_accepted, output_ids[0, start + 1 : start + first_accepted + 2], canvas)
+            if timers is not None:
+                timers["learn"] = timers.get("learn", 0.0) + _cuda_time() - clock
         produced = min(accepted + 1, max_length - start - 1)
         if stop_tokens is not None:
             stop_indices = torch.isin(
@@ -375,6 +392,8 @@ def dflash_generate_redraft(
         if block_len > 1:
             features = extract_context_feature(output.hidden_states, model.target_layer_ids)
             context_features = features[:, winner_rows[:produced], :]
+        if round_clock is not None:
+            round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
         start += produced
         acceptance_lengths.append(produced)
 

@@ -42,6 +42,11 @@ context stays valid while the adapters change.
 DraftTrainer is a plug-in for dflash_generate_redraft and replay_decode. It never
 returns a draft: the drafter's own drafts change because its adapters do. Decoding
 stays lossless, since the target still checks every draft.
+
+OnePassTrainer does the same learning without running the drafter a second time: the
+draft itself is made with its gradients kept, and the update follows right after the
+target's check of that draft. This is cheaper (no second run), and the next draft
+already uses what the last check taught.
 """
 
 import os
@@ -349,3 +354,115 @@ def _clock(tensor):
     if tensor.is_cuda:
         torch.cuda.synchronize()
     return time.perf_counter()
+
+
+class OnePassTrainer(DraftTrainer):
+    """Learns from the draft's own pass: no second run of the drafter.
+
+    Decoding (and replay) hand the draft over to draft(), which keeps the gradients of the
+    drafter's predictions, and call learn() as soon as the target has checked that draft.
+    The update is applied before the next draft is made.
+
+    labels: "immediate" (the accepted tokens and the target's own token), "rejected" (the
+    target's own token alone), "accepted" (the accepted tokens alone), or "canvas" (what the
+    target predicted at every position of the draft, as Test-Time Speculation uses it).
+    loss "kl" compares with the target's predictions instead of the token alone; it needs
+    them from the check, like "canvas" does.
+    """
+
+    def __init__(self, model, adapters, labels="immediate", **options):
+        assert labels in ("immediate", "rejected", "accepted", "canvas")
+        super().__init__(model, adapters, labels=labels, **options)
+        if self.loss == "kl" or labels == "canvas":
+            self.canvas_top = options.get("top", 32)
+
+    @property
+    def learns_from_the_draft(self):
+        return self.optimizer is not None
+
+    def begin(self, keep=False):
+        super().begin(keep)
+        self.pending = None          # (round start, the draft's predictions with their gradients)
+
+    def __call__(self, round_state):
+        self.totals["rounds"] += 1
+        return None
+
+    def draft(self, model, head, context, noise, positions, cache, start):
+        """The draft of one round: the drafter's states and predictions for the block.
+
+        On rounds that may be learned from, the pass keeps its gradients until learn() is called."""
+        block = noise.shape[1]
+        keep = self.round % self.stride == 0
+        self.round += 1
+        if not keep:
+            self.pending = None
+            states = model(target_hidden=context, noise_embedding=noise, position_ids=positions,
+                           past_key_values=cache, use_cache=True)[:, -block:, :]
+            _crop_to(cache, start)
+            return states, model.compute_logits(states[:, 1:, :], head)
+        if not self.frozen_target:
+            for parameter in head.parameters():          # no gradients are wanted for the target's own weights
+                parameter.requires_grad_(False)
+            self.frozen_target = True
+        with torch.inference_mode(False), torch.enable_grad():
+            states = model(target_hidden=context, noise_embedding=noise, position_ids=positions,
+                           past_key_values=cache, use_cache=True)[:, -block:, :]
+            _crop_to(cache, start)
+            for layer in cache.layers:                   # the kept context must not hold on to the graph
+                layer.keys, layer.values = layer.keys.detach(), layer.values.detach()
+            logits = model.compute_logits(states[:, 1:, :], head)
+        self.pending = (start, logits)
+        return states.detach(), logits.detach()
+
+    def learn(self, start, accepted, tokens, canvas=None):
+        """The target has checked the draft that began at `start`.
+
+        accepted: how many of its tokens were accepted.
+        tokens: the tokens the answer has after `start`: the accepted ones, then the target's own.
+        canvas: (start, tokens, log-probabilities) the target predicted at every position of the draft."""
+        if self.pending is None:
+            return
+        position, logits = self.pending
+        self.pending = None
+        assert position == start, "the check is not of the draft that was kept"
+        width = logits.shape[1]
+        accepted = min(int(accepted), width)
+        known = min(accepted + 1, width, int(tokens.shape[0]))       # positions whose token is known now
+        first, last = 0, known
+        if self.labels == "rejected":
+            first, last = (accepted, accepted + 1) if accepted < known else (0, 0)
+        elif self.labels == "accepted":
+            last = min(accepted, known)
+        soft = None
+        if self.canvas_top:
+            if canvas is None or canvas[0] != start:
+                return
+            if self.labels == "canvas":
+                first, last = 0, min(width, int(canvas[1].shape[0]))
+            soft = canvas
+        if last <= first or (self.trigger is not None and accepted > self.trigger):
+            return
+        clock = _clock(logits)
+        with torch.inference_mode(False), torch.enable_grad():
+            chosen = logits[0, first:last].float()
+            weights = torch.exp(-torch.arange(first, last, device=chosen.device) / self.decay)
+            if soft is not None:
+                wanted = torch.log_softmax(soft[2][first:last].float().clone(), dim=-1)
+                given = torch.log_softmax(chosen, dim=-1).gather(1, soft[1][first:last].clone())
+                each = (wanted.exp() * (wanted - given)).sum(dim=-1)
+                used = soft[1][first:last, 0]
+            else:
+                used = tokens[first:last].clone()
+                each = F.cross_entropy(chosen, used, reduction="none")
+            loss = (each * weights).sum() / weights.sum()
+            self.optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            self.optimizer.step()
+        if self.labels == "canvas":
+            self.canvas_used.append((start, used.tolist()))
+        else:
+            self.trained_on.append((start, first, used.tolist()))
+        self.totals["updates"] += 1
+        self.totals["positions"] += last - first
+        self.totals["seconds"] += _clock(logits) - clock
