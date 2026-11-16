@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 33,
+ "answers": 34,
  "answers_available": 366,
  "part": "train",
- "hours": 1.074,
+ "hours": 1.125,
  "labels": "hindsight",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 54280,
+ "updates": 56796,
  "groups": [
   "0-2k",
   "2k+",
@@ -93,59 +93,65 @@
    }
   },
   {
-   "answers": "31-33",
+   "answers": "31-34",
    "0-2k": {
-    "plain_tokens_per_round": 3.075892857142857,
-    "rounds": 1792,
-    "frozen_more_tokens_per_round_than_plain": 0.024130001126640988,
-    "online_more_tokens_per_round_than_plain": 0.02588665636013454
+    "plain_tokens_per_round": 3.255632582322357,
+    "rounds": 2308,
+    "frozen_more_tokens_per_round_than_plain": 0.030856813822587092,
+    "online_more_tokens_per_round_than_plain": 0.035941757747272485
    },
    "2k+": {
-    "plain_tokens_per_round": 3.700490998363339,
-    "rounds": 2444,
-    "frozen_more_tokens_per_round_than_plain": 0.2228885123350659,
-    "online_more_tokens_per_round_than_plain": 0.2365105615863934
+    "plain_tokens_per_round": 3.461925153602681,
+    "rounds": 5371,
+    "frozen_more_tokens_per_round_than_plain": 0.316571359405859,
+    "online_more_tokens_per_round_than_plain": 0.3385634514228604
+   },
+   "8k+": {
+    "plain_tokens_per_round": 2.972384937238494,
+    "rounds": 1195,
+    "frozen_more_tokens_per_round_than_plain": 0.6440994874184527,
+    "online_more_tokens_per_round_than_plain": 0.7249958442523565
    },
    "everything": {
-    "plain_tokens_per_round": 3.4362606232294617,
-    "rounds": 4236,
-    "frozen_more_tokens_per_round_than_plain": 0.12990130701520397,
-    "online_more_tokens_per_round_than_plain": 0.13748657357679916
+    "plain_tokens_per_round": 3.3999218648261493,
+    "rounds": 7679,
+    "frozen_more_tokens_per_round_than_plain": 0.21522392783668298,
+    "online_more_tokens_per_round_than_plain": 0.23041179298189385
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 2.9970861286169277,
-    "rounds": 14757,
-    "frozen_more_tokens_per_round_than_plain": 0.019941566763378882,
-    "online_more_tokens_per_round_than_plain": 0.026131612890281763
+    "plain_tokens_per_round": 3.026910233745826,
+    "rounds": 15273,
+    "frozen_more_tokens_per_round_than_plain": 0.021089108417152502,
+    "online_more_tokens_per_round_than_plain": 0.027634759741248738
    },
    "2k+": {
-    "plain_tokens_per_round": 3.5535453140015876,
-    "rounds": 23933,
-    "frozen_more_tokens_per_round_than_plain": 0.25514394375122285,
-    "online_more_tokens_per_round_than_plain": 0.2942352783375539
+    "plain_tokens_per_round": 3.5218540580789277,
+    "rounds": 26860,
+    "frozen_more_tokens_per_round_than_plain": 0.2700413020371488,
+    "online_more_tokens_per_round_than_plain": 0.3084573088204585
    },
    "8k+": {
-    "plain_tokens_per_round": 2.9082505199907556,
-    "rounds": 4327,
-    "frozen_more_tokens_per_round_than_plain": 0.7034079333336671,
-    "online_more_tokens_per_round_than_plain": 0.7796430692451783
+    "plain_tokens_per_round": 2.92212966316552,
+    "rounds": 5522,
+    "frozen_more_tokens_per_round_than_plain": 0.6902229214008646,
+    "online_more_tokens_per_round_than_plain": 0.767532230048432
    },
    "everything": {
-    "plain_tokens_per_round": 3.3413026621866115,
-    "rounds": 38690,
-    "frozen_more_tokens_per_round_than_plain": 0.1535913200891823,
-    "online_more_tokens_per_round_than_plain": 0.17685543510375634
+    "plain_tokens_per_round": 3.3424394180333703,
+    "rounds": 42133,
+    "frozen_more_tokens_per_round_than_plain": 0.16683650011590312,
+    "online_more_tokens_per_round_than_plain": 0.190441589655727
    }
   }
  ],
  "ms_per_round": {
-  "plain": 11.564757566070146,
-  "frozen": 11.563867868620697,
-  "online": 11.688436197229345
+  "plain": 11.563436981963953,
+  "frozen": 11.564032426006579,
+  "online": 11.686007915898358
  },
- "training_ms_per_update": 30.87889064134592,
+ "training_ms_per_update": 30.917046266604725,
  "gpu_memory_peak_gb": 12.11
 }
