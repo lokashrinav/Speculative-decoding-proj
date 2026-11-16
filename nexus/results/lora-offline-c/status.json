@@ -1,15 +1,15 @@
 {
  "done": false,
- "answers": 27,
+ "answers": 30,
  "answers_available": 366,
  "part": "train",
- "hours": 0.915,
+ "hours": 1.002,
  "labels": "hindsight",
  "loss": "ce",
  "rate": 0.0001,
  "rank": 16,
  "stride": 1,
- "updates": 46128,
+ "updates": 50566,
  "groups": [
   "0-2k",
   "2k+",
@@ -66,65 +66,65 @@
    }
   },
   {
-   "answers": "21-27",
+   "answers": "21-30",
    "0-2k": {
-    "plain_tokens_per_round": 3.2943597191963203,
-    "rounds": 4131,
-    "frozen_more_tokens_per_round_than_plain": 0.036345785644773976,
-    "online_more_tokens_per_round_than_plain": 0.039289284830890114
+    "plain_tokens_per_round": 3.0559190031152648,
+    "rounds": 6420,
+    "frozen_more_tokens_per_round_than_plain": 0.026976082470878238,
+    "online_more_tokens_per_round_than_plain": 0.025872748054919015
    },
    "2k+": {
-    "plain_tokens_per_round": 3.5339555555555555,
-    "rounds": 11250,
-    "frozen_more_tokens_per_round_than_plain": 0.35695429347277474,
-    "online_more_tokens_per_round_than_plain": 0.40733993792723666
+    "plain_tokens_per_round": 3.4041907718357556,
+    "rounds": 14174,
+    "frozen_more_tokens_per_round_than_plain": 0.3466425167563263,
+    "online_more_tokens_per_round_than_plain": 0.39449350256627036
    },
    "8k+": {
-    "plain_tokens_per_round": 2.922759758108851,
-    "rounds": 3638,
-    "frozen_more_tokens_per_round_than_plain": 0.7183079157359902,
-    "online_more_tokens_per_round_than_plain": 0.8078109916631127
+    "plain_tokens_per_round": 2.9082505199907556,
+    "rounds": 4327,
+    "frozen_more_tokens_per_round_than_plain": 0.7034079333336671,
+    "online_more_tokens_per_round_than_plain": 0.7796430692451783
    },
    "everything": {
-    "plain_tokens_per_round": 3.469605357258956,
-    "rounds": 15381,
-    "frozen_more_tokens_per_round_than_plain": 0.25283049604952357,
-    "online_more_tokens_per_round_than_plain": 0.28506976355585256
+    "plain_tokens_per_round": 3.2956200835194718,
+    "rounds": 20594,
+    "frozen_more_tokens_per_round_than_plain": 0.22751385825832982,
+    "online_more_tokens_per_round_than_plain": 0.2539730865249954
    }
   },
   {
    "answers": "all but the first block",
    "0-2k": {
-    "plain_tokens_per_round": 3.0635069314349943,
-    "rounds": 10676,
-    "frozen_more_tokens_per_round_than_plain": 0.02127824800327005,
-    "online_more_tokens_per_round_than_plain": 0.03137276451271798
+    "plain_tokens_per_round": 2.9861935981488625,
+    "rounds": 12965,
+    "frozen_more_tokens_per_round_than_plain": 0.019361678051559972,
+    "online_more_tokens_per_round_than_plain": 0.02616241028469557
    },
    "2k+": {
-    "plain_tokens_per_round": 3.636358739563695,
-    "rounds": 18565,
-    "frozen_more_tokens_per_round_than_plain": 0.2514732650579774,
-    "online_more_tokens_per_round_than_plain": 0.2941814248232817
+    "plain_tokens_per_round": 3.5368327981758108,
+    "rounds": 21489,
+    "frozen_more_tokens_per_round_than_plain": 0.2589217694486792,
+    "online_more_tokens_per_round_than_plain": 0.30114317941932534
    },
    "8k+": {
-    "plain_tokens_per_round": 2.922759758108851,
-    "rounds": 3638,
-    "frozen_more_tokens_per_round_than_plain": 0.7183079157359902,
-    "online_more_tokens_per_round_than_plain": 0.8078109916631127
+    "plain_tokens_per_round": 2.9082505199907556,
+    "rounds": 4327,
+    "frozen_more_tokens_per_round_than_plain": 0.7034079333336671,
+    "online_more_tokens_per_round_than_plain": 0.7796430692451783
    },
    "everything": {
-    "plain_tokens_per_round": 3.4272083718067097,
-    "rounds": 29241,
-    "frozen_more_tokens_per_round_than_plain": 0.15623929547913273,
-    "online_more_tokens_per_round_than_plain": 0.18395383361678141
+    "plain_tokens_per_round": 3.3296279096766703,
+    "rounds": 34454,
+    "frozen_more_tokens_per_round_than_plain": 0.15657268660151913,
+    "online_more_tokens_per_round_than_plain": 0.1818846162822194
    }
   }
  ],
  "ms_per_round": {
-  "plain": 11.569322789002836,
-  "frozen": 11.565823390208708,
-  "online": 11.688490411561839
+  "plain": 11.566412551968806,
+  "frozen": 11.564800173923441,
+  "online": 11.688378012195114
  },
- "training_ms_per_update": 30.70944687083058,
+ "training_ms_per_update": 30.808768779351677,
  "gpu_memory_peak_gb": 12.11
 }
