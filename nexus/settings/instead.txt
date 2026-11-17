@@ -6,3 +6,15 @@ adapt-amount-1: live_speed.py --data-dir ~/specdec-data/long1 --part validation 
 # (3,072 tokens)? The 100 validation answers with the drafter seeing only the last N tokens.
 # (The results are in nexus/results/long-opd-3: they are NOT part of the long-opd family.)
 long-opd-3: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 9 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
+# Running the drafter more than once in a round (nexus/redraft_long.py), on 50 of the 100 validation
+# answers (up to 16,384 tokens), public drafter. The benchmark shards these three jobs were queued
+# for are queued again as long-opd-0b, -1b and -2b.
+# (The results are in nexus/results/long-opd-0, -1, -2: they are NOT part of the long-opd family.)
+# 1. the same drafter again: one redraft, redrafts from the likely breaks (as D2SD places them), with
+#    and without a switch at the break, one redraft after the other, and the true break as the limit
+long-opd-0: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,self-keep1,branches1,branches4,branches4l,branches4e,branches15e,chain3,truebreak,truebreake
+# 2. the redrafts made by the second drafters trained in October (short texts) instead
+long-opd-1: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4@v1-prefix,branches4l@v1-prefix,truebreak@v1-prefix,ckpt:v1-prefix:keep1,ckpt:v1-control:keep0,ckpt:v1-edit:edit
+# 3. on top of what already repairs the drafter on long answers: the add-on weights trained ahead of
+#    time (off-a), and sharper attention
+long-opd-2: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,plain+fixed@off-a,branches4+fixed@off-a,branches4l+fixed@off-a,branches4e+fixed@off-a,truebreake+fixed@off-a,plain+sharp,branches4e+sharp

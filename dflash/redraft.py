@@ -71,11 +71,26 @@ class SelfRedraft:
         self.seed = seed
         self.generator = None
         self.cache = None
+        self.waiting = None     # context a separate second drafter has not read yet (rounds it skipped)
+        self.kept = []          # the prefix length of the last round
 
     def start(self, first_drafter: nn.Module) -> None:
         """Called once per generation."""
         self.cache = None if self.model is None else _make_cache(self.model.config)
         self.generator = torch.Generator().manual_seed(self.seed)
+        self.waiting = None
+
+    def skip(self, s: SimpleNamespace) -> None:
+        """A round without a redraft. A separate second drafter keeps the round's new context
+        for its next pass (the first drafter's own cache has it already)."""
+        if self.model is not None:
+            self.waiting = s.context_features if self.waiting is None \
+                else torch.cat((self.waiting, s.context_features), dim=1)
+
+    def _new_context(self, s: SimpleNamespace) -> torch.Tensor:
+        context = s.context_features if self.waiting is None else torch.cat((self.waiting, s.context_features), dim=1)
+        self.waiting = None
+        return context
 
     def _keep_length(self, draft_logits: torch.Tensor, block_len: int) -> int:
         most = block_len - 2  # leave at least one position to redraft
@@ -89,8 +104,17 @@ class SelfRedraft:
 
     def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
         s = round_state
+        keep = self._keep_length(s.draft_logits, s.block_ids.shape[1])
+        self.kept = [keep]
+        return self.redraft(s, keep)
+
+    def redraft(self, s: SimpleNamespace, keep: int, context_done: bool = False, with_logits: bool = False):
+        """One more draft of the round `s` with the first `keep` tokens of s.block_ids shown.
+
+        context_done: a separate second drafter has already read this round's new context
+        (an earlier redraft of the same round), so it is not fed again.
+        with_logits: also return this pass's predictions for the block's draft positions."""
         block_len = s.block_ids.shape[1]
-        keep = self._keep_length(s.draft_logits, block_len)
         visible = s.block_ids.clone()
         if not self.show_rest:
             visible[:, keep + 1 :] = s.first_drafter.mask_token_id
@@ -113,7 +137,8 @@ class SelfRedraft:
             cache, context = s.draft_cache, s.context_features[:, :0]
             positions = s.position_ids[:, s.start : s.start + block_len]
         else:
-            cache, context = self.cache, s.context_features
+            cache = self.cache
+            context = s.context_features[:, :0] if context_done else self._new_context(s)
             positions = s.position_ids[:, s.start - context.shape[1] : s.start + block_len]
         hidden = drafter(
             target_hidden=context, noise_embedding=noise, position_ids=positions,
@@ -122,7 +147,201 @@ class SelfRedraft:
         _crop_to(cache, s.start)
         logits = drafter.compute_logits(hidden, _output_head(s.target))
         alternative[:, keep + 1 :] = logits.argmax(dim=-1)[:, keep:]
-        return alternative
+        return (alternative, logits) if with_logits else alternative
+
+    def redraft_together(self, s: SimpleNamespace, keeps: list[int], blocks: torch.Tensor | None = None,
+                         context_done: bool = False):
+        """Several redrafts of the round `s` in ONE pass of the drafter: row n shows the first keeps[n]
+        tokens of blocks[n] (of the first draft if no blocks are given). Returns the drafts (one per
+        row) and the pass's predictions for them.
+
+        The copies of the block are laid one after the other in a single sequence. Every copy has the
+        block's own positions and sees the context and itself, never another copy, so each row is the
+        draft redraft() would give, while the context is neither copied nor read more than once."""
+        block_len, count = s.block_ids.shape[1], len(keeps)
+        device = s.block_ids.device
+        slots = torch.arange(block_len, device=device)[None]
+        redrafted = slots > torch.tensor(keeps, device=device)[:, None]            # (count, block)
+        blocks = s.block_ids.repeat(count, 1) if blocks is None else blocks
+        visible = blocks.clone()
+        visible[redrafted] = s.first_drafter.mask_token_id
+        drafter = s.first_drafter if self.model is None else self.model
+        scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+        noise = _raw_input_embeddings(s.target, visible.reshape(1, -1), scale)
+        if self.model is None:
+            cache, context = s.draft_cache, s.context_features[:, :0]
+        else:
+            cache = self.cache
+            context = s.context_features[:, :0] if context_done else self._new_context(s)
+        seen = cache.get_seq_length() + context.shape[1]                           # the context's entries
+        positions = torch.cat((
+            s.position_ids[:, s.start - context.shape[1] : s.start],
+            s.position_ids[:, s.start : s.start + block_len].repeat(1, count),
+        ), dim=1)
+        copy = torch.arange(count, device=device).repeat_interleave(block_len)
+        sees = torch.ones((count * block_len, seen + count * block_len), dtype=torch.bool, device=device)
+        sees[:, seen:] = copy[:, None] == copy[None, :]
+        hidden = drafter(
+            target_hidden=context, noise_embedding=noise, position_ids=positions,
+            attention_mask=sees[None, None], past_key_values=cache, use_cache=True,
+        )[:, -count * block_len :, :]
+        _crop_to(cache, s.start)
+        logits = drafter.compute_logits(hidden.reshape(count, block_len, -1)[:, 1:, :], _output_head(s.target))
+        drafts = blocks.clone()
+        drafts[:, 1:] = torch.where(redrafted[:, 1:], logits.argmax(dim=-1), drafts[:, 1:])
+        return drafts, logits
+
+
+def break_scores(confidence: torch.Tensor, fixed: int = 0) -> torch.Tensor:
+    """How likely the target's first rejection comes right after the first i draft tokens, for
+    i = fixed, fixed + 1, ... (entry i - fixed), when the first `fixed` tokens are taken as right:
+
+        r(i) = c_(fixed+1) ... c_i (1 - c_(i+1))
+
+    confidence: the drafter's probability of each draft token it chose (c_1 first)."""
+    rest = confidence[fixed:]
+    survive = torch.cat((rest.new_ones(1), rest.cumprod(dim=0)[:-1]))
+    return survive * (1.0 - rest)
+
+
+def _batches(drafter: nn.Module) -> bool:
+    """Whether redraft_together can be used: the mask it passes replaces the layers' own."""
+    return not any(layer.self_attn.is_causal or layer.self_attn.sliding_window is not None for layer in drafter.layers)
+
+
+class Branches:
+    """Redraft from the places where the first draft is most likely to break, as D2SD does
+    (arXiv 2606.04446).
+
+    The k most likely breaks are taken (break_scores): "the target accepts the first i draft tokens
+    and rejects token i + 1". For each of them the first i draft tokens stay visible, the rest are
+    masked again, and a drafter fills them in: all k redrafts in one pass. These drafts are checked
+    together with the first draft; the one the target accepts furthest counts.
+
+    model=None runs the first drafter again. A second drafter of the same architecture can be given.
+
+    differ: a redraft from i exists for the case that the first draft is wrong at token i + 1, so it
+    can be made to say something else there (the first draft's own token is already being checked):
+      None     it says what it says (D2SD). The same drafter then needs i >= 1: with nothing kept
+               it would only repeat its first draft.
+      "late"   at token i + 1 it takes its best token other than the first draft's. The tokens
+               after it come from the same pass, so they do not know the switch.
+      "early"  the first draft's own second choice for token i + 1 is put there before the pass,
+               which then fills in the rest knowing the switch.
+    With differ the same drafter can also take i = 0: its second choice for the first token is
+    shown and the rest is filled in ("late" does this too: the pass has nothing new to go on there).
+    Several alternative drafts are scored in replay only (dflash/replay.py).
+    """
+
+    def __init__(self, k: int = 4, model: nn.Module | None = None, differ: str | None = None, together: bool = True):
+        if k < 1:
+            raise ValueError("k must be at least 1")
+        if differ not in (None, "late", "early"):
+            raise ValueError("differ must be None, 'late' or 'early'")
+        self.k = k
+        self.differ = differ
+        self.together = together
+        self.inner = SelfRedraft(model=model, keep=1)
+        self.kept = []          # the breaks of the last round, most likely first
+
+    def start(self, first_drafter: nn.Module) -> None:
+        self.inner.start(first_drafter)
+        self.kept = []
+
+    def choose(self, s: SimpleNamespace) -> list[int]:
+        most = s.block_ids.shape[1] - 2  # leave at least one position to redraft
+        confidence = s.draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
+        lowest = lowest_break(self.inner, self.differ)
+        scores = break_scores(confidence)[lowest : most + 1]
+        return (scores.topk(min(self.k, scores.shape[0])).indices + lowest).tolist()
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        s = round_state
+        self.kept = self.choose(s)
+        return redrafts_from(self.inner, s, self.kept, self.differ, self.together)
+
+
+def lowest_break(inner: SelfRedraft, differ: str | None) -> int:
+    """The same drafter with nothing kept and nothing switched would repeat its first draft."""
+    return 1 if inner.model is None and differ is None else 0
+
+
+def redrafts_from(inner: SelfRedraft, s: SimpleNamespace, breaks: list[int], differ: str | None = None,
+                  together: bool = True) -> torch.Tensor:
+    """The redrafts of the round `s` for each of `breaks` (the first i draft tokens right, token i + 1
+    wrong), one per row. See Branches for `differ`."""
+    count, device = len(breaks), s.block_ids.device
+    rows = torch.arange(count, device=device)
+    at = torch.tensor(breaks, device=device)
+    blocks, keeps = s.block_ids.repeat(count, 1), at.clone()
+    early = torch.zeros(count, dtype=torch.bool, device=device)
+    if differ == "early":
+        early[:] = True
+    elif differ == "late" and inner.model is None:
+        early = at == 0
+    if bool(early.any()):
+        second_choice = s.draft_logits[0].topk(2, dim=-1).indices[:, 1]       # of draft tokens 1, 2, ...
+        blocks[rows[early], at[early] + 1] = second_choice[at[early]]
+        keeps = keeps + early.long()
+    drafter = s.first_drafter if inner.model is None else inner.model
+    if together and count > 1 and _batches(drafter):
+        drafts, logits = inner.redraft_together(s, keeps.tolist(), blocks)
+    else:
+        made = [inner.redraft(SimpleNamespace(**{**vars(s), "block_ids": blocks[number : number + 1]}), keep,
+                              context_done=number > 0, with_logits=True)
+                for number, keep in enumerate(keeps.tolist())]
+        drafts, logits = torch.cat([draft for draft, _ in made]), torch.cat([logit for _, logit in made])
+    late = ~early if differ == "late" else torch.zeros_like(early)
+    if bool(late.any()):
+        best = logits[rows, at].topk(2, dim=-1).indices                       # token i + 1 is row i of the predictions
+        before = s.block_ids[0, at + 1]
+        other = torch.where(best[:, 0] == before, best[:, 1], best[:, 0])
+        drafts[rows[late], at[late] + 1] = other[late]
+    return drafts
+
+
+class Chain:
+    """One redraft after the other, each from the likely break of the draft before it.
+
+    The second draft keeps the first draft up to its most likely break and fills in the rest. The
+    third keeps the second draft up to ITS most likely break (further on), and so on, `depth` drafts
+    in all with the first. Every pass reads more of what the passes before it wrote. All the drafts
+    are checked together; the one the target accepts furthest counts (replay only)."""
+
+    def __init__(self, depth: int = 3, model: nn.Module | None = None):
+        if depth < 2:
+            raise ValueError("depth counts the first draft, so it is at least 2")
+        self.depth = depth
+        self.inner = SelfRedraft(model=model, keep=1)
+        self.kept = []          # the break of the first draft that the second draft starts from
+        self.levels = []        # how many tokens each redraft of the last round kept
+
+    def start(self, first_drafter: nn.Module) -> None:
+        self.inner.start(first_drafter)
+        self.kept, self.levels = [], []
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        s = round_state
+        most = s.block_ids.shape[1] - 2
+        confidence = s.draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
+        lowest = lowest_break(self.inner, None)
+        current, fixed, drafts, self.levels = s, 0, [], []
+        for level in range(1, self.depth):
+            low = lowest if level == 1 else fixed + 1
+            if low > most:
+                break
+            keep = low + int(break_scores(confidence, fixed)[low - fixed : most + 1 - fixed].argmax())
+            made, logits = self.inner.redraft(current, keep, context_done=level > 1, with_logits=True)
+            confidence = torch.cat((confidence[:keep], logits.float().softmax(dim=-1).amax(dim=-1)[0, keep:]))
+            current = SimpleNamespace(**{**vars(s), "block_ids": made})
+            fixed = keep
+            drafts.append(made)
+            self.levels.append(keep)
+        self.kept = self.levels[:1]
+        if not drafts:
+            self.inner.skip(s)
+            return None
+        return torch.cat(drafts, dim=0)
 
 
 class Resample:
@@ -296,6 +515,8 @@ def dflash_generate_redraft(
                 timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
 
         # An improver that replaces the draft: the edited draft is the only one checked.
+        if alternative is not None and alternative.shape[0] != 1:
+            raise NotImplementedError("several alternative drafts in one round are scored in replay only")
         if alternative is not None and getattr(improver, "replace", False):
             if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
                 rounds_edited += int(bool((alternative != block_ids).any()))

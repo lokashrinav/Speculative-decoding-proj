@@ -63,6 +63,7 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         the last blocks were shorter in decoding, and they are made shorter here too.
     improver: the same plug-in dflash_generate_redraft takes. One that replaces the draft
         has its edited draft scored; any other alternative draft counts if it gets further.
+        A plug-in may return several alternative drafts (one per row): the best one counts.
     Returns the tokens gained in each round, as dflash_generate_redraft reports them.
     """
     length = ids.shape[1]
@@ -166,10 +167,10 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
             learner.learn(start, own, truth[0, : own + 1], canvas)
             if timers is not None:
                 timers["learn"] = timers.get("learn", 0.0) + _clock(device) - clock
-        if alternative is not None and alternative.shape == block_ids.shape \
+        if alternative is not None and alternative.shape[1:] == block_ids.shape[1:] \
                 and bool((alternative[:, :1] == block_ids[:, :1]).all()) and bool((alternative != block_ids).any()):
             rounds_with_alternative += 1
-            other = _matches(alternative[:, 1:], truth)
+            other = max(_matches(alternative[row : row + 1, 1:], truth) for row in range(alternative.shape[0]))
             if other > accepted:
                 alternative_wins += 1
                 accepted = other
