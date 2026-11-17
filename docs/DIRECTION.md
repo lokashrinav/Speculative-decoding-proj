@@ -66,6 +66,9 @@ a crude stand-in, or give it predicted hidden states from a small trained networ
 
 ## The plan
 
+The full plan for the restart second run, with what each experiment decides, is in
+[SECOND_RUN_RESTART.md](SECOND_RUN_RESTART.md). In short:
+
 1. Measure the restart with no training (`nexus/restart_probe.py`, jobs `restart-pub-0` and
    `restart-opd-0`): how many of the new tokens the target accepts with the missing states real,
    left out, stood in for, or made noisy.
@@ -93,6 +96,8 @@ accepted tokens, the write-up says so.
 | Long answers | Learning during the answer, weights taught ahead of time, sharper attention, the window | `nexus/adapt_drafter.py`, `nexus/adapt_report.py` | `LEARNING_DURING_THE_ANSWER.md` |
 | The swap against DDTree | Accepted tokens at the same number of tokens checked | `dflash/redraft.py` (`DraftTree`), `nexus/redraft_long.py` | `nexus/results/tree-replay-pub-1`, `tree-replay-opd-1` (queued) |
 | The restart | What a second run needs in order to write well after the break | `nexus/restart_probe.py` | `nexus/results/restart-pub-0`, `restart-opd-0` (queued) |
+| The restart second run over whole answers | Accepted tokens with the real states (the limit), with nothing, with crude stand-ins | `dflash/redraft.py` (`Restarts`), `nexus/redraft_long.py` | `nexus/results/restart-replay-pub-0`, `restart-replay-opd-0` (queued) |
+| A predictor of the missing states | Whether a small trained network can stand in for the target's states at a restart | `dflash/stand_in.py`, `nexus/train_restart.py` | `nexus/results/train-restart-pub-0`, `train-restart-opd-0` (queued) |
 | Trained second drafters (October) | Add-ons that read the first draft | `nexus/train_redraft.py`, `nexus/bench_redraft.py` | `nexus/results/train-prefix`, `train-edit`, `train-control`, `diag-a`, `diag-b` |
 | The 3M editor (September) | A small network that imitates a second run | `editor-experiment/` | `results/SUMMARY.md` |
 

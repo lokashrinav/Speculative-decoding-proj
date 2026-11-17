@@ -24,6 +24,7 @@ Methods (comma-separated):
                          its second choice there (dflash/redraft.py: Restarts), with nothing (n) or the
                          last state repeated (l) in place of the target's states it does not have yet;
   restartKr              ... with the target's real states: the limit of any stand-in (replay only)
+  restartKp@NAME         ... with what the saved predictor restart-NAME.pt writes for them
                          (an s after the letter adds the swap's rows; tN: only the second choice and
                          N tokens after it are checked)
   treeB                  DDTree (arXiv 2604.12989): the B most probable nodes of the tree that the
@@ -150,6 +151,14 @@ def make_method(name, ckpt_dir, like=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
+    found = re.fullmatch(r"restart(\d+)p(s?)(?:t(\d+))?@(.+)", name)
+    if found:                                                       # a restart with predicted states
+        from dflash.stand_in import load_predictor
+
+        method = Restarts(int(found[1]), "predicted", swap=bool(found[2]), tail=None if found[3] is None else int(found[3]))
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[4]}.pt"),
+                                             "cpu" if like is None else like.fc.weight.device)
+        return method
     body, _, second = name.partition("@")
     model = saved(second) if second else None
     found = re.fullmatch(r"self-keep(\d+|confidence)", body)

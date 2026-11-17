@@ -383,9 +383,11 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     """Several restarts of the first drafter in ONE pass. Restart n starts a block of masks at the
     token anchors[n], placed at position begin[n], with the context the drafter already has (the
     target's states of the text before this round) and stand_ins[n]: (states [1, count, D], their
-    positions) or None. A restart sees the context, its own stand-ins and itself. Returns the
-    tokens it writes after its anchor, one row per restart ([restarts, width - 1]), and leaves the
-    drafter's cache as it was."""
+    positions) or None. The states are the target's (as the drafter is given them in any round),
+    or, as (states, positions, True), vectors in the form the drafter reads them after its own
+    projection (a predictor's). A restart sees the context, its own stand-ins and itself. Returns
+    the tokens it writes after its anchor, one row per restart ([restarts, width - 1]), and leaves
+    the drafter's cache as it was."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
     block = torch.full((count, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
     block[:, 0] = torch.as_tensor(anchors, dtype=block.dtype, device=device)
@@ -394,9 +396,11 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     slots = torch.arange(width, device=device)
     seen = s.draft_cache.get_seq_length()
     given = [entry for entry in stand_ins if entry is not None]
-    extra = sum(states.shape[1] for states, _ in given)
-    context = torch.cat([states for states, _ in given], dim=1) if given else s.context_features[:, :0]
-    positions = torch.cat([where.to(device) for _, where in given] + [start + slots for start in begin])[None]
+    extra = sum(entry[0].shape[1] for entry in given)
+    read = [entry[0] if len(entry) > 2 and entry[2] else drafter.hidden_norm(drafter.fc(entry[0].to(s.context_features.dtype)))
+            for entry in given]
+    context = torch.cat(read, dim=1) if read else None
+    positions = torch.cat([entry[1].to(device) for entry in given] + [start + slots for start in begin])[None]
     sees = torch.zeros((count * width, seen + extra + count * width), dtype=torch.bool, device=device)
     sees[:, :seen] = True
     at = seen
@@ -407,7 +411,7 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
             sees[rows, at : at + entry[0].shape[1]] = True
             at += entry[0].shape[1]
     hidden = drafter(
-        target_hidden=context.to(s.context_features.dtype), noise_embedding=noise, position_ids=positions,
+        target_hidden=s.context_features[:, :0], context_states=context, noise_embedding=noise, position_ids=positions,
         attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True,
     )[:, -count * width :, :]
     s.draft_cache.crop(-(extra + count * width))
@@ -433,6 +437,7 @@ class Restarts:
         "last"   the last state it does have, repeated
         "real"   the target's real states: only possible in the replay of a saved answer, where it
                  is the limit of any stand-in (the harness sets .features to the answer's states)
+        "predicted"  what a small trained network writes for them (dflash/stand_in.py; .predictor)
     swap: also return the swap for every break (the second choice followed by the first draft's old
     tokens): it costs no drafter pass, and where a stand-in is poor it is the better of the two.
     tail: the target checks only the second choice and this many tokens after it.
@@ -441,10 +446,11 @@ class Restarts:
     Scored in replay only so far."""
 
     def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None):
-        if stand_in not in ("none", "last", "real"):
-            raise ValueError("stand_in must be 'none', 'last' or 'real'")
+        if stand_in not in ("none", "last", "real", "predicted"):
+            raise ValueError("stand_in must be 'none', 'last', 'real' or 'predicted'")
         self.k, self.stand_in, self.swap, self.alternative_tail = k, stand_in, swap, tail
         self.features = None        # the answer's states, for stand_in="real"
+        self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
 
     def start(self, first_drafter: nn.Module) -> None:
@@ -459,10 +465,16 @@ class Restarts:
         second = first.topk(2, dim=-1).indices[:, 1]
         device = s.block_ids.device
         begin, stand_ins = [], []
+        if self.stand_in == "predicted":
+            from .stand_in import predicted_states
+
+            written = predicted_states(self.predictor, s, max(self.kept) + 1)
         for broke in self.kept:
             missing = broke + 1
             places = torch.arange(s.start, s.start + missing, device=device)
-            if self.stand_in == "real":
+            if self.stand_in == "predicted":
+                stand_ins.append((written[:, :missing], places, True))
+            elif self.stand_in == "real":
                 if self.features is None or self.features.shape[1] < s.start + missing:
                     raise ValueError("stand_in='real' needs the answer's states (replay only)")
                 stand_ins.append((self.features[:, s.start : s.start + missing], places))

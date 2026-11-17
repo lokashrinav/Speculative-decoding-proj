@@ -10,7 +10,7 @@ The current direction, the plan and an index of every experiment are in [`docs/D
 
 - A second draft helps because it gives the target one more candidate token at the place where the first draft breaks. The second pass itself adds almost nothing on top of that token ([`docs/WHY_A_SECOND_DRAFT_HELPS.md`](docs/WHY_A_SECOND_DRAFT_HELPS.md)).
 - What is missing after the break is the target's hidden states. With the right token at the break, the first draft's old tokens give 0.55 more accepted tokens, and the drafter with the target's hidden states gives 2.03.
-- So we are building a second pass that restarts the drafter after the break, and studying what to give it in place of the hidden states it does not have yet.
+- So we are building a second pass that restarts the drafter after the break, and studying what to give it in place of the hidden states it does not have yet. The research plan is in [`docs/SECOND_RUN_RESTART.md`](docs/SECOND_RUN_RESTART.md).
 
 Real tokens per second on long thinking answers, Qwen3-4B on an RTX A5000, every setting writing the same text (5 answers on the public drafter and 7 on Draft-OPD so far):
 

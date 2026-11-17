@@ -628,10 +628,15 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         target_hidden: torch.Tensor | None = None,
         past_key_values: Cache | None = None,
         use_cache: bool = False,
+        context_states: torch.Tensor | None = None,
         **kwargs,
     ) -> torch.Tensor:
         hidden_states = noise_embedding
         target_hidden = self.hidden_norm(self.fc(target_hidden))
+        if context_states is not None:
+            # Context given as the drafter reads it (after fc and hidden_norm): stand-ins for the
+            # target's states of tokens the target has not read yet. They follow target_hidden.
+            target_hidden = torch.cat((target_hidden, context_states.to(target_hidden.dtype)), dim=1)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
         for layer in self.layers:
             hidden_states = layer(

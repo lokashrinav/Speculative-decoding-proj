@@ -192,3 +192,68 @@ def test_restart_methods_by_name():
     assert limit.stand_in == "real" and limit.swap and limit.alternative_tail is None
     short = make_method("restart2lt7", "/nowhere")
     assert short.k == 2 and short.stand_in == "last" and short.alternative_tail == 7
+
+
+def test_the_predictor_of_the_missing_states(tmp_path):
+    """The predictor writes vectors of the kind the drafter reads; given as stand-ins, the real
+    vectors (projected by hand) restart the drafter exactly as the target's states do; training on
+    a replay brings its vectors closer to the real ones; a saved predictor restarts by name."""
+    from dflash.redraft import Restarts
+    from dflash.replay import target_features
+    from dflash.stand_in import StatePredictor, as_context, load_predictor, project, save_predictor
+    from nexus.redraft_long import make_method
+    from nexus.train_restart import Teach
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    size = draft.config.hidden_size
+    raw = torch.randn(5, size)
+    assert torch.allclose(as_context(draft, raw).double(), draft.hidden_norm(raw.double()).double(), atol=1e-5)
+
+    class Both:
+        """Restarts with the target's states, given as they are and given already projected."""
+        seen = 0
+
+        def start(self, drafter):
+            pass
+
+        def __call__(self, s):
+            if s.block_ids.shape[1] == BLOCK and s.start + 2 * BLOCK < ids.shape[1]:
+                states = features[:, s.start : s.start + 2]
+                places = torch.arange(s.start, s.start + 2)
+                anchor = ids[0, s.start + 2]
+                rows = restarts(s, [anchor, anchor], [s.start + 2] * 2, [(states, places), (project(draft, states), places, True)], BLOCK)
+                assert torch.equal(rows[0], rows[1])
+                Both.seen += 1
+            return None
+
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=Both(), block_size=BLOCK)
+    assert Both.seen > 10
+
+    torch.manual_seed(0)
+    predictor = StatePredictor(size, inner=32, hidden=64, block=BLOCK)
+    teach = Teach(predictor, torch.optim.AdamW(predictor.parameters(), lr=3e-3), every=2, width=BLOCK)
+    curve = []
+    for _ in range(6):
+        teach.begin(ids, features)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=teach, block_size=BLOCK)
+        curve.append(teach.progress())
+    assert curve[-1]["loss"] < 0.6 * curve[0]["loss"] and curve[-1]["likeness_to_the_real_vector"] > curve[0]["likeness_to_the_real_vector"]
+    assert curve[-1]["loss"] < curve[-1]["loss_of_repeating_the_last_vector"] and teach.steps > 20
+
+    path = tmp_path / "restart-tiny.pt"
+    save_predictor(str(path), predictor, {"note": 1})
+    loaded, notes = load_predictor(str(path), "cpu")
+    assert notes == {"note": 1} and loaded.sizes == predictor.sizes
+    method = make_method("restart3ps@tiny", str(tmp_path))
+    assert isinstance(method, Restarts) and method.stand_in == "predicted" and method.swap and method.predictor is not None
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, block_size=BLOCK)
+    result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=method, block_size=BLOCK)
+    assert sum(result.acceptance_lengths) == sum(chain.acceptance_lengths) and result.rounds <= chain.rounds
+    probe = Restart(k=3, width=BLOCK, predictor=loaded)
+    probe.begin(ids, length, features, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
+    assert probe.columns[-1] == "predicted" and len(probe.rows[0]) == len(probe.columns)
+    assert "predicted" in summary(probe.rows, probe.columns)["all"]

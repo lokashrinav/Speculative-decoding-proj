@@ -27,6 +27,7 @@ accepts:
     only_nearest      the real state of the token right before the restart only
     all_but_nearest   the real states of all but that token
     noisy25 ... 200   the real states plus noise of 25% ... 200% of each dimension's spread
+    predicted         what a trained predictor writes for them (--predictor NAME; dflash/stand_in.py)
 
 and for comparison, after the right token: old_rest (the first draft's old tokens) and new_rest
 (rewritten inside the block by a second pass). second_choice_right says whether the drafter's
@@ -49,6 +50,7 @@ from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.redraft import SelfRedraft, break_scores, restarts
 from dflash.replay import _matches, replay_decode, target_features
+from dflash.stand_in import load_predictor, predicted_states
 from dflash.sharp import QueryScale
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
@@ -66,8 +68,10 @@ MOST_ROUNDS_PER_FILE = 12000
 class Restart:
     """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
 
-    def __init__(self, k=4, width=WIDTH):
-        self.inner, self.k, self.rows, self.width = SelfRedraft(), k, [], width
+    def __init__(self, k=4, width=WIDTH, predictor=None):
+        self.inner, self.k, self.rows, self.width, self.predictor = SelfRedraft(), k, [], width, predictor
+        self.arms = ARMS + (("predicted",) if predictor is not None else ())
+        self.columns = COLUMNS + (("predicted",) if predictor is not None else ())
 
     def begin(self, ids, prompt_length, features, repetition_from, answer, seed=0):
         self.ids, self.prompt_length, self.features = ids, prompt_length, features
@@ -95,7 +99,7 @@ class Restart:
         first = s.draft_logits[0].float()
         confidence = first.softmax(dim=-1).amax(dim=-1)
         likely = break_scores(confidence)[: full - 1].topk(self.k).indices.tolist()
-        record = {name: -1 for name in COLUMNS}
+        record = {name: -1 for name in self.columns}
         record.update(answer=self.answer, where=where, broke_after=broke, confidence=round(1000 * float(confidence[broke])),
                       second_choice_right=int(first[broke].topk(2).indices[1] == token), covered=int(broke in likely))
 
@@ -127,17 +131,20 @@ class Restart:
             "all_but_nearest": (states[:, :-1], places[:-1]) if missing > 1 else None,
         }
         stand_ins.update({f"noisy{level}": (noisy(level), places) for level in NOISE})
-        begin = [s.start if name == "none_shift" else restart for name in ARMS]
-        tokens = restarts(s, [token] * len(ARMS), begin, [stand_ins[name] for name in ARMS], full)
-        for number, name in enumerate(ARMS):
+        if self.predictor is not None:
+            stand_ins["predicted"] = (predicted_states(self.predictor, s, missing), places, True)
+        begin = [s.start if name == "none_shift" else restart for name in self.arms]
+        tokens = restarts(s, [token] * len(self.arms), begin, [stand_ins[name] for name in self.arms], full)
+        for number, name in enumerate(self.arms):
             record[name] = _matches(tokens[number : number + 1], after)
-        self.rows.append([record[name] for name in COLUMNS])
+        self.rows.append([record[name] for name in self.columns])
         return None
 
 
-def summary(table):
+def summary(table, columns=COLUMNS):
     """Tokens accepted after the right token at the break, for each way of restarting: over all
     rounds with a break and by how many of the target's states were missing."""
+    COLUMNS, ARMS = tuple(columns), tuple(columns[columns.index("new_rest") + 1 :])
     table = numpy.asarray(table).reshape(-1, len(COLUMNS))
     out = {"rounds": int(len(table))}
     if not len(table):
@@ -162,6 +169,7 @@ def main():
     parser.add_argument("--part", default="validation", help="train, validation, test, or all (every answer in the folder)")
     parser.add_argument("--fixed", default="", help="start from the saved add-on weights lora-<name>.pt")
     parser.add_argument("--sharp", action="store_true", help="sharper attention on long texts (SharpDraft)")
+    parser.add_argument("--predictor", default="", help="a saved predictor of the missing states: restart-<name>.pt in --adapter-dir")
     parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
@@ -189,20 +197,24 @@ def main():
         path = os.path.join(args.adapter_dir, f"lora-{args.fixed}.pt")
         state, notes = load_adapters(path, adapters), adapter_notes(path)
     first = DraftTrainer(draft, adapters, rate=0.0, init=state, sharpen=QueryScale() if args.sharp else None)
-    probe = Restart()
+    predictor, predictor_notes = None, {}
+    if args.predictor:
+        predictor, predictor_notes = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
+    probe = Restart(predictor=predictor)
     records, written, started = [], [0, 0], time.time()          # written: files, rounds in them
 
     def report(done):
         fresh = probe.rows[written[1] :]
         if fresh and (done or len(fresh) >= MOST_ROUNDS_PER_FILE):
             numpy.savez_compressed(os.path.join(args.results_dir, f"rounds-{written[0]}.npz"),
-                                   rounds=numpy.asarray(fresh, dtype=numpy.int32), columns=numpy.asarray(COLUMNS))
+                                   rounds=numpy.asarray(fresh, dtype=numpy.int32), columns=numpy.asarray(probe.columns))
             written[0] += 1
             written[1] += len(fresh)
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
-                  "sharp": args.sharp, "saved_adapters_used": notes, "columns": COLUMNS, "files": written[0],
-                  "answers_read": records, "summary": summary(probe.rows)}
+                  "sharp": args.sharp, "saved_adapters_used": notes, "columns": probe.columns, "files": written[0],
+                  "predictor": args.predictor, "predictor_notes": predictor_notes,
+                  "answers_read": records, "summary": summary(probe.rows, probe.columns)}
         if torch.cuda.is_available():
             status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
         write_json(status_path, status, indent=1)
