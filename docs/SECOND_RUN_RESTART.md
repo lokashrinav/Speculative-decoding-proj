@@ -61,9 +61,10 @@ predicted states closes at least half of the gap between leaving the states out 
 from E1 to E3, with the swap's rows, counted in accepted tokens per round against the swap and
 against DDTree at the same number of tokens checked (`tree-replay-pub-2`, `tree-replay-opd-2`).
 
-**E5. Make the second run cheap.** Where do the 13 ms go, and what can go: fewer restarts, a
-shorter restart block, fewer drafter layers for the restart, or running it only when the first
-draft is likely to break early.
+**E5. Make the second run earn its pass.** A drafter pass costs 8 ms whatever it holds (measured),
+so the pass cannot get much cheaper, but it can earn more and run less: restarts from the third
+choice as well in the same pass, a short check, and running it only in rounds where the drafter's
+own confidence says a restart is likely to pay.
 
 **E6. Real speed.** The restart in real decoding (alternatives that reach past the block in the
 target's one check), measured in tokens per second with every setting writing the same text, on
@@ -104,6 +105,43 @@ What this says:
 
 So a predictor is needed, it mostly has to get one vector right, and it does not have to be
 exact. That is E3.
+
+**What the second run has to earn (from the same rounds, November 17).** The restart costs one more
+drafter pass, 9 to 13 ms. In that time plain decoding writes about 1.0 token with Draft-OPD and
+about 0.6 with the public drafter. Per round with a break:
+
+| | Public drafter | Draft-OPD |
+| --- | --- | --- |
+| The break is one of the four likely breaks | 90% | 86% |
+| The drafter's second choice there is the right token | 37% | 44% |
+| Both | 33% | 38% |
+| Tokens the swap adds (no drafter pass) | 0.59 | 0.74 |
+| Tokens the restart adds on top of the swap, with the real states | 0.53 | 1.29 |
+
+So even with perfect states the extra pass only pays for itself on the public drafter, and it earns
+about 0.3 tokens a round on Draft-OPD. A good predictor is necessary and not enough: the pass also
+has to earn more or run less. Three ways, all measurable in replay:
+
+1. More restarts in the same pass. The pass costs nearly the same with more blocks in it, so every
+   likely break can also get a restart from the drafter's third choice (`restart4rc2s`).
+2. Run the pass only where it is likely to pay. Where the drafter's confidence in the token that
+   turns out wrong is between 0.5 and 0.9 (39% of Draft-OPD's breaks), the second choice is right
+   60% of the time and the restart adds about 2 tokens. (This looks at the true break, which a
+   real rule does not know. A rule that uses only the likely breaks still has to be measured.)
+3. A short check. Checking only 7 tokens after the restart's first token keeps 82% of what the
+   restart gives on Draft-OPD and 92% on the public drafter.
+
+The weak point is the guess of the right token: the second choice is right in fewer than half of
+the breaks, and when it is wrong the whole restart is wasted. So there is a fourth way, which needs
+no guess:
+
+4. Restart one token earlier. A new block from the LAST token the first draft got right, with the
+   states of the tokens before it, writes the token at the break again, this time with those
+   states, and goes on from there. Whether that gets the break right more often than the second
+   choice does is measured next to the restart from the second choice on the same rounds
+   (`nexus/restart_probe.py --reanchor`; the results are in `nexus/results/tree-replay-opd-3` and
+   `tree-replay-pub-3`, two jobs that were waiting for something else). The same run counts how
+   often the right token is the drafter's third or fourth choice.
 
 ## What is ours and what is not
 

@@ -24,7 +24,7 @@ export PYTHONPATH="$CODE"
 git -C "$HOME/specdec-runner" rev-parse HEAD > "$RESULTS_DIR/code_commit.txt"
 python nexus/redraft_long.py --data-dir "$HOME/specdec-data/long1" --results-dir "$RESULTS_DIR" --part validation \
   --num-shards 2 --shard 0 --max-hours 9 \
-  --settings "plain,branches4st3,restart4r,restart4rs,restart4rst7,restart4ns,plain+fixed@off-a,branches4st3+fixed@off-a,restart4rs+fixed@off-a" \
+  --settings "plain,branches4st3,restart4r,restart4rs,restart4rst7,restart4rc2s,restart4rc2st7,plain+fixed@off-a,branches4st3+fixed@off-a,restart4rs+fixed@off-a" \
   > /dev/null 2> "$HOME/specdec-slurm/$JOB_NAME.err"
 echo "exit $?" > "$RESULTS_DIR/exit.txt"
 grep -E "Error|Traceback" -A14 "$HOME/specdec-slurm/$JOB_NAME.err" | tail -c 4000 > "$RESULTS_DIR/messages.txt"

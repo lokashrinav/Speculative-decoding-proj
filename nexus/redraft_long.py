@@ -24,6 +24,8 @@ Methods (comma-separated):
                          its second choice there (dflash/redraft.py: Restarts), with nothing (n) or the
                          last state repeated (l) in place of the target's states it does not have yet;
   restartKr              ... with the target's real states: the limit of any stand-in (replay only)
+  restartKrcM            ... with a restart from each of the drafter's next M choices at every break (c2: the
+                         second and the third), all in the same one drafter pass
   restartKp@NAME         ... with what the saved predictor restart-NAME.pt writes for them
                          (an s after the letter adds the swap's rows; tN: only the second choice and
                          N tokens after it are checked)
@@ -151,12 +153,13 @@ def make_method(name, ckpt_dir, like=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
-    found = re.fullmatch(r"restart(\d+)p(s?)(?:t(\d+))?@(.+)", name)
+    found = re.fullmatch(r"restart(\d+)p(?:c(\d))?(s?)(?:t(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
 
-        method = Restarts(int(found[1]), "predicted", swap=bool(found[2]), tail=None if found[3] is None else int(found[3]))
-        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[4]}.pt"),
+        method = Restarts(int(found[1]), "predicted", swap=bool(found[3]), tail=None if found[4] is None else int(found[4]),
+                          choices=int(found[2] or 1))
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[5]}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
         return method
     body, _, second = name.partition("@")
@@ -168,10 +171,10 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
-    found = re.fullmatch(r"restart(\d+)([nlr])(s?)(?:t(\d+))?", body)
+    found = re.fullmatch(r"restart(\d+)([nlr])(?:c(\d))?(s?)(?:t(\d+))?", body)
     if found and model is None:
-        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[3]),
-                        tail=None if found[4] is None else int(found[4]))
+        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[4]),
+                        tail=None if found[5] is None else int(found[5]), choices=int(found[3] or 1))
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))

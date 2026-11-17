@@ -62,16 +62,26 @@ NOISE = (25, 50, 100, 200)
 ARMS = ("real", "none", "none_shift", "last", "stale", "mean", "only_nearest", "all_but_nearest") \
     + tuple(f"noisy{level}" for level in NOISE)
 COLUMNS = ("answer", "where", "broke_after", "second_choice_right", "covered", "confidence", "old_rest", "new_rest") + ARMS
+# --reanchor adds a second kind of restart, which needs no guess of the right token: a new block that
+# starts at the LAST token the first draft got right (not at the token after it), with the states of
+# the tokens before that one. It writes the token at the break again, now with those states, and goes
+# on from there. Counted from the token at the break, so that it compares with
+# second_choice_right * (1 + real), what a restart from the second choice gets. "rank" is the place of
+# the right token among the drafter's choices at the break (1: its second choice, 2: its third, ...).
+REANCHOR = ("reanchor", "reanchor_noisy100")
 MOST_ROUNDS_PER_FILE = 12000
 
 
 class Restart:
     """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
 
-    def __init__(self, k=4, width=WIDTH, predictor=None):
+    def __init__(self, k=4, width=WIDTH, predictor=None, reanchor=False):
         self.inner, self.k, self.rows, self.width, self.predictor = SelfRedraft(), k, [], width, predictor
         self.arms = ARMS + (("predicted",) if predictor is not None else ())
         self.columns = COLUMNS + (("predicted",) if predictor is not None else ())
+        self.reanchor = () if not reanchor else REANCHOR + (("reanchor_predicted",) if predictor is not None else ())
+        if reanchor:
+            self.columns = self.columns + self.reanchor + ("rank",)
 
     def begin(self, ids, prompt_length, features, repetition_from, answer, seed=0):
         self.ids, self.prompt_length, self.features = ids, prompt_length, features
@@ -134,9 +144,24 @@ class Restart:
         if self.predictor is not None:
             stand_ins["predicted"] = (predicted_states(self.predictor, s, missing), places, True)
         begin = [s.start if name == "none_shift" else restart for name in self.arms]
-        tokens = restarts(s, [token] * len(self.arms), begin, [stand_ins[name] for name in self.arms], full)
+        anchors, given = [token] * len(self.arms), [stand_ins[name] for name in self.arms]
+        if self.reanchor:
+            # A block from the last right token (the round's first token when the draft broke at once):
+            # only the states of the tokens BEFORE that one are missing.
+            earlier = {"reanchor": (states[:, :-1], places[:-1]), "reanchor_noisy100": (noisy(100)[:, :-1], places[:-1])}
+            if self.predictor is not None:
+                earlier["reanchor_predicted"] = (stand_ins["predicted"][0][:, :-1], places[:-1], True)
+            for name in self.reanchor:
+                anchors.append(s.block_ids[0, broke])
+                begin.append(restart - 1)
+                given.append(earlier[name] if missing > 1 else None)
+            record["rank"] = min(int((first[broke] > first[broke, token]).sum()), 99)
+        tokens = restarts(s, anchors, begin, given, full)
         for number, name in enumerate(self.arms):
             record[name] = _matches(tokens[number : number + 1], after)
+        from_the_break = self.ids[:, restart : restart + full - 1]
+        for number, name in enumerate(self.reanchor, start=len(self.arms)):
+            record[name] = _matches(tokens[number : number + 1], from_the_break)
         self.rows.append([record[name] for name in self.columns])
         return None
 
@@ -144,7 +169,8 @@ class Restart:
 def summary(table, columns=COLUMNS):
     """Tokens accepted after the right token at the break, for each way of restarting: over all
     rounds with a break and by how many of the target's states were missing."""
-    COLUMNS, ARMS = tuple(columns), tuple(columns[columns.index("new_rest") + 1 :])
+    COLUMNS = tuple(columns)
+    ARMS = tuple(name for name in COLUMNS[COLUMNS.index("new_rest") + 1 :] if name != "rank")
     table = numpy.asarray(table).reshape(-1, len(COLUMNS))
     out = {"rounds": int(len(table))}
     if not len(table):
@@ -157,6 +183,27 @@ def summary(table, columns=COLUMNS):
             out[label] = {"rounds": int(mask.sum()),
                           **{name: round(float(table[mask, COLUMNS.index(name)].mean()), 3) for name in ("old_rest", "new_rest") + ARMS}}
     out["second_choice_right"] = round(float(table[:, COLUMNS.index("second_choice_right")].mean()), 3)
+    if "reanchor" in COLUMNS:
+        # Tokens accepted from the token at the break on: a restart from the second choice (nothing
+        # unless that choice is right), a block from the last right token, and the better of the two.
+        column = {name: table[:, COLUMNS.index(name)] for name in COLUMNS}
+        for label, mask in groups:
+            if not mask.any():
+                continue
+            compared = {}
+            for states, again in (("real", "reanchor"), ("noisy100", "reanchor_noisy100"), ("predicted", "reanchor_predicted")):
+                if states in column and again in column:
+                    second = column["second_choice_right"][mask] * (1 + column[states][mask])
+                    compared[states] = {"from_the_second_choice": round(float(second.mean()), 3),
+                                        "from_the_last_right_token": round(float(column[again][mask].mean()), 3),
+                                        "the_better_of_the_two": round(float(numpy.maximum(second, column[again][mask]).mean()), 3),
+                                        "the_last_right_token_gets_the_break_right": round(float((column[again][mask] > 0).mean()), 3)}
+            out[label]["from_the_break_on"] = compared
+        rank = column["rank"]
+        out["right_token_is_the_drafters"] = {"second_choice": round(float((rank == 1).mean()), 3),
+                                              "third_choice": round(float((rank == 2).mean()), 3),
+                                              "fourth_choice": round(float((rank == 3).mean()), 3),
+                                              "fifth_to_tenth": round(float(((rank >= 4) & (rank <= 9)).mean()), 3)}
     return out
 
 
@@ -170,6 +217,7 @@ def main():
     parser.add_argument("--fixed", default="", help="start from the saved add-on weights lora-<name>.pt")
     parser.add_argument("--sharp", action="store_true", help="sharper attention on long texts (SharpDraft)")
     parser.add_argument("--predictor", default="", help="a saved predictor of the missing states: restart-<name>.pt in --adapter-dir")
+    parser.add_argument("--reanchor", action="store_true", help="also restart from the last right token (see REANCHOR above)")
     parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
@@ -200,7 +248,7 @@ def main():
     predictor, predictor_notes = None, {}
     if args.predictor:
         predictor, predictor_notes = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
-    probe = Restart(predictor=predictor)
+    probe = Restart(predictor=predictor, reanchor=args.reanchor)
     records, written, started = [], [0, 0], time.time()          # written: files, rounds in them
 
     def report(done):

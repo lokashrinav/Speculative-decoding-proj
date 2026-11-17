@@ -93,6 +93,44 @@ def test_the_probe_counts_what_the_target_accepts_after_the_break():
     assert out["rounds"] == len(table) and abs(out["all"]["real"] - float(column["real"].float().mean())) < 1e-3
 
 
+def test_the_probe_restarts_from_the_last_right_token_too():
+    """reanchor: a block from the last token the first draft got right, with the target's states of
+    the tokens before it, is the first draft of a round that starts at that token; the right token's
+    place among the drafter's choices is kept."""
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=160)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    probe = Restart(k=3, width=BLOCK, reanchor=True)
+    probe.begin(ids, length, features, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
+    assert probe.columns[: len(COLUMNS)] == COLUMNS and probe.columns[len(COLUMNS) :] == ("reanchor", "reanchor_noisy100", "rank")
+    checked = at_once = 0
+    for row in probe.rows:
+        record = dict(zip(probe.columns, row))
+        assert record["rank"] >= 1 and (record["rank"] == 1) == bool(record["second_choice_right"])
+        assert 0 <= record["reanchor"] <= BLOCK - 1 and 0 <= record["reanchor_noisy100"] <= BLOCK - 1
+        last_right = length + record["where"] + record["broke_after"]
+        if record["broke_after"] == 0:
+            assert record["reanchor"] == 0                     # the round's own first token: the first draft again
+            at_once += 1
+        elif checked < 12 and last_right + 1 + BLOCK < ids.shape[1]:
+            from_there = replay_decode(draft, target, ids, last_right, ended=False, features=features, block_size=BLOCK)
+            assert record["reanchor"] == from_there.acceptance_lengths[0] - 1
+            checked += 1
+    assert checked > 5 and at_once > 0
+    out = summary(probe.rows, probe.columns)
+    both = out["all"]["from_the_break_on"]["real"]
+    assert both["the_better_of_the_two"] >= max(both["from_the_second_choice"], both["from_the_last_right_token"]) - 1e-9
+    assert abs(out["all"]["reanchor"] - both["from_the_last_right_token"]) < 1e-3
+    places = out["right_token_is_the_drafters"]
+    assert abs(places["second_choice"] - out["second_choice_right"]) < 1e-3 and sum(places.values()) <= 1 + 1e-6
+    assert "rank" not in out["all"]
+    assert "from_the_break_on" not in summary(probe.rows[:0], probe.columns)
+
+
 class Seen:
     """Keeps what a plug-in returned in every round, with the round's first draft."""
 
@@ -183,8 +221,51 @@ def test_the_restart_second_run_in_the_replay():
         dflash_generate_redraft(draft, target, ids[:, :length], 40, None, improver=Restarts(k=3), block_size=BLOCK)
 
 
+def test_restarts_from_the_third_choice_too():
+    """choices=2: every likely break gets a restart from the drafter's second choice and one from its
+    third, in the same drafter pass. The rows of the second choices are those of choices=1, the others
+    follow, and with the real states the answer takes no more rounds than with one choice."""
+    from dflash.redraft import Restarts
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    one, two = Restarts(k=3, stand_in="real"), Restarts(k=3, stand_in="real", choices=2, swap=True)
+    one.features = two.features = features
+    first, both = Seen(one), Seen(two)
+    single = replay_decode(draft, target, ids, length, ended=False, features=features, improver=first, block_size=BLOCK)
+    double = replay_decode(draft, target, ids, length, ended=False, features=features, improver=both, block_size=BLOCK)
+    assert sum(double.acceptance_lengths) == sum(single.acceptance_lengths) and double.rounds <= single.rounds
+    of_one = {start: rows for start, _, _, rows, _ in first.rounds}
+    compared = 0
+    for start, block, logits, rows, kept in both.rounds:
+        width, count = block.shape[0], len(kept)
+        assert rows.shape == (4 * count, 2 * width)
+        ranked = logits.topk(3, dim=-1).indices
+        for number, broke in enumerate(kept):
+            for choice in (1, 2):
+                row = rows[(choice - 1) * count + number]
+                assert row[: broke + 1].tolist() == block[: broke + 1].tolist() and int(row[broke + 1]) == int(ranked[broke, choice])
+                assert int(row[: broke + 1 + width].min()) >= 0
+                swapped = block.clone()
+                swapped[broke + 1] = ranked[broke, choice]
+                assert rows[(choice + 1) * count + number, :width].tolist() == swapped.tolist()
+        if start in of_one:
+            assert torch.equal(rows[:count], of_one[start])
+            compared += 1
+    assert compared > 10
+    with pytest.raises(ValueError):
+        Restarts(choices=0)
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
+
+    two = make_method("restart4rc2st7", "/nowhere")
+    assert two.k == 4 and two.stand_in == "real" and two.choices == 2 and two.swap and two.alternative_tail == 7
+    assert make_method("restart4rs", "/nowhere").choices == 1
 
     plain = make_method("restart4n", "/nowhere")
     assert type(plain).__name__ == "Restarts" and plain.k == 4 and plain.stand_in == "none" and not plain.swap

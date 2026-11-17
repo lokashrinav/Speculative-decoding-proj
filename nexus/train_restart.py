@@ -289,7 +289,7 @@ def main():
     save_predictor(os.path.join(args.adapter_dir, f"restart-{args.save}.pt"), predictor,
                    {"draft": args.draft, "fixed": args.fixed, "answers": learned, "rounds": teach.rounds,
                     "curve_end": curve[-1] if curve else None})
-    probe, measured = Restart(predictor=predictor), 0
+    probe, measured = Restart(predictor=predictor, reanchor=True), 0
     for number, (name, index, sequence, prompt_length, source) in enumerate(checks):
         if measured >= args.check_answers:
             break

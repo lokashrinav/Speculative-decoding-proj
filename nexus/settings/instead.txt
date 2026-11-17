@@ -50,3 +50,11 @@ long-opd-1b: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part va
 # The same swap replayed over whole answers (tokens per round only), the better drafter, half of the
 # validation answers: with the whole alternative checked and with short tails, alone and on the repairs
 long-opd-2b: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches4st3,branches15s,branches4e,plain+fixed@opd-g,branches4s+fixed@opd-g,branches4st3+fixed@opd-g,plain+sharp,branches4st3+sharp
+# Can the second run do without a guess of the right token? (nexus/restart_probe.py --reanchor) Next to the
+# restart from the second choice at the break, a new block from the LAST token the first draft got right,
+# with the target's states of the tokens before it: it writes the token at the break again and goes on.
+# Also the place of the right token among the drafter's choices (is a restart from the third choice worth it?).
+# 40 validation answers per drafter. The two jobs were queued for the DDTree replays, which are queued again
+# as tree-replay-*-4. (The results are in nexus/results/tree-replay-opd-3 and -pub-3: they are NOT tree replays.)
+tree-replay-opd-3: restart_probe.py --draft opd --data-dir ~/specdec-data/long1 --part validation --reanchor --max-answers 40 --max-hours 2
+tree-replay-pub-3: restart_probe.py --data-dir ~/specdec-data/long1 --part validation --reanchor --max-answers 40 --max-hours 2

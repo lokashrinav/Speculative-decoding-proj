@@ -441,14 +441,21 @@ class Restarts:
     swap: also return the swap for every break (the second choice followed by the first draft's old
     tokens): it costs no drafter pass, and where a stand-in is poor it is the better of the two.
     tail: the target checks only the second choice and this many tokens after it.
+    choices: how many of the drafter's next choices at each break get a restart of their own (1: the
+    second choice; 2: the second and the third; ...). All of them still share the one drafter pass,
+    whose cost hardly depends on how many blocks it holds, so more choices raise what the pass earns.
 
-    Returned: rows of [first token, ...] that may be longer than the block (-1 after their end).
-    Scored in replay only so far."""
+    Returned: rows of [first token, ...] that may be longer than the block (-1 after their end): the
+    restarts from the second choices in the order of .kept, then those from the third choices, ...,
+    then the swaps in the same order. Scored in replay only so far."""
 
-    def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None):
+    def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None,
+                 choices: int = 1):
         if stand_in not in ("none", "last", "real", "predicted"):
             raise ValueError("stand_in must be 'none', 'last', 'real' or 'predicted'")
-        self.k, self.stand_in, self.swap, self.alternative_tail = k, stand_in, swap, tail
+        if choices < 1:
+            raise ValueError("choices must be at least 1")
+        self.k, self.stand_in, self.swap, self.alternative_tail, self.choices = k, stand_in, swap, tail, choices
         self.features = None        # the answer's states, for stand_in="real"
         self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
@@ -462,9 +469,10 @@ class Restarts:
         first = s.draft_logits[0].float()
         scores = break_scores(first.softmax(dim=-1).amax(dim=-1))[: width - 1]
         self.kept = scores.topk(min(self.k, scores.shape[0])).indices.tolist()
-        second = first.topk(2, dim=-1).indices[:, 1]
+        choices = min(self.choices, first.shape[-1] - 1)
+        ranked = first.topk(1 + choices, dim=-1).indices              # [place, the first choice and the next ones]
         device = s.block_ids.device
-        begin, stand_ins = [], []
+        begin, stand_ins, given = [], [], []
         if self.stand_in == "predicted":
             from .stand_in import predicted_states
 
@@ -473,26 +481,29 @@ class Restarts:
             missing = broke + 1
             places = torch.arange(s.start, s.start + missing, device=device)
             if self.stand_in == "predicted":
-                stand_ins.append((written[:, :missing], places, True))
+                given.append((written[:, :missing], places, True))
             elif self.stand_in == "real":
                 if self.features is None or self.features.shape[1] < s.start + missing:
                     raise ValueError("stand_in='real' needs the answer's states (replay only)")
-                stand_ins.append((self.features[:, s.start : s.start + missing], places))
+                given.append((self.features[:, s.start : s.start + missing], places))
             elif self.stand_in == "last" and s.context_features.shape[1]:
-                stand_ins.append((s.context_features[:, -1:].repeat(1, missing, 1), places))
+                given.append((s.context_features[:, -1:].repeat(1, missing, 1), places))
             else:
-                stand_ins.append(None)
+                given.append(None)
+        starts = [(broke, choice) for choice in range(1, 1 + choices) for broke in self.kept]
+        for broke, _ in starts:
+            stand_ins.append(given[self.kept.index(broke)])
             begin.append(s.start + broke + 1)
-        new = restarts(s, [second[broke] for broke in self.kept], begin, stand_ins, width)
-        rows = torch.full(((2 if self.swap else 1) * len(self.kept), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
-        for number, broke in enumerate(self.kept):
+        new = restarts(s, [ranked[broke, choice] for broke, choice in starts], begin, stand_ins, width)
+        rows = torch.full(((2 if self.swap else 1) * len(starts), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
+        for number, (broke, choice) in enumerate(starts):
             rows[number, : broke + 1] = s.block_ids[0, : broke + 1]
-            rows[number, broke + 1] = second[broke]
+            rows[number, broke + 1] = ranked[broke, choice]
             rows[number, broke + 2 : broke + 1 + width] = new[number]
             if self.swap:
-                swapped = rows[len(self.kept) + number]
+                swapped = rows[len(starts) + number]
                 swapped[:width] = s.block_ids[0]
-                swapped[broke + 1] = second[broke]
+                swapped[broke + 1] = ranked[broke, choice]
         return rows
 
 
