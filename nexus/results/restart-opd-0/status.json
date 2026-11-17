@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 80,
+ "answers": 91,
  "answers_in_this_job": 100,
  "part": "validation",
- "hours": 1.049,
+ "hours": 1.137,
  "draft": "opd",
  "fixed": "",
  "sharp": false,
@@ -30,7 +30,7 @@
   "noisy100",
   "noisy200"
  ],
- "files": 7,
+ "files": 8,
  "answers_read": [
   {
    "source": "math-train-level5",
@@ -911,96 +911,217 @@
    "rounds": 177,
    "ended_by_itself": true,
    "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard3of4.pt",
+    45
+   ],
+   "tokens": 11504,
+   "rounds": 1877,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard3of4.pt",
+    51
+   ],
+   "tokens": 3110,
+   "rounds": 627,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard3of4.pt",
+    60
+   ],
+   "tokens": 5767,
+   "rounds": 856,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard3of4.pt",
+    61
+   ],
+   "tokens": 286,
+   "rounds": 74,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard3of4.pt",
+    64
+   ],
+   "tokens": 2543,
+   "rounds": 985,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard3of4.pt",
+    66
+   ],
+   "tokens": 2156,
+   "rounds": 886,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard3of4.pt",
+    72
+   ],
+   "tokens": 3103,
+   "rounds": 1158,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard3of4.pt",
+    78
+   ],
+   "tokens": 16384,
+   "rounds": 2547,
+   "ended_by_itself": false,
+   "repetition_from": 1581
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard3of4.pt",
+    87
+   ],
+   "tokens": 763,
+   "rounds": 267,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard3of4.pt",
+    90
+   ],
+   "tokens": 1625,
+   "rounds": 248,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard3of4.pt",
+    95
+   ],
+   "tokens": 2881,
+   "rounds": 1195,
+   "ended_by_itself": true,
+   "repetition_from": null
   }
  ],
  "summary": {
-  "rounds": 100374,
+  "rounds": 109125,
   "all": {
-   "rounds": 100374,
-   "old_rest": 0.643,
-   "new_rest": 0.835,
-   "real": 3.722,
-   "none": 0.945,
-   "none_shift": 0.614,
-   "last": 0.627,
-   "stale": 0.623,
-   "mean": 0.553,
-   "only_nearest": 3.235,
-   "all_but_nearest": 2.43,
-   "noisy25": 3.692,
-   "noisy50": 3.599,
-   "noisy100": 3.242,
-   "noisy200": 2.133
+   "rounds": 109125,
+   "old_rest": 0.638,
+   "new_rest": 0.824,
+   "real": 3.653,
+   "none": 0.929,
+   "none_shift": 0.603,
+   "last": 0.616,
+   "stale": 0.612,
+   "mean": 0.542,
+   "only_nearest": 3.179,
+   "all_but_nearest": 2.378,
+   "noisy25": 3.623,
+   "noisy50": 3.53,
+   "noisy100": 3.179,
+   "noisy200": 2.095
   },
   "1 missing": {
-   "rounds": 22428,
-   "old_rest": 0.696,
-   "new_rest": 1.05,
-   "real": 2.042,
-   "none": 1.097,
-   "none_shift": 0.914,
-   "last": 0.916,
-   "stale": 0.916,
-   "mean": 0.562,
-   "only_nearest": 2.046,
-   "all_but_nearest": 1.096,
-   "noisy25": 2.031,
-   "noisy50": 1.985,
-   "noisy100": 1.837,
-   "noisy200": 1.431
+   "rounds": 24921,
+   "old_rest": 0.689,
+   "new_rest": 1.031,
+   "real": 2.01,
+   "none": 1.071,
+   "none_shift": 0.895,
+   "last": 0.897,
+   "stale": 0.896,
+   "mean": 0.548,
+   "only_nearest": 2.014,
+   "all_but_nearest": 1.071,
+   "noisy25": 1.996,
+   "noisy50": 1.952,
+   "noisy100": 1.805,
+   "noisy200": 1.405
   },
   "2 missing": {
-   "rounds": 17608,
-   "old_rest": 0.672,
-   "new_rest": 0.967,
-   "real": 2.714,
-   "none": 1.027,
-   "none_shift": 0.684,
-   "last": 0.694,
-   "stale": 0.704,
-   "mean": 0.519,
-   "only_nearest": 2.623,
-   "all_but_nearest": 1.632,
-   "noisy25": 2.697,
-   "noisy50": 2.643,
-   "noisy100": 2.391,
-   "noisy200": 1.766
+   "rounds": 19480,
+   "old_rest": 0.659,
+   "new_rest": 0.945,
+   "real": 2.663,
+   "none": 1.001,
+   "none_shift": 0.665,
+   "last": 0.674,
+   "stale": 0.685,
+   "mean": 0.505,
+   "only_nearest": 2.574,
+   "all_but_nearest": 1.6,
+   "noisy25": 2.645,
+   "noisy50": 2.586,
+   "noisy100": 2.341,
+   "noisy200": 1.731
   },
   "3-4 missing": {
-   "rounds": 21677,
-   "old_rest": 0.681,
-   "new_rest": 0.918,
-   "real": 3.547,
-   "none": 0.964,
-   "none_shift": 0.548,
-   "last": 0.573,
-   "stale": 0.565,
-   "mean": 0.526,
-   "only_nearest": 3.278,
-   "all_but_nearest": 2.251,
-   "noisy25": 3.511,
-   "noisy50": 3.421,
-   "noisy100": 3.114,
-   "noisy200": 2.14
+   "rounds": 23603,
+   "old_rest": 0.675,
+   "new_rest": 0.9,
+   "real": 3.484,
+   "none": 0.948,
+   "none_shift": 0.533,
+   "last": 0.559,
+   "stale": 0.55,
+   "mean": 0.514,
+   "only_nearest": 3.218,
+   "all_but_nearest": 2.208,
+   "noisy25": 3.45,
+   "noisy50": 3.361,
+   "noisy100": 3.057,
+   "noisy200": 2.103
   },
   "5 or more missing": {
-   "rounds": 38661,
-   "old_rest": 0.579,
-   "new_rest": 0.603,
-   "real": 5.255,
-   "none": 0.809,
-   "none_shift": 0.444,
-   "last": 0.459,
-   "stale": 0.448,
-   "mean": 0.579,
-   "only_nearest": 4.18,
-   "all_but_nearest": 3.667,
-   "noisy25": 5.21,
-   "noisy50": 5.07,
-   "noisy100": 4.516,
-   "noisy200": 2.704
+   "rounds": 41121,
+   "old_rest": 0.576,
+   "new_rest": 0.597,
+   "real": 5.216,
+   "none": 0.797,
+   "none_shift": 0.438,
+   "last": 0.452,
+   "stale": 0.442,
+   "mean": 0.572,
+   "only_nearest": 4.15,
+   "all_but_nearest": 3.638,
+   "noisy25": 5.173,
+   "noisy50": 5.03,
+   "noisy100": 4.479,
+   "noisy200": 2.682
   },
-  "second_choice_right": 0.442
+  "second_choice_right": 0.436
  },
  "gpu_memory_peak_gb": 11.86
 }
