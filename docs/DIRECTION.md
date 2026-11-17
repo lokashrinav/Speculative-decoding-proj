@@ -85,6 +85,26 @@ The full plan for the restart second run, with what each experiment decides, is 
 The bar is real tokens per second against the swap and DDTree. If the restart only wins in
 accepted tokens, the write-up says so.
 
+### Where the plan stands (November 17, evening)
+
+Step 1 is done and step 2 is decided: the hidden states are needed. With the real ones the target
+accepts 2.2 (public drafter) and 3.7 (Draft-OPD) tokens after g; with nothing or a crude stand-in
+0.6 and 0.9, no better than the first draft's old tokens. One state, that of f, carries 87% of it,
+and the states may be rough. So a small network has to predict them.
+
+Two more things came out of the same rounds.
+
+1. The extra drafter pass costs about as much as a restart from g earns, even with the real states,
+   because g is the right token in fewer than half of the breaks. So the pass has to earn more.
+2. A second kind of restart does that. It starts at f, the last token the first draft got right,
+   and writes the token after f again, now with the hidden states of a b c d e. It needs no guess.
+   With the real states it is worth as much as the restart from g, the two win in different rounds,
+   and both together give 44 to 46% more than the restart from g alone. Both fit in one pass.
+
+The first predictor closed only 21% of the gap between no states and the real ones, because it was
+taught restarts at any place in a round and not where the drafter really breaks. The second one,
+taught at real breaks and for both kinds of restart, is the next result.
+
 ## The experiments and where their results are
 
 | Experiment | What it asks | Code | Results |

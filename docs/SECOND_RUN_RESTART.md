@@ -180,8 +180,8 @@ same restarts with the real states and with none). In use, a restart comes right
 the drafter got wrong, and the drafter's own states, which the predictor reads, are different
 there.
 
-**The second predictor (running since 22:45 UTC, jobs `tree-replay-opd-4` and `tree-replay-pub-4`,
-which were waiting for something else; saved as `opd-b0` and `pub-b0`).** Taught where the first
+**The second predictor (queued on November 17 for the next two free GPUs as jobs `tree-replay-opd-4`
+and `tree-replay-pub-4`, which were waiting for something else; saved as `opd-b0` and `pub-b0`).** Taught where the first
 draft really breaks, for both kinds of restart, with the vectors' error weighted 2 instead of 0.1,
 two passes over the answers. Two more runs (`train-restart-opd-1`, `-pub-1`) teach the vectors
 alone; after 8,000 steps their vectors point 0.7 of the way along the real ones (cosine), where
