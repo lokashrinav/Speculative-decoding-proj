@@ -18,6 +18,8 @@ Methods (comma-separated):
   branchesKs             NO second pass: the first draft with its second choice at each of the K likely
                          breaks and nothing else changed. The control for branchesKe: what the
                          redraft pass adds on top of the switch (truebreaks: the same at the true break)
+  branchesKstN           the same, but the target checks only the switched token and the N tokens
+                         after it (a shorter check; any branchesK method can end in tN)
   chainD                 D drafts in all, each redraft from the likely break of the one before it
   truebreak, truebreakl, truebreake, truebreaks
                          one redraft from where the target really rejects the first draft. Decoding
@@ -48,7 +50,7 @@ from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings, extract_context_feature
 from dflash.redraft import Branches, Chain, SelfRedraft, lowest_break, redrafts_from
-from dflash.replay import _clock, _matches, replay_decode, target_features
+from dflash.replay import _checked_matches, _clock, _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
 from nexus import bench_redraft
 from nexus.adapt_drafter import GROUPS, by_position, settings_for, summarize
@@ -141,9 +143,9 @@ def make_method(name, ckpt_dir, like=None):
     if found:
         return SelfRedraft(model=model, keep=found[1] if found[1] == "confidence" else int(found[1]))
     kinds = {"": None, "l": "late", "e": "early", "s": "switch"}
-    found = re.fullmatch(r"branches(\d+)([les]?)", body)
+    found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
-        return Branches(k=int(found[1]), model=model, differ=kinds[found[2]])
+        return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
     found = re.fullmatch(r"chain(\d+)", body)
     if found:
         return Chain(depth=int(found[1]), model=model)
@@ -178,6 +180,7 @@ class Watched:
 
     def __init__(self, improver, ids, prompt_length, repetition_from, block=16):
         self.improver = improver
+        self.alternative_tail = getattr(improver, "alternative_tail", None)     # the replay asks the plug-in it is given
         self.ids, self.prompt_length, self.repetition_from, self.block = ids, prompt_length, repetition_from, block
         self.seconds = [0.0 for _ in GROUPS]
         self.counts = [[0 for _ in COUNTS] for _ in GROUPS]
@@ -199,7 +202,8 @@ class Watched:
         if width == self.block:
             truth = self.ids[:, s.start + 1 : s.start + width]
             own = _matches(s.block_ids[:, 1:], truth)
-            got = [] if drafts is None else [_matches(drafts[row : row + 1, 1:], truth) for row in range(drafts.shape[0])]
+            got = [] if drafts is None else [_checked_matches(drafts[row : row + 1], s.block_ids, truth, self.alternative_tail)
+                                             for row in range(drafts.shape[0])]
             kept = list(getattr(self.improver, "kept", []))
             add[0] = 1
             add[1] = int(own < width - 1)

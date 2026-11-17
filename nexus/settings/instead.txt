@@ -35,12 +35,18 @@ tune32-eval-2: why_redraft.py --draft opd --data-dir ~/specdec-data/long1 --part
 tune32-opd-0: why_redraft.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 1 --max-hours 6.3
 # the public drafter once it is repaired for long answers (the add-on weights off-a), half of the answers
 tune32-opd-1: why_redraft.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 6.3 --fixed off-a
-# The swap (the first draft with the drafter's second choice at each likely break, NO second pass) on
-# top of what repairs the drafter on long answers, replayed over whole answers. The three benchmark
-# shards queued again are not needed any more (Result 8 is complete) and are used for it.
+# The swap in REAL decoding (nexus/live_speed.py): the first draft with the drafter's second choice at
+# each of its four likely breaks, checked by the target in the same pass as the first draft, with NO
+# second drafter pass. Real tokens per second on validation prompts with answers of 2,000 tokens and
+# more: alone (the whole alternative checked, or only the switched token and 3 tokens after it), next to
+# a real second pass from the same switched tokens (+redraft4), and on top of what repairs the drafter
+# on long answers (the add-on weights trained ahead of time, sharper attention). The benchmark shards
+# these jobs were queued for are not needed any more (Result 8 is complete).
 # (The results are in nexus/results/long-opd-0b, -1b, -2b: they are NOT part of the long-opd family.)
-# public drafter, the 100 validation answers in two halves
-long-opd-0b: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches15s,plain+fixed@off-a,branches4s+fixed@off-a,branches15s+fixed@off-a,plain+sharp,branches4s+sharp
-long-opd-1b: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 1 --max-hours 9 --settings plain,branches4s,branches15s,plain+fixed@off-a,branches4s+fixed@off-a,branches15s+fixed@off-a,plain+sharp,branches4s+sharp
-# the better drafter (Draft-OPD), half of the answers
-long-opd-2b: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches15s,branches4e,truebreake,plain+fixed@opd-g,branches4s+fixed@opd-g,plain+sharp,branches4s+sharp
+# public drafter
+long-opd-0b: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 8.5 --settings plain,plain+swap4t3,plain+swap4,plain+redraft4,frozen@off-a,frozen@off-a+swap4t3,plain:sharp,plain:sharp+swap4t3
+# the better drafter (Draft-OPD)
+long-opd-1b: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 8.5 --settings plain,plain+swap4t3,plain+swap4,plain+redraft4,frozen@opd-g,frozen@opd-g+swap4t3,plain:sharp,plain:sharp+swap4t3
+# The same swap replayed over whole answers (tokens per round only), the better drafter, half of the
+# validation answers: with the whole alternative checked and with short tails, alone and on the repairs
+long-opd-2b: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches4st3,branches15s,branches4e,plain+fixed@opd-g,branches4s+fixed@opd-g,branches4st3+fixed@opd-g,plain+sharp,branches4st3+sharp

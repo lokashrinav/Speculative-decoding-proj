@@ -237,17 +237,22 @@ class Branches:
                shows what the redraft pass itself adds to "early".
     With differ the same drafter can also take i = 0: its second choice for the first token is
     shown and the rest is filled in ("late" does this too: the pass has nothing new to go on there).
-    Several alternative drafts are scored in replay only (dflash/replay.py).
+    tail: the target checks only the token at each break and this many tokens after it (None: all of
+    the draft). The check is then shorter, and most of what a branch wins is in those tokens.
     """
 
-    def __init__(self, k: int = 4, model: nn.Module | None = None, differ: str | None = None, together: bool = True):
+    def __init__(self, k: int = 4, model: nn.Module | None = None, differ: str | None = None, together: bool = True,
+                 tail: int | None = None):
         if k < 1:
             raise ValueError("k must be at least 1")
         if differ not in (None, "late", "early", "switch"):
             raise ValueError("differ must be None, 'late', 'early' or 'switch'")
+        if tail is not None and tail < 0:
+            raise ValueError("tail must be 0 or more")
         self.k = k
         self.differ = differ
         self.together = together
+        self.alternative_tail = tail
         self.inner = SelfRedraft(model=model, keep=1)
         self.kept = []          # the breaks of the last round, most likely first
 
@@ -429,12 +434,18 @@ def dflash_generate_redraft(
     timers: dict | None = None,
     round_clock: list | None = None,
 ):
-    """Greedy DFlash decoding that verifies the first draft and an improved draft together.
+    """Greedy DFlash decoding that verifies the first draft and alternative drafts together.
 
     With ``improver=None`` this is ordinary DFlash and produces the same tokens.
+    The improver may return several alternative drafts (one per row). Each shares the first draft's
+    tokens up to the first place it differs (its split), so only its tokens from there on are added
+    to the target's one verification pass, where they see the text, the shared tokens and
+    themselves. The draft the target accepts furthest counts. If the improver has
+    ``alternative_tail = N``, only the token at the split and the N tokens after it are checked
+    (a shorter pass: most of what an alternative wins is in those tokens).
     round_log, if given, receives one entry per full round:
-    [block length, split (0 if no alternative), tokens accepted from the first
-    draft, tokens accepted from the alternative (-1 if none), confidences].
+    [block length, split of the best alternative (0 if none), tokens accepted from the first
+    draft, tokens accepted from the best alternative (-1 if none), confidences].
     timers, if given, accumulates seconds spent in each part of a round.
     round_clock, if given, receives [tokens written before the round, tokens it produced,
     seconds since decoding began] at the end of every round.
@@ -525,38 +536,40 @@ def dflash_generate_redraft(
                 timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
 
         # An improver that replaces the draft: the edited draft is the only one checked.
-        if alternative is not None and alternative.shape[0] != 1:
-            raise NotImplementedError("several alternative drafts in one round are scored in replay only")
         if alternative is not None and getattr(improver, "replace", False):
             if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
                 rounds_edited += int(bool((alternative != block_ids).any()))
                 block_ids = alternative
             alternative = None
 
-        # The two drafts share everything before `split`; only the alternative's
-        # tokens from `split` onward are added to the verification pass.
-        split = block_len
+        # An alternative draft shares everything before its `split` with the first draft; only its
+        # tokens from `split` up to `end` are added to the verification pass. [(draft, split, end)]
+        branches = []
         if alternative is not None:
-            differs = (alternative != block_ids)[0].nonzero()
-            if differs.numel() and int(differs[0]) >= 1:
-                split = int(differs[0])
-            else:
-                alternative = None
-        extra = block_len - split
+            tail = getattr(improver, "alternative_tail", None)
+            for row in alternative.unbind(0):
+                differs = (row != block_ids[0]).nonzero()
+                if differs.numel() and int(differs[0]) >= 1:
+                    split = int(differs[0])
+                    branches.append((row[None], split, block_len if tail is None else min(block_len, split + 1 + tail)))
+        extra = sum(end - split for _, split, end in branches)
         num_pending = pending.shape[1]
         verify_ids = [pending, block_ids]
         verify_positions = [position_ids[:, start - num_pending : start + block_len]]
         attention_mask = None
-        if alternative is not None:
+        if branches:
             rounds_with_alternative += 1
-            verify_ids.append(alternative[:, split:])
-            verify_positions.append(position_ids[:, start + split : start + block_len])
             cached = start - num_pending
             rows = num_pending + block_len + extra
             visible = torch.ones((rows, cached + rows), dtype=torch.bool, device=device).tril(cached)
-            first_extra_row = num_pending + block_len
-            # Alternative tokens must not see the first draft's tokens after the split.
-            visible[first_extra_row:, cached + num_pending + split : cached + first_extra_row] = False
+            branch_row = num_pending + block_len
+            for row, split, end in branches:
+                verify_ids.append(row[:, split:end])
+                verify_positions.append(position_ids[:, start + split : start + end])
+                # An alternative's tokens must not see the first draft's tokens after its split, nor
+                # the tokens of the alternatives laid out before it.
+                visible[branch_row : branch_row + end - split, cached + num_pending + split : cached + branch_row] = False
+                branch_row += end - split
             attention_mask = visible[None, None]
         clock = _cuda_time() if timers is not None else None
         output = target(
@@ -570,7 +583,7 @@ def dflash_generate_redraft(
             best = best.topk(canvas_top, dim=-1)
             canvas = (start, best.indices, best.values)
         if timers is not None:
-            kind = "two" if alternative is not None else "one"
+            kind = "two" if branches else "one"
             timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock
             timers["rounds_" + kind] = timers.get("rounds_" + kind, 0) + 1
             timers["rows_" + kind] = timers.get("rows_" + kind, 0) + num_pending + block_len + extra
@@ -579,22 +592,26 @@ def dflash_generate_redraft(
         accepted = _leading_matches(block_ids[:, 1:], verified[:, first_rows[:-1]])
         first_accepted, alternative_accepted = accepted, -1
         winner_ids, winner_rows, alternative_won = block_ids, first_rows, False
-        if alternative is not None:
-            alternative_rows = torch.cat((
-                first_rows[:split],
-                torch.arange(num_pending + block_len, num_pending + block_len + extra, device=device),
-            ))
-            alternative_accepted = _leading_matches(alternative[:, 1:], verified[:, alternative_rows[:-1]])
-            if alternative_accepted > accepted:
-                alternative_wins += 1
-                alternative_extra_tokens += alternative_accepted - accepted
-                accepted, alternative_won = alternative_accepted, True
-                winner_ids, winner_rows = alternative, alternative_rows
+        winner_split = best_split = 0
+        branch_row = num_pending + block_len
+        for row, split, end in branches:
+            branch_rows = torch.cat((first_rows[:split], torch.arange(branch_row, branch_row + end - split, device=device)))
+            branch_row += end - split
+            # If all its checked tokens are accepted, the target's token after the last one is the bonus.
+            got = _leading_matches(row[:, 1:end], verified[:, branch_rows[:-1]])
+            if got > alternative_accepted:
+                alternative_accepted, best_split = got, split
+            if got > accepted:
+                accepted, alternative_won = got, True
+                winner_ids, winner_rows, winner_split = row, branch_rows, split
+        if alternative_won:
+            alternative_wins += 1
+            alternative_extra_tokens += accepted - first_accepted
 
         if round_log is not None and block_len == block_size:
             confidence = draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
             round_log.append([
-                block_len, split if alternative is not None else 0, first_accepted,
+                block_len, best_split, first_accepted,
                 alternative_accepted, [round(c, 3) for c in confidence.tolist()],
             ])
 
@@ -617,7 +634,7 @@ def dflash_generate_redraft(
                 stopped = True
 
         # Target cache: keep what lies on the accepted path and is stored in order.
-        kept_in_cache = min(produced, split) if alternative_won else produced
+        kept_in_cache = min(produced, winner_split) if alternative_won else produced
         _crop_to(target_cache, start + kept_in_cache)
         pending = output_ids[:, start + kept_in_cache : start + produced].clone()
         if block_len > 1:

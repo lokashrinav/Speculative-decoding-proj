@@ -53,6 +53,16 @@ def target_features(target, model, ids, chunk=1024, top=0):
     return features
 
 
+def _checked_matches(alternative, block_ids, truth, tail):
+    """Tokens the target accepts from an alternative draft. With a tail, only the first token that
+    differs from the first draft and `tail` tokens after it are checked (see dflash_generate_redraft)."""
+    got = _matches(alternative[:, 1:], truth)
+    if tail is None:
+        return got
+    differs = (alternative != block_ids)[0].nonzero()
+    return got if not differs.numel() else min(got, int(differs[0]) + tail)
+
+
 @torch.inference_mode()
 def replay_decode(model, target, ids, prompt_length, ended=True, features=None, improver=None,
                   block_size=None, timers=None):
@@ -63,7 +73,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         the last blocks were shorter in decoding, and they are made shorter here too.
     improver: the same plug-in dflash_generate_redraft takes. One that replaces the draft
         has its edited draft scored; any other alternative draft counts if it gets further.
-        A plug-in may return several alternative drafts (one per row): the best one counts.
+        A plug-in may return several alternative drafts (one per row): the best one counts. If it
+        has alternative_tail = N, only the first differing token of each and N tokens after it count.
     Returns the tokens gained in each round, as dflash_generate_redraft reports them.
     """
     length = ids.shape[1]
@@ -170,7 +181,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         if alternative is not None and alternative.shape[1:] == block_ids.shape[1:] \
                 and bool((alternative[:, :1] == block_ids[:, :1]).all()) and bool((alternative != block_ids).any()):
             rounds_with_alternative += 1
-            other = max(_matches(alternative[row : row + 1, 1:], truth) for row in range(alternative.shape[0]))
+            other = max(_checked_matches(alternative[row : row + 1], block_ids, truth, getattr(improver, "alternative_tail", None))
+                        for row in range(alternative.shape[0]))
             if other > accepted:
                 alternative_wins += 1
                 accepted = other

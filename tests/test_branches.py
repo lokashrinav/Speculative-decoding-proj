@@ -271,16 +271,60 @@ def test_of_several_alternative_drafts_the_best_one_counts():
     assert three.rounds < plain.rounds
 
 
-def test_several_alternative_drafts_are_for_replay_only():
+@pytest.mark.parametrize("differ", ["switch", "early", None])
+def test_decoding_checks_several_alternative_drafts_in_one_pass(differ):
+    """Real decoding with the first draft and several alternatives in the target's one check: the
+    same tokens as plain decoding, and the same rounds as the replay of that answer."""
     target, draft = make_models()
-    prompt = torch.tensor([[1, 2, 3, 4, 5]])
-    with pytest.raises(NotImplementedError):
-        dflash_generate_redraft(draft, target, prompt, 60, None, improver=Branches(k=2), block_size=BLOCK)
-    # One branch is one alternative draft, which decoding does check: the same rounds as the replay.
-    live = dflash_generate_redraft(draft, target, prompt, 60, None, improver=Branches(k=1), block_size=BLOCK,
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    live = dflash_generate_redraft(draft, target, prompt, 120, None, improver=Branches(k=3, differ=differ), block_size=BLOCK,
                                    return_stats=True)
-    again = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=Branches(k=1), block_size=BLOCK)
+    assert torch.equal(live.output_ids, plain.output_ids)
+    again = replay_decode(draft, target, live.output_ids, length, ended=False, improver=Branches(k=3, differ=differ),
+                          block_size=BLOCK)
     assert again.acceptance_lengths == live.acceptance_lengths
+    assert live.alternative_wins == again.alternative_wins
+    if differ == "switch":
+        assert live.alternative_wins > 0 and live.rounds < plain.rounds
+    # One branch is one alternative draft: the same rounds as the replay too.
+    one = dflash_generate_redraft(draft, target, prompt, 60, None, improver=Branches(k=1), block_size=BLOCK, return_stats=True)
+    again = replay_decode(draft, target, one.output_ids, length, ended=False, improver=Branches(k=1), block_size=BLOCK)
+    assert again.acceptance_lengths == one.acceptance_lengths
+
+
+def test_an_alternative_draft_can_be_checked_for_a_few_tokens_only():
+    """With a tail the target reads only the switched token and a few tokens after it. Decoding
+    writes the same tokens, and an alternative that wins adds at most 1 + tail tokens."""
+    from dflash.replay import _checked_matches
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    rounds, tokens_read = {}, {}
+    for tail in (None, 2, 0):
+        timers, log = {}, []
+        live = dflash_generate_redraft(draft, target, prompt, 120, None, improver=Branches(k=3, differ="switch", tail=tail),
+                                       block_size=BLOCK, return_stats=True, timers=timers, round_log=log)
+        assert torch.equal(live.output_ids, plain.output_ids)
+        again = replay_decode(draft, target, live.output_ids, length, ended=False,
+                              improver=Branches(k=3, differ="switch", tail=tail), block_size=BLOCK)
+        assert again.acceptance_lengths == live.acceptance_lengths
+        rounds[tail], tokens_read[tail] = live.rounds, timers["rows_two"] / timers["rounds_two"]
+        if tail is not None:
+            # [block length, split, accepted from the first draft, accepted from the best alternative, ...]
+            assert all(entry[3] <= entry[1] + tail for entry in log if entry[1])
+            assert live.alternative_extra_tokens <= (1 + tail) * live.alternative_wins
+        assert live.alternative_wins > 0
+    assert plain.rounds > rounds[0] >= rounds[2] >= rounds[None]
+    assert tokens_read[0] < tokens_read[2] < tokens_read[None]
+    # The switched token is draft token 3 here (index 3 of the block): with a tail of 1, tokens 1..4 can count.
+    first = torch.tensor([[5, 1, 2, 3, 4, 6, 7, 8]])
+    other = torch.tensor([[5, 1, 2, 9, 4, 6, 7, 8]])
+    truth = torch.tensor([[1, 2, 9, 4, 6, 7, 0]])
+    assert _checked_matches(other, first, truth, None) == 6
+    assert _checked_matches(other, first, truth, 1) == 4 and _checked_matches(other, first, truth, 0) == 3
+    assert _checked_matches(first, first, truth, 0) == 2
 
 
 def test_times_between_the_measured_lengths_and_the_cost_of_an_answers_rounds():
@@ -446,6 +490,21 @@ def test_the_switch_alone_is_the_first_draft_with_its_second_choice_at_the_break
     assert compared > 5
     switch = make_method("branches4s", "/nowhere")
     assert isinstance(switch, Branches) and switch.differ == "switch" and make_method("truebreaks", "/nowhere").differ == "switch"
+    short = make_method("branches4st3", "/nowhere")
+    assert short.differ == "switch" and short.alternative_tail == 3 and switch.alternative_tail is None
+    assert make_method("branches2et0", "/nowhere").alternative_tail == 0
+
+
+def test_the_swap_as_a_setting_of_real_decoding():
+    from nexus.live_speed import swap_of
+
+    assert swap_of("plain:sharp") == ("plain:sharp", None)
+    base, swap = swap_of("frozen@off-a+swap4t3")
+    assert base == "frozen@off-a" and swap.k == 4 and swap.differ == "switch" and swap.alternative_tail == 3
+    base, swap = swap_of("plain+swap15")
+    assert base == "plain" and swap.k == 15 and swap.alternative_tail is None
+    base, again = swap_of("plain+redraft4")
+    assert base == "plain" and again.k == 4 and again.differ == "early" and again.alternative_tail is None
 
 
 def made_up_answer(target, draft, accept, block=16):

@@ -219,6 +219,18 @@ decoding (replay is exact for accepted tokens, and speed is estimated).
   branch already exists (GRAFT, arXiv 2608.20375; DDTree, arXiv 2604.12989). The swap is a small
   fixed special case of such a draft tree. It is the control of this study and not a new method.
 
+## Still to come
+
+- The rest of the 100 answers for both drafters, and the public drafter with the add-on weights
+  that repair it on long answers (`tune32-opd-0`, `tune32-opd-1`).
+- The swap in real decoding. Real decoding now checks the first draft and several alternatives in
+  the target's one pass (`dflash_generate_redraft`), with the short check of Result 7 as an option,
+  and writes the same tokens as plain decoding. Queued (`nexus/live_speed.py`, results in
+  `nexus/results/long-opd-0b` for the public drafter and `long-opd-1b` for the better drafter): real
+  tokens per second for the plain drafter, the swap with the whole alternative checked, the swap
+  with a tail of 3, a real second run from the same switched tokens, and the swap on top of the two
+  repairs for long answers.
+
 ## To reproduce
 
     python nexus/why_report.py nexus/results/tune32-eval-0 nexus/results/tune32-eval-1 --details

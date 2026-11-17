@@ -6,6 +6,13 @@ second: over the whole answer and by how far into the answer a round began (0-2k
 
 Settings are written as in nexus/adapt_drafter.py, for example
     plain, plain:sharp, immediate:3e-4:onepass, rejected:3e-4:onepass:only=last1:trigger=2
+A setting whose drafter does not learn can end in +swapK or +swapKtN, for example
+    plain+swap4t3, frozen@off-a+swap4t3
+The target then also checks, in the same pass, the first draft with the drafter's second choice
+at each of its K most likely breaks (dflash/redraft.py: Branches, "switch"). The drafter is not
+run again. With tN only the switched token and the N tokens after it are checked.
++redraftK is the comparison that does run the drafter again: the same second choices at the same
+breaks, and one more drafter pass that rewrites what follows each of them (Branches, "early").
 Decoding is lossless whatever the setting, so every setting should write the same tokens; this
 is checked against the plain drafter's output and the saved answer. The order of the settings
 changes from prompt to prompt, so that no setting always runs first.
@@ -13,18 +20,30 @@ changes from prompt to prompt, so that no setting always runs first.
 
 import argparse
 import os
+import re
 import time
 
 import torch
 
 from dflash.adapt import OnePassTrainer, attach_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
-from dflash.redraft import dflash_generate_redraft
+from dflash.redraft import Branches, dflash_generate_redraft
 from nexus.adapt_drafter import GROUPS, build_trainers, settings_for
 from nexus.fit_gate import split_of
 from nexus.live_check import first_difference
 from nexus.probe_memory import stepped_aside, write_json
+from nexus.redraft_long import find_drafter
 from nexus.replay_memory import load_answers
+
+
+def swap_of(setting):
+    """'frozen@off-a+swap4t3' -> ('frozen@off-a', the plug-in of the swap); (setting, None) without one.
+    '+redraft4' gives the plug-in that runs the drafter again from the same switched tokens."""
+    found = re.fullmatch(r"(.+)\+(swap|redraft)(\d+)(?:t(\d+))?", setting)
+    if not found:
+        return setting, None
+    return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
+                              tail=None if found[4] is None else int(found[4]))
 
 
 def by_position(round_clock):
@@ -67,7 +86,7 @@ def summarize(records, names):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
-    parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16")
+    parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16", help='a drafter, or "opd" for Draft-OPD')
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--settings", default="plain,immediate:3e-4:onepass")
@@ -91,23 +110,31 @@ def main():
     answers = answers[args.shard :: args.num_shards]
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0}, indent=1)
-    target, draft, tokenizer = load_transformers_models(args.model, args.draft, device)
+    target, draft, tokenizer = load_transformers_models(args.model, find_drafter(args.draft), device)
     stops = stop_token_ids(target, tokenizer)
     adapters = attach_adapters(draft, rank=args.rank)
     for adapter in adapters:
         adapter.fast = True                 # the cheaper way to apply the extra weights when nothing is learned
     settings, settings_from = settings_for(args.results_dir, args.settings)
-    trainers, started_from = build_trainers(settings, draft, adapters, args.adapter_dir)
-    names = list(trainers)
+    names = settings.split(",")
+    swaps = {name: swap_of(name) for name in names}
+    trainers, started_from = build_trainers(",".join(dict.fromkeys(base for base, _ in swaps.values())), draft, adapters,
+                                            args.adapter_dir)
     assert names[0] == "plain", "the first setting must be plain: the others are compared with it"
     for name, trainer in trainers.items():
         assert trainer.loss == "ce" or isinstance(trainer, OnePassTrainer), f"{name}: kl needs onepass in real decoding"
+    for name, (base, swap) in swaps.items():
+        assert swap is None or trainers[base].optimizer is None, f"{name}: the swap goes with a drafter that does not learn"
 
-    def decode(name, prompt):
-        trainer = trainers[name]
+    def improver_of(name):
+        base, swap = swaps[name]
+        trainer = trainers[base]
         trainer.begin()
         # A setting that trains nothing needs no call in every round: its state is set by begin().
-        improver = trainer if trainer.optimizer is not None else None
+        return trainer if trainer.optimizer is not None else swap
+
+    def decode(name, prompt):
+        improver = improver_of(name)
         timers, round_clock = {}, []
         result = dflash_generate_redraft(draft, target, prompt, args.max_new_tokens, stops, improver=improver,
                                          block_size=16, return_stats=True, timers=timers, round_clock=round_clock)
@@ -136,9 +163,8 @@ def main():
         prompt = sequence[:prompt_length].long().to(device)[None]
         if not warmed:                                  # the first decoding of a process is slower: not timed
             for setting in names:
-                trainers[setting].begin()
                 dflash_generate_redraft(draft, target, prompt, 96, stops, block_size=16, return_stats=True,
-                                        improver=trainers[setting] if trainers[setting].optimizer is not None else None)
+                                        improver=improver_of(setting))
             warmed = True
         record = {"source": source, "origin": [name, index], "saved_tokens": len(saved) - prompt_length, "settings": {}}
         outputs = {}
@@ -150,7 +176,11 @@ def main():
                 "tokens": len(outputs[setting]) - prompt_length, "rounds": int(result.rounds),
                 "seconds": round(round_clock[-1][2], 2) if round_clock else 0.0, "table": by_position(round_clock),
                 "differs_from_saved_at": first_difference(outputs[setting], saved),
-                "timers": {key: round(value, 2) for key, value in timers.items() if isinstance(value, float)}}
+                "timers": {key: round(value, 2) for key, value in timers.items() if isinstance(value, float)},
+                # rounds and tokens the target read in checks of one draft ("one") and of several ("two")
+                "checks": {key: value for key, value in timers.items() if isinstance(value, int)},
+                "alternatives": [int(result.rounds_with_alternative), int(result.alternative_wins),
+                                 int(result.alternative_extra_tokens)]}
         for setting in names:
             record["settings"][setting]["differs_from_plain_at"] = first_difference(outputs[setting], outputs["plain"])
         records.append(record)
