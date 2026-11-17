@@ -1,0 +1,269 @@
+"""What a second run of the drafter needs in order to write well AFTER the break.
+
+    python nexus/restart_probe.py --data-dir ~/specdec-data/long1 --results-dir nexus/results/NAME
+
+The study of why a second draft helps (docs/WHY_A_SECOND_DRAFT_HELPS.md) found that with the right
+token at the break the first draft's old tokens give 0.55 more tokens, a second pass that rewrites
+them inside the block 0.64, and the drafter in the next round, with the target's hidden states,
+2.03. So the one thing a second run can add that a swapped token or a tree cannot is a RESTART: the
+drafter starts a new block at the token after the break, as it does in the next round.
+
+At the time of a second run the target has not read this round's tokens yet. For a restart after
+`n - 1` accepted draft tokens the drafter is therefore missing the target's hidden states of `n`
+tokens: the block's first token and the accepted draft tokens (the token it restarts from needs
+none, as in any round). n is small: the first draft breaks early.
+
+This probe replays saved answers with the first draft alone and, in every round with a break,
+restarts the drafter from the RIGHT token at the break with the missing states replaced in several
+ways, all in one drafter pass. For each it counts how many of the restart's 15 tokens the target
+accepts:
+
+    real              the target's real states (the limit: this is the next round's first draft)
+    none              nothing in their place; the block keeps its true positions (a gap)
+    none_shift        nothing, and the block is placed right after the text the drafter has states for
+    last              the last real state, repeated
+    stale             the real states of the n tokens before them
+    mean              the mean of the last 256 real states, repeated
+    only_nearest      the real state of the token right before the restart only
+    all_but_nearest   the real states of all but that token
+    noisy25 ... 200   the real states plus noise of 25% ... 200% of each dimension's spread
+
+and for comparison, after the right token: old_rest (the first draft's old tokens) and new_rest
+(rewritten inside the block by a second pass). second_choice_right says whether the drafter's
+second choice at the break is the right token: where it is, a restart from the second choice is
+the restart measured here. "covered" says whether the break is one of the four likely breaks.
+
+none/last/stale/mean need no training: if they keep most of what `real` gives, a second run can
+restart without any predictor of the target's states. The noisy rows say how exact a predictor of
+those states has to be. Rounds are saved as tables (rounds-N.npz) like nexus/why_redraft.py.
+"""
+import argparse
+import os
+import time
+
+import numpy
+import torch
+
+from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adapters
+from dflash.benchmark import load_transformers_models, stop_token_ids
+from dflash.hindsight import loop_start
+from dflash.model import _draft_value, _output_head, _raw_input_embeddings
+from dflash.redraft import SelfRedraft, break_scores
+from dflash.replay import _matches, replay_decode, target_features
+from dflash.sharp import QueryScale
+from nexus.fit_gate import split_of
+from nexus.probe_memory import stepped_aside, write_json
+from nexus.redraft_long import find_drafter
+from nexus.replay_memory import load_answers
+
+WIDTH = 16
+NOISE = (25, 50, 100, 200)
+ARMS = ("real", "none", "none_shift", "last", "stale", "mean", "only_nearest", "all_but_nearest") \
+    + tuple(f"noisy{level}" for level in NOISE)
+COLUMNS = ("answer", "where", "broke_after", "second_choice_right", "covered", "confidence", "old_rest", "new_rest") + ARMS
+MOST_ROUNDS_PER_FILE = 12000
+
+
+def restarts(s, anchor, begin, stand_ins, width=WIDTH):
+    """Several restarts of the drafter in ONE pass. Each starts a block of masks at the token
+    `anchor`, placed at position begin[n], with the context the drafter already has (the target's
+    states of the text before this round) and stand_ins[n]: (states [1, count, D], their positions)
+    or None. A restart sees the context, its own stand-ins and itself. Returns the tokens it writes
+    after the anchor, one row per restart, and leaves the drafter's cache as it was."""
+    drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
+    block = torch.full((1, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
+    block[0, 0] = anchor
+    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+    noise = _raw_input_embeddings(s.target, block.repeat(1, count), scale)
+    slots = torch.arange(width, device=device)
+    seen = s.draft_cache.get_seq_length()
+    given = [entry for entry in stand_ins if entry is not None]
+    extra = sum(states.shape[1] for states, _ in given)
+    context = torch.cat([states for states, _ in given], dim=1) if given else s.context_features[:, :0]
+    positions = torch.cat([where for _, where in given] + [start + slots for start in begin])[None]
+    sees = torch.zeros((count * width, seen + extra + count * width), dtype=torch.bool, device=device)
+    sees[:, :seen] = True
+    at = seen
+    for number, entry in enumerate(stand_ins):
+        rows = slice(number * width, (number + 1) * width)
+        sees[rows, seen + extra + number * width : seen + extra + (number + 1) * width] = True
+        if entry is not None:
+            sees[rows, at : at + entry[0].shape[1]] = True
+            at += entry[0].shape[1]
+    hidden = drafter(
+        target_hidden=context.to(s.context_features.dtype), noise_embedding=noise, position_ids=positions,
+        attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True,
+    )[:, -count * width :, :]
+    s.draft_cache.crop(-(extra + count * width))
+    logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
+    return logits.argmax(dim=-1)
+
+
+class Restart:
+    """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
+
+    def __init__(self, k=4, width=WIDTH):
+        self.inner, self.k, self.rows, self.width = SelfRedraft(), k, [], width
+
+    def begin(self, ids, prompt_length, features, repetition_from, answer, seed=0):
+        self.ids, self.prompt_length, self.features = ids, prompt_length, features
+        self.repetition_from, self.answer = repetition_from, answer
+        self.generator = torch.Generator().manual_seed(1000 * seed + answer)
+        self.spread = features[0, prompt_length:].float().std(dim=0)
+
+    def start(self, first_drafter):
+        self.inner.start(first_drafter)
+
+    def __call__(self, s):
+        width, full = s.block_ids.shape[1], self.width
+        where = s.start - self.prompt_length
+        outside = self.repetition_from is not None and where >= self.repetition_from
+        truth = self.ids[:, s.start + 1 : s.start + width]
+        if width != full or truth.shape[1] != full - 1 or outside:
+            return None
+        broke = _matches(s.block_ids[:, 1:], truth)
+        restart = s.start + broke + 1                              # the position of the token the first draft got wrong
+        if broke == full - 1 or restart + full > self.ids.shape[1]:
+            return None
+        device = s.block_ids.device
+        token = truth[0, broke]
+        after = self.ids[:, restart + 1 : restart + full]         # what the answer has after that token
+        first = s.draft_logits[0].float()
+        confidence = first.softmax(dim=-1).amax(dim=-1)
+        likely = break_scores(confidence)[: full - 1].topk(self.k).indices.tolist()
+        record = {name: -1 for name in COLUMNS}
+        record.update(answer=self.answer, where=where, broke_after=broke, confidence=round(1000 * float(confidence[broke])),
+                      second_choice_right=int(first[broke].topk(2).indices[1] == token), covered=int(broke in likely))
+
+        # After the right token: the first draft's old tokens, and a second pass inside the block.
+        correct = s.block_ids.clone()
+        correct[0, broke + 1] = token
+        rest = slice(broke + 2, full)
+        record["old_rest"] = _matches(correct[:, rest], after)
+        made, _ = self.inner.redraft_together(s, [broke + 1], correct)
+        record["new_rest"] = _matches(made[:, rest], after)
+
+        missing = broke + 1                                        # tokens of this round the target has not read
+        states = self.features[:, s.start : s.start + missing]
+        places = torch.arange(s.start, s.start + missing, device=device)
+        before = self.features[:, max(s.start - 256, 0) : s.start]
+
+        def noisy(level):
+            noise = torch.randn(states.shape, generator=self.generator).to(device) * self.spread * (level / 100)
+            return (states.float() + noise).to(states.dtype)
+
+        stand_ins = {
+            "real": (states, places),
+            "none": None,
+            "none_shift": None,
+            "last": (before[:, -1:].repeat(1, missing, 1), places),
+            "stale": (self.features[:, s.start - missing : s.start], places),
+            "mean": (before.float().mean(dim=1, keepdim=True).to(states.dtype).repeat(1, missing, 1), places),
+            "only_nearest": (states[:, -1:], places[-1:]),
+            "all_but_nearest": (states[:, :-1], places[:-1]) if missing > 1 else None,
+        }
+        stand_ins.update({f"noisy{level}": (noisy(level), places) for level in NOISE})
+        begin = [s.start if name == "none_shift" else restart for name in ARMS]
+        tokens = restarts(s, token, begin, [stand_ins[name] for name in ARMS], full)
+        for number, name in enumerate(ARMS):
+            record[name] = _matches(tokens[number : number + 1], after)
+        self.rows.append([record[name] for name in COLUMNS])
+        return None
+
+
+def summary(table):
+    """Tokens accepted after the right token at the break, for each way of restarting: over all
+    rounds with a break and by how many of the target's states were missing."""
+    table = numpy.asarray(table).reshape(-1, len(COLUMNS))
+    out = {"rounds": int(len(table))}
+    if not len(table):
+        return out
+    missing = table[:, COLUMNS.index("broke_after")] + 1
+    groups = (("all", missing > 0), ("1 missing", missing == 1), ("2 missing", missing == 2),
+              ("3-4 missing", (missing >= 3) & (missing <= 4)), ("5 or more missing", missing >= 5))
+    for label, mask in groups:
+        if mask.any():
+            out[label] = {"rounds": int(mask.sum()),
+                          **{name: round(float(table[mask, COLUMNS.index(name)].mean()), 3) for name in ("old_rest", "new_rest") + ARMS}}
+    out["second_choice_right"] = round(float(table[:, COLUMNS.index("second_choice_right")].mean()), 3)
+    return out
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="Qwen/Qwen3-4B")
+    parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16", help='a drafter, or "opd" for Draft-OPD')
+    parser.add_argument("--data-dir", required=True)
+    parser.add_argument("--results-dir", required=True)
+    parser.add_argument("--part", default="validation", help="train, validation, test, or all (every answer in the folder)")
+    parser.add_argument("--fixed", default="", help="start from the saved add-on weights lora-<name>.pt")
+    parser.add_argument("--sharp", action="store_true", help="sharper attention on long texts (SharpDraft)")
+    parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
+    parser.add_argument("--shard", type=int, default=0)
+    parser.add_argument("--num-shards", type=int, default=1)
+    parser.add_argument("--max-hours", type=float, default=5.0)
+    parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"))
+    parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
+    parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
+    args = parser.parse_args()
+    if stepped_aside(args.results_dir):
+        return
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    answers = [answer for answer in load_answers(args.data_dir)
+               if args.part == "all" or split_of([answer[0], answer[1]]) == args.part]
+    answers = answers[args.shard :: args.num_shards]
+    status_path = os.path.join(args.results_dir, "status.json")
+    write_json(status_path, {"done": False, "answers": 0, "answers_in_this_job": len(answers)}, indent=1)
+    target, draft, tokenizer = load_transformers_models(args.model, find_drafter(args.draft), device)
+    stop_set = set(stop_token_ids(target, tokenizer) or [])
+    adapters = attach_adapters(draft, rank=args.rank) if args.fixed else []
+    for adapter in adapters:
+        adapter.fast = True
+    notes, state = {}, None
+    if args.fixed:
+        path = os.path.join(args.adapter_dir, f"lora-{args.fixed}.pt")
+        state, notes = load_adapters(path, adapters), adapter_notes(path)
+    first = DraftTrainer(draft, adapters, rate=0.0, init=state, sharpen=QueryScale() if args.sharp else None)
+    probe = Restart()
+    records, written, started = [], [0, 0], time.time()          # written: files, rounds in them
+
+    def report(done):
+        fresh = probe.rows[written[1] :]
+        if fresh and (done or len(fresh) >= MOST_ROUNDS_PER_FILE):
+            numpy.savez_compressed(os.path.join(args.results_dir, f"rounds-{written[0]}.npz"),
+                                   rounds=numpy.asarray(fresh, dtype=numpy.int32), columns=numpy.asarray(COLUMNS))
+            written[0] += 1
+            written[1] += len(fresh)
+        status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
+                  "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
+                  "sharp": args.sharp, "saved_adapters_used": notes, "columns": COLUMNS, "files": written[0],
+                  "answers_read": records, "summary": summary(probe.rows)}
+        if torch.cuda.is_available():
+            status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
+        write_json(status_path, status, indent=1)
+
+    for name, index, sequence, prompt_length, source in answers:
+        if time.time() - started > args.max_hours * 3600 or (args.max_answers and len(records) >= args.max_answers):
+            break
+        generated = sequence[prompt_length:].tolist()
+        if len(generated) < 2 or (args.longest and len(generated) > args.longest):
+            continue
+        ids = sequence.long().to(device)[None]
+        ended = generated[-1] in stop_set
+        repetition_from = None if ended else loop_start(generated)
+        features = target_features(target, draft, ids)
+        first.begin()
+        probe.begin(ids, prompt_length, features, repetition_from, len(records))
+        result = replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=probe,
+                               block_size=WIDTH)
+        probe.features = None
+        del features
+        records.append({"source": source, "origin": [name, index], "tokens": len(generated), "rounds": int(result.rounds),
+                        "ended_by_itself": ended, "repetition_from": repetition_from})
+        report(False)
+    report(True)
+
+
+if __name__ == "__main__":
+    main()
