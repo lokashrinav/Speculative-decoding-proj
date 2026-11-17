@@ -43,6 +43,7 @@ import torch
 from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
+from dflash.model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings, extract_context_feature
 from dflash.redraft import Branches, Chain, SelfRedraft, lowest_break, redrafts_from
 from dflash.replay import _clock, _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
@@ -250,6 +251,79 @@ def in_real_time(records, names):
     return out
 
 
+@torch.inference_mode()
+def time_the_passes(target, draft, ids, features, lengths, repeats=24, skip=4, block=16):
+    """Milliseconds of what a round is made of, with the text at several lengths: the first draft,
+    one redraft, several redrafts in one pass (attending directly, and through the library's masked
+    call), and the target's check of 16 tokens and of more (redrafts are checked in the same pass
+    as the first draft, so the check then reads more tokens)."""
+    from types import SimpleNamespace
+
+    from nexus.cost_check import middle
+
+    device = ids.device
+    head = _output_head(target)
+    scale = float(_draft_value(draft.config, "input_embedding_scale", 1.0))
+    positions = torch.arange(ids.shape[1] + block, device=device)[None]
+    cache, target_cache, held, rows = _make_cache(draft.config), _make_cache(target.config), 0, []
+
+    def timed(work):
+        times = []
+        for _ in range(repeats):
+            start = _clock(device)
+            work()
+            times.append(_clock(device) - start)
+        return middle(times, skip)
+
+    for length in sorted(lengths):
+        if length + block > ids.shape[1]:
+            break
+        block_ids = torch.full((1, block), draft.mask_token_id, dtype=torch.long, device=device)
+        block_ids[:, 0] = ids[:, length]
+        noise = _raw_input_embeddings(target, block_ids, scale)
+
+        def first(new=features[:, :0], begin=length):
+            states = draft(target_hidden=new, noise_embedding=noise, position_ids=positions[:, begin : length + block],
+                           past_key_values=cache, use_cache=True)[:, -block:, :]
+            logits = draft.compute_logits(states[:, 1:, :], head)
+            _crop_to(cache, length)
+            return logits
+
+        first(features[:, held:length], held)                        # the drafter reads the text up to here
+        for begin in range(held, length, 1024):                      # ... and so does the target
+            end = min(begin + 1024, length)
+            target(ids[:, begin:end], position_ids=positions[:, begin:end], past_key_values=target_cache,
+                   use_cache=True, logits_to_keep=1)
+        held = length
+        logits = first()
+        block_ids[:, 1:] = logits.argmax(dim=-1)
+        state = SimpleNamespace(block_ids=block_ids, draft_logits=logits, start=length, position_ids=positions,
+                                context_features=features[:, length:length], accepted_ids=ids[:, :length],
+                                first_drafter=draft, draft_cache=cache, target=target)
+        inner = SelfRedraft(keep=1)
+        inner.start(draft)
+        row = {"tokens_before": length, "first_draft": timed(first), "one_redraft": timed(lambda: inner.redraft(state, 4))}
+        for count in (2, 4, 8, 15):
+            keeps = list(range(min(count, block - 1)))
+            row[f"{count}_redrafts_in_one_pass"] = timed(lambda: inner.redraft_together(state, keeps))
+            row[f"{count}_redrafts_in_one_pass_library_mask"] = timed(
+                lambda: inner.redraft_together(state, keeps, no_copies=False))
+        for tokens in (block, 2 * block, 3 * block, 5 * block, 8 * block):
+            if length + tokens > ids.shape[1]:
+                break
+
+            def check():
+                output = target(ids[:, length : length + tokens], position_ids=positions[:, length : length + tokens],
+                                past_key_values=target_cache, use_cache=True, output_hidden_states=True)
+                output.logits.argmax(dim=-1)
+                extract_context_feature(output.hidden_states, draft.target_layer_ids)
+                _crop_to(target_cache, length)
+
+            row[f"check_of_{tokens}_tokens"] = timed(check)
+        rows.append(row)
+    return rows
+
+
 def find_drafter(name):
     """"opd" is the better drafter (Draft-OPD). It is kept on the node's own disk, never in the home folder."""
     if name != "opd":
@@ -283,6 +357,8 @@ def main():
     parser.add_argument("--ckpt-dir", default=os.path.expanduser("~/specdec-ckpt"), help="where saved second drafters are")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
     parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
+    parser.add_argument("--time-passes", default="", help="text lengths, comma-separated: before the replay, time "
+                        "the drafter's passes and the target's check at these lengths on the longest answer")
     args = parser.parse_args()
     if stepped_aside(args.results_dir):
         return
@@ -314,6 +390,19 @@ def main():
         first = DraftTrainer(draft, adapters, rate=0.0, init=saved.get(fixed), sharpen=options["sharpen"])
         methods[name] = (first, make_method(options["method"], args.ckpt_dir, like=draft))
     seconds = {name: {} for name in names}
+    timed_here = []
+    if args.time_passes and answers:
+        for first, _ in methods.values():
+            first.begin()                     # the drafter as the first method has it
+            break
+        longest = max(answers, key=lambda answer: len(answer[2]))
+        ids = longest[2].long().to(device)[None]
+        timed_here = time_the_passes(target, draft, ids, target_features(target, draft, ids),
+                                     [int(length) for length in args.time_passes.split(",")])
+        write_json(os.path.join(args.results_dir, "timing.json"), {"milliseconds": timed_here, "tokens": ids.shape[1]}, indent=1)
+        del ids
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     records, started = [], time.time()
 
     def report(done):
@@ -323,6 +412,7 @@ def main():
                   "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names),
                   "in_real_time": in_real_time(records, names),
                   "measured_ms": {"tokens_before": MEASURED_AT, "target_check": CHECK_MS, "first_draft": DRAFT_MS},
+                  "timed_in_this_job_ms": timed_here,
                   "replay_ms_per_round": {name: {key: 1000 * value / max(seconds[name].get("rounds", 0), 1)
                                                  for key, value in seconds[name].items() if key != "rounds"}
                                           for name in names}}

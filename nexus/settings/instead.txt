@@ -12,9 +12,9 @@ long-opd-3: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation -
 # (The results are in nexus/results/long-opd-0, -1, -2: they are NOT part of the long-opd family.)
 # 1. the same drafter again: one redraft, redrafts from the likely breaks (as D2SD places them), with
 #    and without a switch at the break, one redraft after the other, and the true break as the limit
-long-opd-0: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,self-keep1,branches1,branches4,branches4l,branches4e,branches15e,chain3,truebreak,truebreake
+long-opd-0: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --time-passes 1000,4000,8000,16000 --settings plain,self-keep1,branches1,branches4,branches4l,branches4e,branches15e,chain3,truebreak,truebreake
 # 2. the redrafts made by the second drafters trained in October (short texts) instead
 long-opd-1: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4@v1-prefix,branches4l@v1-prefix,truebreak@v1-prefix,ckpt:v1-prefix:keep1,ckpt:v1-control:keep0,ckpt:v1-edit:edit
 # 3. on top of what already repairs the drafter on long answers: the add-on weights trained ahead of
 #    time (off-a), and sharper attention
-long-opd-2: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,plain+fixed@off-a,branches4+fixed@off-a,branches4l+fixed@off-a,branches4e+fixed@off-a,truebreake+fixed@off-a,plain+sharp,branches4e+sharp
+long-opd-2: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --time-passes 1000,4000,8000,16000 --settings plain,plain+fixed@off-a,branches4+fixed@off-a,branches4l+fixed@off-a,branches4e+fixed@off-a,truebreake+fixed@off-a,plain+sharp,branches4e+sharp

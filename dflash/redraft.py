@@ -150,14 +150,16 @@ class SelfRedraft:
         return (alternative, logits) if with_logits else alternative
 
     def redraft_together(self, s: SimpleNamespace, keeps: list[int], blocks: torch.Tensor | None = None,
-                         context_done: bool = False):
+                         context_done: bool = False, no_copies: bool = True):
         """Several redrafts of the round `s` in ONE pass of the drafter: row n shows the first keeps[n]
         tokens of blocks[n] (of the first draft if no blocks are given). Returns the drafts (one per
         row) and the pass's predictions for them.
 
         The copies of the block are laid one after the other in a single sequence. Every copy has the
         block's own positions and sees the context and itself, never another copy, so each row is the
-        draft redraft() would give, while the context is neither copied nor read more than once."""
+        draft redraft() would give, while the context is neither copied nor read more than once.
+        no_copies=False goes through the library's masked attention call instead (slower on long
+        texts; kept to time the difference)."""
         block_len, count = s.block_ids.shape[1], len(keeps)
         device = s.block_ids.device
         slots = torch.arange(block_len, device=device)[None]
@@ -183,7 +185,7 @@ class SelfRedraft:
         sees[:, seen:] = copy[:, None] == copy[None, :]
         hidden = drafter(
             target_hidden=context, noise_embedding=noise, position_ids=positions,
-            attention_mask=sees[None, None], past_key_values=cache, use_cache=True, no_copies=True,
+            attention_mask=sees[None, None], past_key_values=cache, use_cache=True, no_copies=no_copies,
         )[:, -count * block_len :, :]
         _crop_to(cache, s.start)
         logits = drafter.compute_logits(hidden.reshape(count, block_len, -1)[:, 1:, :], _output_head(s.target))
