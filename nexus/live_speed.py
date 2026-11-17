@@ -13,6 +13,8 @@ at each of its K most likely breaks (dflash/redraft.py: Branches, "switch"). The
 run again. With tN only the switched token and the N tokens after it are checked.
 +redraftK is the comparison that does run the drafter again: the same second choices at the same
 breaks, and one more drafter pass that rewrites what follows each of them (Branches, "early").
+A setting with :window=N (plain:window=3072, frozen@off-a:window=3072+swap4t3) lets the drafter see
+only the last N tokens of the text.
 Decoding is lossless whatever the setting, so every setting should write the same tokens; this
 is checked against the plain drafter's output and the saved answer. The order of the settings
 changes from prompt to prompt, so that no setting always runs first.
@@ -131,13 +133,14 @@ def main():
         trainer = trainers[base]
         trainer.begin()
         # A setting that trains nothing needs no call in every round: its state is set by begin().
-        return trainer if trainer.optimizer is not None else swap
+        return (trainer if trainer.optimizer is not None else swap), int(trainer.context_window or 0)
 
     def decode(name, prompt):
-        improver = improver_of(name)
+        improver, window = improver_of(name)
         timers, round_clock = {}, []
         result = dflash_generate_redraft(draft, target, prompt, args.max_new_tokens, stops, improver=improver,
-                                         block_size=16, return_stats=True, timers=timers, round_clock=round_clock)
+                                         block_size=16, return_stats=True, timers=timers, round_clock=round_clock,
+                                         context_window=window)
         return result, timers, round_clock
 
     def report(done):
@@ -163,8 +166,9 @@ def main():
         prompt = sequence[:prompt_length].long().to(device)[None]
         if not warmed:                                  # the first decoding of a process is slower: not timed
             for setting in names:
+                improver, window = improver_of(setting)
                 dflash_generate_redraft(draft, target, prompt, 96, stops, block_size=16, return_stats=True,
-                                        improver=improver_of(setting))
+                                        improver=improver, context_window=window)
             warmed = True
         record = {"source": source, "origin": [name, index], "saved_tokens": len(saved) - prompt_length, "settings": {}}
         outputs = {}
@@ -179,8 +183,10 @@ def main():
                 "timers": {key: round(value, 2) for key, value in timers.items() if isinstance(value, float)},
                 # rounds and tokens the target read in checks of one draft ("one") and of several ("two")
                 "checks": {key: value for key, value in timers.items() if isinstance(value, int)},
+                # rounds with alternatives, rounds one of them won, tokens they added, and how often the
+                # second reading of tokens accepted on an alternative's rows corrected one
                 "alternatives": [int(result.rounds_with_alternative), int(result.alternative_wins),
-                                 int(result.alternative_extra_tokens)]}
+                                 int(result.alternative_extra_tokens), int(result.corrections)]}
         for setting in names:
             record["settings"][setting]["differs_from_plain_at"] = first_difference(outputs[setting], outputs["plain"])
         records.append(record)

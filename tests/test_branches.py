@@ -327,6 +327,108 @@ def test_an_alternative_draft_can_be_checked_for_a_few_tokens_only():
     assert _checked_matches(first, first, truth, 0) == 2
 
 
+def unsure_on_alternative_rows(target, every=2):
+    """Makes the target's first choice on the rows of alternative drafts unreliable: on every
+    `every`-th of those rows its two best tokens change places. (On a GPU in 16-bit arithmetic the
+    rows of an alternative are summed in another order than plain decoding sums them, which now and
+    then does this to two nearly tied tokens.) The rows read in order are left as they are."""
+    plain_forward, count = target.forward, [0]
+
+    def forward(*args, **kwargs):
+        output = plain_forward(*args, **kwargs)
+        mask = kwargs.get("attention_mask")
+        if mask is not None:
+            visible = mask[0, 0]
+            cached = visible.shape[1] - visible.shape[0]
+            for row in range(visible.shape[0]):
+                if not bool(visible[row, : cached + row + 1].all()):          # a row that does not see all before it
+                    count[0] += 1
+                    if count[0] % every == 0:
+                        best = output.logits[0, row].topk(2).indices
+                        output.logits[0, row, best] = output.logits[0, row, best.flip(0)]
+        return output
+
+    target.forward = forward
+    return count
+
+
+@pytest.mark.parametrize("differ,tail", [("switch", None), ("switch", 2), ("early", None)])
+def test_tokens_accepted_on_an_alternatives_rows_are_read_again_in_order(differ, tail):
+    """If the target's choice on an alternative's rows is off by rounding, the second reading of
+    those tokens (in order, at the front of the next pass) puts it right: the same tokens as plain
+    decoding, for answers that end at any length. Without the second reading they differ."""
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    flipped = unsure_on_alternative_rows(target)
+    corrections, differed = 0, 0
+    for budget in (120, 97, 61, 40, 33, 20):
+        live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=Branches(k=3, differ=differ, tail=tail),
+                                       block_size=BLOCK, return_stats=True)
+        assert torch.equal(live.output_ids, plain.output_ids[:, : length + budget])
+        assert sum(live.acceptance_lengths) == budget - 1
+        corrections += live.corrections
+        loose = dflash_generate_redraft(draft, target, prompt, budget, None, improver=Branches(k=3, differ=differ, tail=tail),
+                                        block_size=BLOCK, return_stats=True, recheck=False)
+        differed += int(not torch.equal(loose.output_ids, live.output_ids))
+        assert loose.corrections == 0
+    assert flipped[0] > 0 and corrections > 0 and differed > 0
+    del target.forward
+
+
+def test_a_stop_token_accepted_on_an_alternatives_rows_is_confirmed():
+    """The answer ends on a stop token. If that token was accepted on an alternative's rows, the
+    target reads the last tokens in order once more before decoding stops."""
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    unsure_on_alternative_rows(target)
+    for stop in sorted(set(plain.output_ids[0, length + 20 :].tolist()))[:12]:
+        expected = dflash_generate_redraft(draft, target, prompt, 120, [stop], block_size=BLOCK, return_stats=True)
+        live = dflash_generate_redraft(draft, target, prompt, 120, [stop], improver=Branches(k=3, differ="switch"),
+                                       block_size=BLOCK, return_stats=True)
+        assert torch.equal(live.output_ids, expected.output_ids)
+    del target.forward
+
+
+class Window:
+    """A plug-in that only says how much of the text the drafter may see (for the replay)."""
+
+    def __init__(self, window, inner=None):
+        self.context_window, self.inner = window, inner
+        self.alternative_tail = getattr(inner, "alternative_tail", None)
+
+    def start(self, drafter):
+        if self.inner is not None:
+            self.inner.start(drafter)
+
+    def __call__(self, round_state):
+        return None if self.inner is None else self.inner(round_state)
+
+
+@pytest.mark.parametrize("differ", [None, "switch", "early"])
+def test_the_drafter_can_be_shown_only_the_last_tokens_of_the_text(differ):
+    """Real decoding with a context window: the tokens of plain decoding (the target decides), the
+    rounds of the replay with the same window, and other drafts than the drafter makes with all of
+    the text."""
+    target, draft = make_models()
+    lively(draft)
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    make = (lambda: None) if differ is None else (lambda: Branches(k=3, differ=differ))
+    whole = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True)
+    live = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                   context_window=6)
+    assert torch.equal(live.output_ids, plain.output_ids) and torch.equal(whole.output_ids, plain.output_ids)
+    again = replay_decode(draft, target, live.output_ids, length, ended=False, improver=Window(6, make()), block_size=BLOCK)
+    assert again.acceptance_lengths == live.acceptance_lengths
+    assert live.acceptance_lengths != whole.acceptance_lengths
+    # A window longer than the text changes nothing.
+    wide = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                   context_window=4096)
+    assert wide.acceptance_lengths == whole.acceptance_lengths
+
+
 def test_times_between_the_measured_lengths_and_the_cost_of_an_answers_rounds():
     from nexus.adapt_drafter import GROUPS
     from nexus.redraft_long import CHECK_MS, DRAFT_MS, check_and_draft_ms, measured

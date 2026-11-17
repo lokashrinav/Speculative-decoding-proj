@@ -92,6 +92,19 @@ class SelfRedraft:
         self.waiting = None
         return context
 
+    def roll_back(self, tokens: int) -> None:
+        """Decoding went back: the last `tokens` positions of context are read again (a token the
+        target had accepted on an alternative's rows was corrected). A separate second drafter
+        forgets them; the first drafter's own cache is cut back by the decoding loop."""
+        if self.cache is None:
+            return
+        if self.waiting is not None:
+            held = self.waiting.shape[1]
+            self.waiting = self.waiting[:, : held - tokens] if held > tokens else None
+            tokens -= min(held, tokens)
+        if tokens > 0:
+            self.cache.crop(-tokens)
+
     def _keep_length(self, draft_logits: torch.Tensor, block_len: int) -> int:
         most = block_len - 2  # leave at least one position to redraft
         if self.keep != "confidence":
@@ -144,7 +157,7 @@ class SelfRedraft:
             target_hidden=context, noise_embedding=noise, position_ids=positions,
             past_key_values=cache, use_cache=True,
         )[:, 1 - block_len :, :]
-        _crop_to(cache, s.start)
+        cache.crop(-block_len)                               # the block's own entries go, the context stays
         logits = drafter.compute_logits(hidden, _output_head(s.target))
         alternative[:, keep + 1 :] = logits.argmax(dim=-1)[:, keep:]
         return (alternative, logits) if with_logits else alternative
@@ -188,7 +201,7 @@ class SelfRedraft:
             target_hidden=context, noise_embedding=noise, position_ids=positions,
             attention_mask=sees[None, None], past_key_values=cache, use_cache=True, no_copies=no_copies,
         )[:, -count * block_len :, :]
-        _crop_to(cache, s.start)
+        cache.crop(-count * block_len)                       # the copies' own entries go, the context stays
         logits = drafter.compute_logits(hidden.reshape(count, block_len, -1)[:, 1:, :], _output_head(s.target))
         drafts = blocks.clone()
         drafts[:, 1:] = torch.where(redrafted[:, 1:], logits.argmax(dim=-1), drafts[:, 1:])
@@ -271,6 +284,9 @@ class Branches:
         s = round_state
         self.kept = self.choose(s)
         return redrafts_from(self.inner, s, self.kept, self.differ, self.together)
+
+    def roll_back(self, tokens: int) -> None:
+        self.inner.roll_back(tokens)
 
 
 def lowest_break(inner: SelfRedraft, differ: str | None) -> int:
@@ -358,6 +374,9 @@ class Chain:
             return None
         return torch.cat(drafts, dim=0)
 
+    def roll_back(self, tokens: int) -> None:
+        self.inner.roll_back(tokens)
+
 
 class Resample:
     """A second draft with no second pass: keep slot 1, sample the other slots
@@ -433,6 +452,8 @@ def dflash_generate_redraft(
     round_log: list | None = None,
     timers: dict | None = None,
     round_clock: list | None = None,
+    context_window: int = 0,
+    recheck: bool = True,
 ):
     """Greedy DFlash decoding that verifies the first draft and alternative drafts together.
 
@@ -443,12 +464,25 @@ def dflash_generate_redraft(
     themselves. The draft the target accepts furthest counts. If the improver has
     ``alternative_tail = N``, only the token at the split and the N tokens after it are checked
     (a shorter pass: most of what an alternative wins is in those tokens).
+
+    recheck: tokens accepted on an alternative's rows are read by the target a second time anyway, in
+    order, at the front of the next pass (their cache entries have to be stored in order). There the
+    target computes exactly what plain decoding computes, while on an alternative's rows the same
+    numbers are summed in another order: in 16-bit arithmetic that can change the last bit and so the
+    first choice between two nearly tied tokens. With recheck the second reading decides: if it
+    disagrees, decoding goes back to that token and takes the target's choice. The tokens are then the
+    tokens of plain decoding. (Without it they are the target's first choices up to rounding, as with
+    any tree of drafts.) The rows of the first draft need none of this: they are read in order.
+
+    context_window: the drafter sees only the last N tokens of the text so far (0 = all of it). A
+    drafter trained on short texts drafts better on a long answer that way, and its pass is shorter.
+
     round_log, if given, receives one entry per full round:
     [block length, split of the best alternative (0 if none), tokens accepted from the first
     draft, tokens accepted from the best alternative (-1 if none), confidences].
     timers, if given, accumulates seconds spent in each part of a round.
     round_clock, if given, receives [tokens written before the round, tokens it produced,
-    seconds since decoding began] at the end of every round.
+    seconds since decoding began] at the end of every round (a round that goes back: 0 or fewer).
     """
     if isinstance(model, DFlash2DraftModel):
         raise ValueError("Two-draft decoding supports the original DFlash drafter only")
@@ -483,7 +517,7 @@ def dflash_generate_redraft(
         if stop_token_ids is not None else None
     )
     acceptance_lengths = []
-    rounds_with_alternative = alternative_wins = alternative_extra_tokens = rounds_edited = 0
+    rounds_with_alternative = alternative_wins = alternative_extra_tokens = rounds_edited = corrections = 0
     start = num_input_tokens
     # Accepted tokens whose target cache entries were computed on the alternative
     # branch. They are fed again at the front of the next verification pass.
@@ -495,8 +529,49 @@ def dflash_generate_redraft(
     # A plug-in that learns from the draft's own pass makes the draft itself, and is told how the
     # check went right after it (dflash.adapt.OnePassTrainer).
     learner = improver if getattr(improver, "learns_from_the_draft", False) else None
+    if learner is not None and context_window:
+        raise ValueError("a drafter that learns during the answer reads all of the text: no context window")
 
-    while start + 1 < max_length and not stopped:
+    def go_back(agreed, hidden_states, drafted, asked):
+        """The target read the pending tokens in order and, after `agreed` of them, chose another
+        token than the one accepted on an alternative's rows. Decoding goes on from its choice.
+        drafted: the drafter has already read the context up to `start` in this round.
+        asked: the plug-in was called in this round."""
+        nonlocal start, pending, context_features, stopped, corrections
+        position = start - pending.shape[1] + agreed + 1      # where the target's token goes
+        back = start - position + 1                           # context read again: from position - 1 on
+        output_ids[:, position] = verified[0, agreed]
+        _crop_to(target_cache, position)
+        clean = extract_context_feature(hidden_states, model.target_layer_ids)[:, agreed : agreed + 1, :]
+        if drafted:
+            draft_cache.crop(-back)
+            if asked and hasattr(improver, "roll_back"):
+                improver.roll_back(back)
+            context_features = clean
+        else:
+            context_features = torch.cat((context_features[:, : context_features.shape[1] - back], clean), dim=1)
+        corrections += 1
+        acceptance_lengths.append(position - start)
+        if round_clock is not None:
+            round_clock.append([start - num_input_tokens, position - start, _cuda_time() - decode_start])
+        start = position
+        pending = output_ids[:, :0]
+        stopped = stop_tokens is not None and bool(torch.isin(output_ids[:, start], stop_tokens).any())
+
+    while (start + 1 < max_length and not stopped) or (recheck and pending.shape[1] > 0):
+        if not (start + 1 < max_length and not stopped):
+            # The answer is complete, but its last tokens were accepted on an alternative's rows:
+            # the target reads them in order once, as it would at the front of a next pass.
+            output = target(
+                pending, position_ids=position_ids[:, start - pending.shape[1] : start],
+                past_key_values=target_cache, use_cache=True, output_hidden_states=True,
+            )
+            verified = output.logits.argmax(dim=-1)
+            agreed = _leading_matches(torch.cat((pending[:, 1:], output_ids[:, start : start + 1]), dim=1), verified)
+            if agreed < pending.shape[1]:
+                go_back(agreed, output.hidden_states, drafted=False, asked=False)
+            pending = output_ids[:, :0]
+            continue
         block_len = min(block_size, max_length - start)
         block_ids = output_ids[:, start : start + block_len].clone()
         alternative = None
@@ -516,7 +591,12 @@ def dflash_generate_redraft(
                     past_key_values=draft_cache, use_cache=True,
                 )[:, -block_len:, :]
                 hidden = draft_states[:, 1:, :]
-                _crop_to(draft_cache, start)
+                draft_cache.crop(-block_len)                 # the block's own entries go
+                if context_window:                           # ... and so does context older than the window
+                    for layer in draft_cache.layers:
+                        if layer.keys is not None and layer.keys.shape[-2] > context_window:
+                            layer.keys = layer.keys[..., -context_window:, :]
+                            layer.values = layer.values[..., -context_window:, :]
                 draft_logits = model.compute_logits(hidden, _output_head(target))
             block_ids[:, 1:] = draft_logits.argmax(dim=-1)
             if timers is not None:
@@ -587,6 +667,14 @@ def dflash_generate_redraft(
             timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock
             timers["rounds_" + kind] = timers.get("rounds_" + kind, 0) + 1
             timers["rows_" + kind] = timers.get("rows_" + kind, 0) + num_pending + block_len + extra
+
+        if recheck and num_pending:
+            # What the target says after each pending token, now read in order, must be the token
+            # that was accepted after it (after the last one: this block's first token).
+            agreed = _leading_matches(torch.cat((pending[:, 1:], block_ids[:, :1]), dim=1), verified[:, :num_pending])
+            if agreed < num_pending:
+                go_back(agreed, output.hidden_states, drafted=block_len > 1, asked=improver is not None and block_len > 2)
+                continue
 
         first_rows = torch.arange(num_pending, num_pending + block_len, device=device)
         accepted = _leading_matches(block_ids[:, 1:], verified[:, first_rows[:-1]])
@@ -662,4 +750,5 @@ def dflash_generate_redraft(
         alternative_wins=alternative_wins,
         alternative_extra_tokens=alternative_extra_tokens,
         rounds_edited=rounds_edited,
+        corrections=corrections,
     )
