@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 25,
+ "answers": 28,
  "answers_in_this_job": 50,
  "part": "validation",
- "hours": 0.784,
+ "hours": 0.903,
  "draft": "z-lab/Qwen3-4B-DFlash-b16",
  "second": "v1-prefix",
  "control": "v1-control",
@@ -328,138 +328,171 @@
    "rounds": 819,
    "ended_by_itself": true,
    "repetition_from": null
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard2of4.pt",
+    1
+   ],
+   "tokens": 16384,
+   "rounds": 4568,
+   "ended_by_itself": false,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard2of4.pt",
+    4
+   ],
+   "tokens": 3185,
+   "rounds": 913,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard2of4.pt",
+    24
+   ],
+   "tokens": 5179,
+   "rounds": 1223,
+   "ended_by_itself": true,
+   "repetition_from": null
   }
  ],
  "summary": {
-  "rounds": 47125,
-  "rounds_in_which_the_first_draft_broke": 46794,
-  "tokens_accepted_from_the_first_draft": 2.208742705570292,
+  "rounds": 53818,
+  "rounds_in_which_the_first_draft_broke": 53374,
+  "tokens_accepted_from_the_first_draft": 2.2690363818796686,
   "second_drafts": {
    "again": {
-    "rounds_tried": 32292,
-    "got_past_the_break": 0.17902266815310294,
-    "tokens_added_per_round_tried": 0.35847888021801066,
-    "tokens_added_per_round_with_a_break": 0.2473821430097876
+    "rounds_tried": 36993,
+    "got_past_the_break": 0.17814181061281864,
+    "tokens_added_per_round_tried": 0.3558511069661828,
+    "tokens_added_per_round_with_a_break": 0.24663693933375802
    },
    "first_token": {
-    "rounds_tried": 32292,
-    "got_past_the_break": 0.12597547380156077,
-    "tokens_added_per_round_tried": 0.2826086956521739,
-    "tokens_added_per_round_with_a_break": 0.19502500320553917
+    "rounds_tried": 36993,
+    "got_past_the_break": 0.12675371016138187,
+    "tokens_added_per_round_tried": 0.28789230394939586,
+    "tokens_added_per_round_with_a_break": 0.19953535429235209
    },
    "random": {
-    "rounds_tried": 32292,
-    "got_past_the_break": 0.06051034311903877,
-    "tokens_added_per_round_tried": 0.10782856435030348,
-    "tokens_added_per_round_with_a_break": 0.07441124930546651
+    "rounds_tried": 36993,
+    "got_past_the_break": 0.06120076771281053,
+    "tokens_added_per_round_tried": 0.1088043683940205,
+    "tokens_added_per_round_with_a_break": 0.07541124892269645
    },
    "elsewhere": {
-    "rounds_tried": 32292,
-    "got_past_the_break": 0.06035550600767992,
-    "tokens_added_per_round_tried": 0.10943887030843552,
-    "tokens_added_per_round_with_a_break": 0.07552250288498526
+    "rounds_tried": 36993,
+    "got_past_the_break": 0.06149812126618549,
+    "tokens_added_per_round_tried": 0.1116968075041224,
+    "tokens_added_per_round_with_a_break": 0.077415970322629
    },
    "switch": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.3675257511646792,
-    "tokens_added_per_round_tried": 0.6705346839338376,
-    "tokens_added_per_round_with_a_break": 0.6705346839338376
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.37003035185670924,
+    "tokens_added_per_round_tried": 0.6780267545996178,
+    "tokens_added_per_round_with_a_break": 0.6780267545996178
    },
    "early": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.3675257511646792,
-    "tokens_added_per_round_tried": 0.6952173355558405,
-    "tokens_added_per_round_with_a_break": 0.6952173355558405
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.37003035185670924,
+    "tokens_added_per_round_tried": 0.6980552328849252,
+    "tokens_added_per_round_with_a_break": 0.6980552328849252
    },
    "late": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.34365516946617086,
-    "tokens_added_per_round_tried": 0.6725221182202846,
-    "tokens_added_per_round_with_a_break": 0.6725221182202846
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.34321954509686364,
+    "tokens_added_per_round_tried": 0.672574661820362,
+    "tokens_added_per_round_with_a_break": 0.672574661820362
    },
    "right_token_old_rest": {
-    "rounds_tried": 46794,
+    "rounds_tried": 53374,
     "got_past_the_break": 1.0,
-    "tokens_added_per_round_tried": 1.5802025900756507,
-    "tokens_added_per_round_with_a_break": 1.5802025900756507
+    "tokens_added_per_round_tried": 1.5867088844755874,
+    "tokens_added_per_round_with_a_break": 1.5867088844755874
    },
    "right_token_new_rest": {
-    "rounds_tried": 46794,
+    "rounds_tried": 53374,
     "got_past_the_break": 1.0,
-    "tokens_added_per_round_tried": 1.6619010984314229,
-    "tokens_added_per_round_with_a_break": 1.6619010984314229
+    "tokens_added_per_round_tried": 1.663394161951512,
+    "tokens_added_per_round_with_a_break": 1.663394161951512
    },
    "next_round": {
-    "rounds_tried": 46770,
+    "rounds_tried": 53348,
     "got_past_the_break": 1.0,
-    "tokens_added_per_round_tried": 3.035471456061578,
-    "tokens_added_per_round_with_a_break": 3.0339146044364664
+    "tokens_added_per_round_tried": 3.0678750843518032,
+    "tokens_added_per_round_with_a_break": 3.066380634765991
    },
    "second": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.2525964867290678,
-    "tokens_added_per_round_tried": 0.5959311022780699,
-    "tokens_added_per_round_with_a_break": 0.5959311022780699
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.25424363922509086,
+    "tokens_added_per_round_tried": 0.5981189343125867,
+    "tokens_added_per_round_with_a_break": 0.5981189343125867
    },
    "second_late": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.44903192717015,
-    "tokens_added_per_round_tried": 0.9415737060306877,
-    "tokens_added_per_round_with_a_break": 0.9415737060306877
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.45033162213811967,
+    "tokens_added_per_round_tried": 0.9448045865027916,
+    "tokens_added_per_round_with_a_break": 0.9448045865027916
    },
    "second_random": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.0897123562849938,
-    "tokens_added_per_round_tried": 0.17959567465914433,
-    "tokens_added_per_round_with_a_break": 0.17959567465914433
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.09139281298010267,
+    "tokens_added_per_round_tried": 0.18064975456214635,
+    "tokens_added_per_round_with_a_break": 0.18064975456214635
    },
    "second_blind": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.12531521135188273,
-    "tokens_added_per_round_tried": 0.26947899303329487,
-    "tokens_added_per_round_with_a_break": 0.26947899303329487
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.12702814104245513,
+    "tokens_added_per_round_tried": 0.2734664818076217,
+    "tokens_added_per_round_with_a_break": 0.2734664818076217
    },
    "control": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.101359148608796,
-    "tokens_added_per_round_tried": 0.2072915331025345,
-    "tokens_added_per_round_with_a_break": 0.2072915331025345
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.10205343425637951,
+    "tokens_added_per_round_tried": 0.21161988983400157,
+    "tokens_added_per_round_with_a_break": 0.21161988983400157
    },
    "edit": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.09875197674915588,
-    "tokens_added_per_round_tried": 0.18925503269649954,
-    "tokens_added_per_round_with_a_break": 0.18925503269649954
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.10016112714055532,
+    "tokens_added_per_round_tried": 0.19475774721774647,
+    "tokens_added_per_round_with_a_break": 0.19475774721774647
    },
    "four": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.1418344232166517,
-    "tokens_added_per_round_tried": 0.3092063085010899,
-    "tokens_added_per_round_with_a_break": 0.3092063085010899
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.1423164836811931,
+    "tokens_added_per_round_tried": 0.31176228126053884,
+    "tokens_added_per_round_with_a_break": 0.31176228126053884
    },
    "four_random": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.05259221267683891,
-    "tokens_added_per_round_tried": 0.10798392956361927,
-    "tokens_added_per_round_with_a_break": 0.10798392956361927
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.05403379922808858,
+    "tokens_added_per_round_tried": 0.11065312699066962,
+    "tokens_added_per_round_with_a_break": 0.11065312699066962
    },
    "four_switch": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.32602470402188316,
-    "tokens_added_per_round_tried": 0.5941360003419242,
-    "tokens_added_per_round_with_a_break": 0.5941360003419242
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.3268445310450781,
+    "tokens_added_per_round_tried": 0.5986247985910743,
+    "tokens_added_per_round_with_a_break": 0.5986247985910743
    },
    "four_early": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.3287600974483908,
-    "tokens_added_per_round_tried": 0.6324528785741762,
-    "tokens_added_per_round_with_a_break": 0.6324528785741762
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.3294113238655525,
+    "tokens_added_per_round_tried": 0.6329486266721625,
+    "tokens_added_per_round_with_a_break": 0.6329486266721625
    },
    "four_late": {
-    "rounds_tried": 46794,
-    "got_past_the_break": 0.31679275120741973,
-    "tokens_added_per_round_tried": 0.6209770483395307,
-    "tokens_added_per_round_with_a_break": 0.6209770483395307
+    "rounds_tried": 53374,
+    "got_past_the_break": 0.31567804549031364,
+    "tokens_added_per_round_tried": 0.6198336268595196,
+    "tokens_added_per_round_with_a_break": 0.6198336268595196
    }
   }
  },
