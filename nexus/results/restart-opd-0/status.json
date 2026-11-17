@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 47,
+ "answers": 52,
  "answers_in_this_job": 100,
  "part": "validation",
- "hours": 0.582,
+ "hours": 0.702,
  "draft": "opd",
  "fixed": "",
  "sharp": false,
@@ -30,7 +30,7 @@
   "noisy100",
   "noisy200"
  ],
- "files": 4,
+ "files": 5,
  "answers_read": [
   {
    "source": "math-train-level5",
@@ -548,96 +548,151 @@
    "rounds": 1233,
    "ended_by_itself": true,
    "repetition_from": null
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard1of4.pt",
+    142
+   ],
+   "tokens": 16384,
+   "rounds": 3116,
+   "ended_by_itself": false,
+   "repetition_from": null
+  },
+  {
+   "source": "longwriter",
+   "origin": [
+    "shard1of4.pt",
+    145
+   ],
+   "tokens": 1965,
+   "rounds": 985,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard2of4.pt",
+    0
+   ],
+   "tokens": 16384,
+   "rounds": 2841,
+   "ended_by_itself": false,
+   "repetition_from": null
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard2of4.pt",
+    1
+   ],
+   "tokens": 16384,
+   "rounds": 2629,
+   "ended_by_itself": false,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard2of4.pt",
+    2
+   ],
+   "tokens": 6425,
+   "rounds": 1090,
+   "ended_by_itself": true,
+   "repetition_from": null
   }
  ],
  "summary": {
-  "rounds": 56120,
+  "rounds": 66438,
   "all": {
-   "rounds": 56120,
+   "rounds": 66438,
    "old_rest": 0.658,
-   "new_rest": 0.845,
-   "real": 3.623,
-   "none": 0.944,
-   "none_shift": 0.606,
-   "last": 0.614,
-   "stale": 0.614,
-   "mean": 0.563,
-   "only_nearest": 3.194,
-   "all_but_nearest": 2.336,
-   "noisy25": 3.592,
-   "noisy50": 3.511,
-   "noisy100": 3.165,
-   "noisy200": 2.105
+   "new_rest": 0.85,
+   "real": 3.725,
+   "none": 0.952,
+   "none_shift": 0.614,
+   "last": 0.625,
+   "stale": 0.622,
+   "mean": 0.567,
+   "only_nearest": 3.265,
+   "all_but_nearest": 2.415,
+   "noisy25": 3.691,
+   "noisy50": 3.603,
+   "noisy100": 3.241,
+   "noisy200": 2.142
   },
   "1 missing": {
-   "rounds": 12306,
-   "old_rest": 0.733,
-   "new_rest": 1.096,
-   "real": 2.143,
-   "none": 1.133,
-   "none_shift": 0.947,
-   "last": 0.943,
-   "stale": 0.943,
-   "mean": 0.601,
-   "only_nearest": 2.147,
-   "all_but_nearest": 1.132,
-   "noisy25": 2.132,
-   "noisy50": 2.092,
-   "noisy100": 1.925,
-   "noisy200": 1.488
+   "rounds": 13939,
+   "old_rest": 0.746,
+   "new_rest": 1.131,
+   "real": 2.212,
+   "none": 1.172,
+   "none_shift": 0.979,
+   "last": 0.976,
+   "stale": 0.975,
+   "mean": 0.619,
+   "only_nearest": 2.216,
+   "all_but_nearest": 1.171,
+   "noisy25": 2.199,
+   "noisy50": 2.157,
+   "noisy100": 1.991,
+   "noisy200": 1.543
   },
   "2 missing": {
-   "rounds": 10359,
-   "old_rest": 0.674,
-   "new_rest": 0.944,
-   "real": 2.66,
-   "none": 0.989,
-   "none_shift": 0.643,
-   "last": 0.642,
-   "stale": 0.653,
-   "mean": 0.508,
-   "only_nearest": 2.569,
-   "all_but_nearest": 1.574,
-   "noisy25": 2.643,
-   "noisy50": 2.586,
-   "noisy100": 2.349,
-   "noisy200": 1.715
+   "rounds": 11941,
+   "old_rest": 0.685,
+   "new_rest": 0.962,
+   "real": 2.742,
+   "none": 1.025,
+   "none_shift": 0.673,
+   "last": 0.673,
+   "stale": 0.685,
+   "mean": 0.523,
+   "only_nearest": 2.649,
+   "all_but_nearest": 1.631,
+   "noisy25": 2.723,
+   "noisy50": 2.66,
+   "noisy100": 2.411,
+   "noisy200": 1.762
   },
   "3-4 missing": {
-   "rounds": 12464,
-   "old_rest": 0.696,
-   "new_rest": 0.911,
-   "real": 3.463,
-   "none": 0.953,
-   "none_shift": 0.531,
-   "last": 0.554,
-   "stale": 0.548,
-   "mean": 0.534,
-   "only_nearest": 3.222,
-   "all_but_nearest": 2.199,
-   "noisy25": 3.43,
-   "noisy50": 3.365,
-   "noisy100": 3.055,
-   "noisy200": 2.12
+   "rounds": 14790,
+   "old_rest": 0.69,
+   "new_rest": 0.919,
+   "real": 3.519,
+   "none": 0.965,
+   "none_shift": 0.546,
+   "last": 0.571,
+   "stale": 0.563,
+   "mean": 0.533,
+   "only_nearest": 3.27,
+   "all_but_nearest": 2.239,
+   "noisy25": 3.484,
+   "noisy50": 3.409,
+   "noisy100": 3.095,
+   "noisy200": 2.141
   },
   "5 or more missing": {
-   "rounds": 20991,
-   "old_rest": 0.584,
-   "new_rest": 0.609,
-   "real": 5.061,
-   "none": 0.807,
-   "none_shift": 0.433,
-   "last": 0.443,
-   "stale": 0.44,
-   "mean": 0.585,
-   "only_nearest": 4.1,
-   "all_but_nearest": 3.498,
-   "noisy25": 5.013,
-   "noisy50": 4.885,
-   "noisy100": 4.36,
-   "noisy200": 2.65
+   "rounds": 25768,
+   "old_rest": 0.58,
+   "new_rest": 0.605,
+   "real": 5.118,
+   "none": 0.793,
+   "none_shift": 0.429,
+   "last": 0.444,
+   "stale": 0.435,
+   "mean": 0.578,
+   "only_nearest": 4.115,
+   "all_but_nearest": 3.552,
+   "noisy25": 5.064,
+   "noisy50": 4.933,
+   "noisy100": 4.385,
+   "noisy200": 2.642
   },
-  "second_choice_right": 0.442
+  "second_choice_right": 0.449
  },
  "gpu_memory_peak_gb": 11.86
 }
