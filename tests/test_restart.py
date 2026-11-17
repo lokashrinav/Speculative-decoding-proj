@@ -260,8 +260,92 @@ def test_restarts_from_the_third_choice_too():
         Restarts(choices=0)
 
 
+class Opening:
+    """Keeps the first draft of a replay's first round."""
+
+    def __init__(self):
+        self.block = None
+
+    def start(self, drafter):
+        pass
+
+    def __call__(self, s):
+        if self.block is None:
+            self.block = s.block_ids[0].clone()
+        return None
+
+
+def test_restarts_from_the_last_token_before_the_break():
+    """kind="earlier": with the real states, the block from the last token before a likely break is
+    the first draft of a round that starts at that token. "both" holds the two kinds, and the answer
+    takes no more rounds than with either alone."""
+    from dflash.redraft import Restarts
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    watch = Watch(ids, features)
+    base = replay_decode(draft, target, ids, length, ended=False, features=features, improver=watch, block_size=BLOCK)
+    methods = {kind: Restarts(k=3, stand_in="real", kind=kind) for kind in ("choice", "earlier", "both")}
+    seen, rounds = {}, {}
+    for kind, method in methods.items():
+        method.features = features
+        seen[kind] = Seen(method)
+        done = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen[kind], block_size=BLOCK)
+        assert sum(done.acceptance_lengths) == sum(base.acceptance_lengths)
+        rounds[kind] = done.rounds
+    assert rounds["both"] <= min(rounds["choice"], rounds["earlier"]) <= base.rounds
+    checked = 0
+    for start, block, logits, rows, kept in seen["earlier"].rounds:
+        width = block.shape[0]
+        later = [broke for broke in kept if broke >= 1]
+        assert (rows is None and not later) or rows.shape == (len(later), 2 * width)
+        for number, broke in enumerate(later):
+            row = rows[number]
+            assert row[: broke + 1].tolist() == block[: broke + 1].tolist() and int(row[broke + width]) == -1
+            if checked < 8 and width == BLOCK and start + broke + BLOCK < ids.shape[1]:
+                # A round that starts at that token of the first draft (it need not be the answer's token there).
+                changed, opening = ids.clone(), Opening()
+                changed[0, start + broke] = block[broke]
+                replay_decode(draft, target, changed, start + broke, ended=False, features=features, improver=opening, block_size=BLOCK)
+                assert row[broke : broke + width].tolist() == opening.block.tolist()
+                checked += 1
+    assert checked > 3
+    of_choice = {start: rows for start, _, _, rows, _ in seen["choice"].rounds}
+    of_earlier = {start: rows for start, _, _, rows, _ in seen["earlier"].rounds}
+    compared = 0
+    for start, block, logits, rows, kept in seen["both"].rounds:
+        if start in of_choice and start in of_earlier:
+            expected = of_choice[start] if of_earlier[start] is None else torch.cat((of_choice[start], of_earlier[start]))
+            assert torch.equal(rows, expected)
+            compared += 1
+    assert compared > 10
+    with pytest.raises(ValueError):
+        Restarts(kind="later")
+
+
+def test_an_alternative_that_only_adds_to_the_block_is_checked_from_its_end():
+    """A restart that writes the first draft's own tokens again and goes on past the block: with a
+    tail, only the first token past the block and `tail` more are checked."""
+    from dflash.replay import _checked_matches
+
+    block = torch.tensor([[5, 6, 7, 8]])
+    longer = torch.tensor([[5, 6, 7, 8, 9, 10, 11, 12]])
+    truth = torch.tensor([[6, 7, 8, 9, 10, 11, 12]])
+    assert _checked_matches(longer, block, truth, None) == 7
+    assert _checked_matches(longer, block, truth, 1) == 5 and _checked_matches(longer, block, truth, 0) == 4
+    same = torch.tensor([[5, 6, 7, 8, -1, -1, -1, -1]])
+    assert _checked_matches(same, block, truth, 1) == 3
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
+
+    assert make_method("restart4re", "/nowhere").kind == "earlier" and make_method("restart4r", "/nowhere").kind == "choice"
+    both = make_method("restart4rxc2st7", "/nowhere")
+    assert both.kind == "both" and both.choices == 2 and both.swap and both.alternative_tail == 7
 
     two = make_method("restart4rc2st7", "/nowhere")
     assert two.k == 4 and two.stand_in == "real" and two.choices == 2 and two.swap and two.alternative_tail == 7
@@ -384,5 +468,17 @@ def test_training_the_predictor_on_the_tokens_the_drafter_writes():
     assert teach.steps >= 4 and all(point["loss_by_tokens"] == point["loss_by_tokens"] for point in curve)   # numbers, not NaN
     assert curve[-1]["loss"] < curve[0]["loss"]
     assert any(not torch.equal(before[name], value) for name, value in predictor.state_dict().items())
+    assert teach.where == "breaks" and all("on_the_same_rounds" in point for point in curve)
+    # Anywhere, with a given number of missing tokens: the restart one token earlier is taught and compared too.
+    other = TeachByTokens(predictor, torch.optim.AdamW(predictor.parameters(), lr=1e-3), draft, target, every=2, window=64,
+                          width=BLOCK, compare_every=1, where="random")
+    for start in range(length + 2, length + 10):
+        other.step(ids, features, start, 3)
+    point = other.progress()
+    assert point["one_token_earlier"]["rounds"] == 8 and point["on_the_same_rounds"]["rounds"] == 8
+    only_after = TeachByTokens(predictor, torch.optim.AdamW(predictor.parameters(), lr=1e-3), draft, target, every=2, window=64,
+                               width=BLOCK, compare_every=1, where="random", earlier=False)
+    only_after.step(ids, features, length + 2, 3)
+    assert "one_token_earlier" not in only_after.progress()
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(True)

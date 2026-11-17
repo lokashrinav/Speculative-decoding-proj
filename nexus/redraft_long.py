@@ -26,6 +26,9 @@ Methods (comma-separated):
   restartKr              ... with the target's real states: the limit of any stand-in (replay only)
   restartKrcM            ... with a restart from each of the drafter's next M choices at every break (c2: the
                          second and the third), all in the same one drafter pass
+  restartKre, restartKrx e: the restarts start one token EARLIER, at the last token before each likely break, and
+                         write the token at the break again with the states (no guess of the right token);
+                         x: both kinds in the same pass
   restartKp@NAME         ... with what the saved predictor restart-NAME.pt writes for them
                          (an s after the letter adds the swap's rows; tN: only the second choice and
                          N tokens after it are checked)
@@ -80,6 +83,7 @@ CHECK_MS = (48.2, 48.3, 48.6, 55.2, 97.7, 137.0, 176.8)
 # order against 16; nothing up to 4,000 tokens of text; the last value is not measured). The mask
 # of a tree costs nothing by itself.
 ROW_MS = (0.0, 0.0, 0.0, 0.117, 0.160, 0.200, 0.240)
+KINDS = {"": "choice", "e": "earlier", "x": "both"}        # where a restart starts (dflash/redraft.py: Restarts)
 DRAFT_MS = (8.11, 8.20, 8.30, 8.29, 8.56, 9.49, 11.04)
 COUNTS = ("rounds", "first_draft_broke", "break_was_among_the_redrafts", "redraft_got_past_the_break",
           "a_redraft_got_further", "tokens_added")
@@ -153,13 +157,13 @@ def make_method(name, ckpt_dir, like=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
-    found = re.fullmatch(r"restart(\d+)p(?:c(\d))?(s?)(?:t(\d+))?@(.+)", name)
+    found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(s?)(?:t(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
 
-        method = Restarts(int(found[1]), "predicted", swap=bool(found[3]), tail=None if found[4] is None else int(found[4]),
-                          choices=int(found[2] or 1))
-        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[5]}.pt"),
+        method = Restarts(int(found[1]), "predicted", swap=bool(found[4]), tail=None if found[5] is None else int(found[5]),
+                          choices=int(found[3] or 1), kind=KINDS[found[2]])
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[6]}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
         return method
     body, _, second = name.partition("@")
@@ -171,10 +175,10 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
-    found = re.fullmatch(r"restart(\d+)([nlr])(?:c(\d))?(s?)(?:t(\d+))?", body)
+    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(?:c(\d))?(s?)(?:t(\d+))?", body)
     if found and model is None:
-        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[4]),
-                        tail=None if found[5] is None else int(found[5]), choices=int(found[3] or 1))
+        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[5]),
+                        tail=None if found[6] is None else int(found[6]), choices=int(found[4] or 1), kind=KINDS[found[3]])
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
@@ -243,8 +247,9 @@ class Watched:
         elif drafts is not None and not self.replace:
             for row in drafts:                                          # each alternative from where it leaves the block
                 differs = (row[:width] != s.block_ids[0]).nonzero()
-                if differs.numel() and int(differs[0]) >= 1:
-                    split, length = int(differs[0]), int((row >= 0).sum())      # it may reach past the block (a restart)
+                length = int((row >= 0).sum())                          # it may reach past the block (a restart)
+                split = int(differs[0]) if differs.numel() else (width if length > width else 0)   # the same inside the block: only its end is new
+                if split >= 1:
                     extra += (length if self.alternative_tail is None else min(length, split + 1 + self.alternative_tail)) - split
         add = [0 for _ in COUNTS]
         if width == self.block:

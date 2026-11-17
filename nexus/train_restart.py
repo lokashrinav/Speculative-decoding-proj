@@ -135,9 +135,17 @@ class TeachByTokens:
     MISSING = (0.31, 0.24, 0.14, 0.11, 0.08, 0.05, 0.04, 0.03)
 
     def __init__(self, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8, width=16, seed=0,
-                 compare_every=4):
+                 compare_every=4, where="breaks", earlier=True):
         self.predictor, self.optimizer, self.drafter, self.target = predictor, optimizer, drafter, target
         self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
+        # where="breaks": the restart is where the first draft of the round really breaks, as in use: the
+        # drafter's own states then come from a draft that was right up to there and wrong right after.
+        # ("random": any number of tokens, however the first draft did. The first predictor was trained
+        # so; it closed 57% of the gap on such rounds and 21% at real breaks.)
+        # earlier: the same vectors are also taught for the restart one token earlier (from the last
+        # right token, which needs one vector fewer and no guess of the token at the break).
+        self.where, self.earlier, self.unbroken = where, earlier, 0
+        self.also = []                       # [tokens right from the break on, restarting one token earlier: predicted, real vectors]
         self.compare_every = compare_every   # every so many rounds the same restart is also made with the real vectors and with none
         self.compared = []                   # [tokens right with the predicted vectors, with the real ones, with none]
         self.weights = decay ** torch.arange(width - 1, dtype=torch.float32)
@@ -151,15 +159,30 @@ class TeachByTokens:
         last = ids.shape[1] - len(self.MISSING) - self.width - 1
         if last <= prompt_length:
             return
+        if self.where == "breaks":
+            last = ids.shape[1] - 2 * self.width - 1
+            if last <= prompt_length:
+                return
         for _ in range(min(most, max((ids.shape[1] - prompt_length) // 24, 1))):
             start = int(torch.randint(prompt_length, last, (1,), generator=self.generator))
-            count = int(torch.multinomial(torch.tensor(self.MISSING), 1, generator=self.generator)) + 1
+            count = None
+            if self.where != "breaks":
+                count = int(torch.multinomial(torch.tensor(self.MISSING), 1, generator=self.generator)) + 1
             self.step(ids, features, start, count)
 
-    def step(self, ids, features, start, count):
+    def step(self, ids, features, start, count=None):
+        """count: how many of the round's tokens the target has not read at the restart (None: as many
+        as the first draft of a round that starts at `start` gets right, and its first token)."""
         low, device = max(start - self.window, 0), ids.device
         with torch.no_grad():
             block_states = first_run_states(self.drafter, self.target, features, ids, start, low, self.width)
+            if count is None:
+                first = self.drafter.compute_logits(block_states[None, 1:], _output_head(self.target))[0]
+                wrong = (first.argmax(dim=-1) != ids[0, start + 1 : start + self.width]).nonzero()
+                if not wrong.numel():
+                    self.unbroken += 1          # the first draft is right to its end: nothing to restart
+                    return
+                count = int(wrong[0]) + 1
             tokens = _raw_input_embeddings(self.target, ids[:, start : start + count],
                                            float(_draft_value(self.drafter.config, "input_embedding_scale", 1.0)))[0].float()
             last = project(self.drafter, features[:, start - 1 : start])[0].float()
@@ -172,7 +195,14 @@ class TeachByTokens:
         weights = self.weights.to(device)
         by_tokens = (each * weights).sum() / weights.sum()
         by_vectors = torch.nn.functional.mse_loss(written, real)
-        ((by_tokens + self.vector_weight * by_vectors) / self.every).backward()
+        total = by_tokens + self.vector_weight * by_vectors
+        before = None
+        if self.earlier and count >= 2:
+            # One token earlier: from the last right token, with the vectors of the tokens before it.
+            before = restart_logits(self.drafter, self.target, features, ids, start, written[: count - 1], low, self.width).float()
+            from_the_break = ids[0, start + count : start + count - 1 + self.width].clone()
+            total = total + (torch.nn.functional.cross_entropy(before, from_the_break, reduction="none") * weights).sum() / weights.sum()
+        (total / self.every).backward()
         self.rounds += 1
         self.examples += count
         if self.rounds % self.every == 0:
@@ -189,6 +219,11 @@ class TeachByTokens:
                                          anchor=start + count) for given in (real, real[:0])]
                 self.compared.append([float(right)] + [float((other.argmax(dim=-1) == answer).long().cumprod(dim=0).sum())
                                                        for other in others])
+                if before is not None:
+                    limit = restart_logits(self.drafter, self.target, features, ids, start, real[: count - 1].to(written.dtype),
+                                           low, self.width)
+                    self.also.append([float((given.argmax(dim=-1) == from_the_break).long().cumprod(dim=0).sum())
+                                      for given in (before, limit)])
         self.recent.append([float(by_tokens.detach()), float(by_vectors.detach()), float(alike), float(right)])
 
     def progress(self):
@@ -204,6 +239,10 @@ class TeachByTokens:
             mine, limit, nothing = (sum(column) / len(compared) for column in zip(*compared))
             point["on_the_same_rounds"] = {"rounds": len(compared), "predicted": round(mine, 3), "real": round(limit, 3),
                                            "none": round(nothing, 3)}
+        also, self.also = self.also, []
+        if also:
+            mine, limit = (sum(column) / len(also) for column in zip(*also))
+            point["one_token_earlier"] = {"rounds": len(also), "predicted": round(mine, 3), "real": round(limit, 3)}
         return point
 
 
@@ -229,6 +268,11 @@ def main():
     parser.add_argument("--max-hours", type=float, default=3.0, help="of training; the measurement comes after")
     parser.add_argument("--max-answers", type=int, default=0, help="train on at most this many answers")
     parser.add_argument("--passes", type=int, default=1, help="times it goes through the answers (other rounds of them each time)")
+    parser.add_argument("--where", default="breaks", choices=("breaks", "random"),
+                        help="with --loss tokens: restart where the first draft really breaks (as in use), or anywhere")
+    parser.add_argument("--only-after", action="store_true",
+                        help="with --loss tokens: do not also teach the restart one token earlier")
+    parser.add_argument("--start-from", default="", help="continue from the saved predictor restart-<name>.pt")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens")
     parser.add_argument("--check-answers", type=int, default=12, help="validation answers the restart is measured on afterwards")
     parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"))
@@ -255,12 +299,19 @@ def main():
         state, notes = load_adapters(path, adapters), adapter_notes(path)
     first = DraftTrainer(draft, adapters, rate=0.0, init=state, sharpen=QueryScale() if args.sharp else None)
     with torch.inference_mode(False):
-        predictor = StatePredictor(draft.config.hidden_size, args.inner, args.hidden, block=16).to(device)
+        if args.start_from:
+            from dflash.stand_in import load_predictor
+
+            predictor, _ = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.start_from}.pt"), device)
+            predictor = predictor.float().train()
+        else:
+            predictor = StatePredictor(draft.config.hidden_size, args.inner, args.hidden, block=16).to(device)
         optimizer = torch.optim.AdamW(predictor.parameters(), lr=args.rate, weight_decay=0.0)
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(False)
     teach = Teach(predictor, optimizer, args.every) if args.loss == "vectors" else \
-        TeachByTokens(predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed)
+        TeachByTokens(predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed,
+                      where=args.where, earlier=not args.only_after)
     curve, started = [], time.time()
 
     def report(done, learned, measured=None):
@@ -268,6 +319,8 @@ def main():
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
                   "sharp": args.sharp, "saved_adapters_used": notes, "save": args.save, "rate": args.rate, "loss": args.loss,
                   "every": args.every, "parameters": sum(value.numel() for value in predictor.parameters()),
+                  "vector_weight": args.vector_weight, "where": args.where, "one_token_earlier_too": not args.only_after,
+                  "passes": args.passes, "start_from": args.start_from,
                   "curve": curve, "restart_after_the_break": measured}
         if torch.cuda.is_available():
             status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)

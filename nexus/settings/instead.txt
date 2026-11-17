@@ -58,3 +58,11 @@ long-opd-2b: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part 
 # as tree-replay-*-4. (The results are in nexus/results/tree-replay-opd-3 and -pub-3: they are NOT tree replays.)
 tree-replay-opd-3: restart_probe.py --draft opd --data-dir ~/specdec-data/long1 --part validation --reanchor --max-answers 40 --max-hours 2
 tree-replay-pub-3: restart_probe.py --data-dir ~/specdec-data/long1 --part validation --reanchor --max-answers 40 --max-hours 2
+# The predictor of the missing states, second version (Nov 17, 22:40 UTC). The first one (train-restart-opd-0) was
+# taught restarts anywhere in a round: on such rounds it closed 57% of the gap between no states and the real
+# ones, at real breaks only 21%. This one is taught where the first draft really breaks, for both kinds of
+# restart (after the break from the right token, and one token earlier from the last right token), with the
+# vectors' error weighted 2 and two passes over the answers. The two jobs were queued for the DDTree replays,
+# which are queued again as tree-replay-*-5. (Results in nexus/results/tree-replay-opd-4 and -pub-4: NOT tree replays.)
+tree-replay-opd-4: train_restart.py --draft opd --data-dir ~/specdec-data/long1 --save opd-b0 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12
+tree-replay-pub-4: train_restart.py --data-dir ~/specdec-data/long1 --save pub-b0 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12

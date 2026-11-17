@@ -60,8 +60,12 @@ def _checked_matches(alternative, block_ids, truth, tail):
     got = _matches(alternative[:, 1:], truth)
     if tail is None:
         return got
-    differs = (alternative[:, : block_ids.shape[1]] != block_ids)[0].nonzero()
-    return got if not differs.numel() else min(got, int(differs[0]) + tail)
+    width = block_ids.shape[1]
+    differs = (alternative[:, :width] != block_ids)[0].nonzero()
+    if differs.numel():
+        return min(got, int(differs[0]) + tail)
+    # The same as the first draft inside the block: what it adds starts right after the block, if it reaches past it.
+    return got if alternative.shape[1] <= width or int(alternative[0, width]) < 0 else min(got, width + tail)
 
 
 @torch.inference_mode()
