@@ -6,6 +6,8 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb
 #SBATCH --time=06:00:00
+# (Queued before the script's default became --loss tokens: these jobs train on the tokens the drafter
+# writes with the predicted vectors, plus a tenth of the vectors' error. train-restart-*-1 match the vectors only.)
 # The same as train-restart-pub with the better drafter (Draft-OPD): a small predictor of the target's
 # states a restart does not have yet, and the restart measured with it. Saved as restart-opd-v0.pt.
 ENV="$HOME/specdec-env"

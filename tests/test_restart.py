@@ -257,3 +257,51 @@ def test_the_predictor_of_the_missing_states(tmp_path):
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
     assert probe.columns[-1] == "predicted" and len(probe.rows[0]) == len(probe.columns)
     assert "predicted" in summary(probe.rows, probe.columns)["all"]
+
+
+def test_training_the_predictor_on_the_tokens_the_drafter_writes():
+    """The pass used for training (nothing cached) is the pass of real decoding: with the real
+    vectors it writes plain decoding's next first draft. Training on tokens runs and changes the
+    predictor."""
+    from dflash.replay import target_features
+    from dflash.stand_in import StatePredictor, project
+    from nexus.train_restart import TeachByTokens, first_run_states, restart_logits
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    watch = Watch(ids, features)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=watch, block_size=BLOCK)
+    features = features.clone()
+    checked = 0
+    starts = sorted(watch.first)
+    for start, following in zip(starts, starts[1:]):
+        count = following - start                            # the round's first token and its accepted draft tokens
+        if watch.first[following].shape[0] == BLOCK - 1 and watch.first[start].shape[0] == BLOCK - 1:
+            with torch.no_grad():
+                real = project(draft, features[:, start:following])[0]
+                logits = restart_logits(draft, target, features, ids, start, real, 0, BLOCK)
+                states = first_run_states(draft, target, features, ids, start, 0, BLOCK)
+            assert torch.equal(logits.argmax(dim=-1), watch.first[following])
+            assert states.shape == (BLOCK, draft.config.hidden_size)
+            checked += 1
+    assert checked > 10
+
+    torch.manual_seed(0)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
+    before = {name: value.clone() for name, value in predictor.state_dict().items()}
+    teach = TeachByTokens(predictor, torch.optim.AdamW(predictor.parameters(), lr=1e-3), draft, target, every=2, window=64, width=BLOCK)
+    teach.MISSING = (0.5, 0.3, 0.2)
+    ids = ids.clone()                                        # (what real decoding returns cannot be learned through as it is)
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    curve = []
+    for _ in range(4):
+        teach.learn_from(ids, features, length, most=12)
+        curve.append(teach.progress())
+    assert teach.steps >= 4 and all(point["loss_by_tokens"] == point["loss_by_tokens"] for point in curve)   # numbers, not NaN
+    assert curve[-1]["loss"] < curve[0]["loss"]
+    assert any(not torch.equal(before[name], value) for name, value in predictor.state_dict().items())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(True)

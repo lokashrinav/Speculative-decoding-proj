@@ -11,7 +11,15 @@ drafter's own final state at that token, the token, and the last real vector bef
 Training needs no stored data. Saved answers of the training part are replayed with the first
 draft alone. In every round the first token and the accepted draft tokens are examples: their real
 vectors are known from the saved answer, and the predictor learns to match them (mean squared
-error). The weights are updated every --every rounds.
+error). The weights are updated every --every rounds. This is --loss vectors.
+
+--loss tokens (the default) trains on what the vectors are for. At a random place of a saved answer a round is
+played as real decoding would play it: the drafter's first run from the round's first token, then
+a restart some tokens later with the predictor's vectors in place of the target's states of the
+tokens in between. The loss is how unlikely the drafter then finds the tokens the answer really
+has after the restart (the first ones count most), plus --vector-weight times the error of the
+vectors. The drafter itself is not changed. Nothing on the way is cached: each step is two short
+drafter passes over the last --window tokens of the text.
 
 Then the restart is measured as in nexus/restart_probe.py on validation answers: how many tokens
 the target accepts after the right token at the break when the drafter restarts with the predicted
@@ -27,9 +35,10 @@ import torch
 from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
+from dflash.model import _draft_value, _output_head, _raw_input_embeddings
 from dflash.replay import _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
-from dflash.stand_in import StatePredictor, as_context, predictor_inputs, project, save_predictor
+from dflash.stand_in import StatePredictor, as_context, predictor_inputs, project, save_predictor, state_inputs
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
 from nexus.redraft_long import find_drafter
@@ -58,12 +67,13 @@ class Teach:
         if width != self.width or truth.shape[1] != width - 1:
             return None
         count = _matches(s.block_ids[:, 1:], truth) + 1           # the block's first token and the accepted draft tokens
-        states, tokens, last, places = predictor_inputs(s, count)
+        inputs = predictor_inputs(s, count)
         real = project(s.first_drafter, self.features[:, s.start : s.start + count])[0].float()
         with torch.inference_mode(False), torch.enable_grad():
             # (copies: what the replay computes cannot be used for learning as it is)
-            states, tokens, last, real = states.clone(), tokens.clone(), last.clone(), real.clone()
-            written = as_context(s.first_drafter, self.predictor(states, tokens, last, places.clone()))
+            inputs, real = [value.clone() for value in inputs], real.clone()
+            last = inputs[3]
+            written = as_context(s.first_drafter, self.predictor(*inputs))
             loss = torch.nn.functional.mse_loss(written, real)
             (loss / self.every).backward()
             self.rounds += 1
@@ -76,7 +86,7 @@ class Teach:
             with torch.no_grad():
                 repeated = torch.nn.functional.mse_loss(last.expand_as(real), real)
                 alike = torch.nn.functional.cosine_similarity(written, real, dim=-1).mean()
-        self.recent.append([float(loss), float(repeated), float(alike)])
+        self.recent.append([float(loss.detach()), float(repeated), float(alike)])
         return None
 
     def progress(self):
@@ -87,6 +97,97 @@ class Teach:
         loss, repeated, alike = (sum(column) / len(recent) for column in zip(*recent))
         return {"rounds": self.rounds, "examples": self.examples, "steps": self.steps, "loss": round(loss, 5),
                 "loss_of_repeating_the_last_vector": round(repeated, 5), "likeness_to_the_real_vector": round(alike, 4)}
+
+
+def _block_at(drafter, target, ids, place, width=16):
+    """The embeddings of a block of masks that starts with the answer's token at `place`."""
+    block = torch.full((1, width), drafter.mask_token_id, dtype=ids.dtype, device=ids.device)
+    block[0, 0] = ids[0, place]
+    return _raw_input_embeddings(target, block, float(_draft_value(drafter.config, "input_embedding_scale", 1.0)))
+
+
+def first_run_states(drafter, target, features, ids, start, low=0, width=16):
+    """The drafter's final states of the block it drafts from the token at `start`, reading the
+    target's states of ids[low:start]: [width, size]."""
+    positions = torch.arange(low, start + width, device=ids.device)[None]
+    return drafter(target_hidden=features[:, low:start], noise_embedding=_block_at(drafter, target, ids, start, width),
+                   position_ids=positions)[0]
+
+
+def restart_logits(drafter, target, features, ids, start, written, low=0, width=16):
+    """What the drafter predicts after the token at start + count when it restarts there, reading the
+    target's states of ids[low:start] and `written` ([count, size], as the drafter reads states) for
+    the tokens start .. start + count - 1: [width - 1, vocabulary]. Nothing is cached, so a predictor
+    can learn through it; with the real vectors it is the first draft of a round that starts there."""
+    anchor = start + written.shape[0]
+    positions = torch.cat((torch.arange(low, anchor, device=ids.device), torch.arange(anchor, anchor + width, device=ids.device)))[None]
+    hidden = drafter(target_hidden=features[:, low:start], context_states=written[None],
+                     noise_embedding=_block_at(drafter, target, ids, anchor, width), position_ids=positions)
+    return drafter.compute_logits(hidden[:, 1:, :], _output_head(target))[0]
+
+
+class TeachByTokens:
+    """Trains the predictor on the tokens the drafter writes with its vectors (see the top of this file)."""
+
+    # how many tokens of a round the target has not read at a restart: as often as the first draft breaks there
+    MISSING = (0.31, 0.24, 0.14, 0.11, 0.08, 0.05, 0.04, 0.03)
+
+    def __init__(self, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8, width=16, seed=0):
+        self.predictor, self.optimizer, self.drafter, self.target = predictor, optimizer, drafter, target
+        self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
+        self.weights = decay ** torch.arange(width - 1, dtype=torch.float32)
+        self.generator = torch.Generator().manual_seed(seed)
+        self.rounds = self.examples = self.steps = 0
+        self.recent = []
+
+    def learn_from(self, ids, features, prompt_length, most=600):
+        """Random rounds of one saved answer. features: the target's states of the answer (a copy that
+        was not made by the replay)."""
+        last = ids.shape[1] - len(self.MISSING) - self.width - 1
+        if last <= prompt_length:
+            return
+        for _ in range(min(most, max((ids.shape[1] - prompt_length) // 24, 1))):
+            start = int(torch.randint(prompt_length, last, (1,), generator=self.generator))
+            count = int(torch.multinomial(torch.tensor(self.MISSING), 1, generator=self.generator)) + 1
+            self.step(ids, features, start, count)
+
+    def step(self, ids, features, start, count):
+        low, device = max(start - self.window, 0), ids.device
+        with torch.no_grad():
+            block_states = first_run_states(self.drafter, self.target, features, ids, start, low, self.width)
+            tokens = _raw_input_embeddings(self.target, ids[:, start : start + count],
+                                           float(_draft_value(self.drafter.config, "input_embedding_scale", 1.0)))[0].float()
+            last = project(self.drafter, features[:, start - 1 : start])[0].float()
+            real = project(self.drafter, features[:, start : start + count])[0].float()
+        written = as_context(self.drafter, self.predictor(*state_inputs(block_states, count), tokens, last,
+                                                          torch.arange(count, device=device)))
+        logits = restart_logits(self.drafter, self.target, features, ids, start, written, low, self.width).float()
+        answer = ids[0, start + count + 1 : start + count + self.width].clone()
+        each = torch.nn.functional.cross_entropy(logits, answer, reduction="none")
+        weights = self.weights.to(device)
+        by_tokens = (each * weights).sum() / weights.sum()
+        by_vectors = torch.nn.functional.mse_loss(written, real)
+        ((by_tokens + self.vector_weight * by_vectors) / self.every).backward()
+        self.rounds += 1
+        self.examples += count
+        if self.rounds % self.every == 0:
+            torch.nn.utils.clip_grad_norm_(self.predictor.parameters(), 1.0)
+            self.optimizer.step()
+            self.optimizer.zero_grad(set_to_none=True)
+            self.steps += 1
+        with torch.no_grad():
+            right = (logits.argmax(dim=-1) == answer).long().cumprod(dim=0).sum()
+            alike = torch.nn.functional.cosine_similarity(written, real, dim=-1).mean()
+        self.recent.append([float(by_tokens.detach()), float(by_vectors.detach()), float(alike), float(right)])
+
+    def progress(self):
+        recent, self.recent = self.recent, []
+        if not recent:
+            return None
+        by_tokens, by_vectors, alike, right = (sum(column) / len(recent) for column in zip(*recent))
+        return {"rounds": self.rounds, "examples": self.examples, "steps": self.steps, "loss_by_tokens": round(by_tokens, 4),
+                "loss": round(by_vectors, 5), "likeness_to_the_real_vector": round(alike, 4),
+                "tokens_right_after_the_restart": round(right, 3)}
 
 
 def main():
@@ -100,6 +201,10 @@ def main():
     parser.add_argument("--fixed", default="", help="the drafter starts from the saved add-on weights lora-<name>.pt")
     parser.add_argument("--sharp", action="store_true")
     parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
+    parser.add_argument("--loss", default="tokens", choices=("vectors", "tokens"),
+                        help="match the real vectors, or the tokens the drafter writes with the predicted ones")
+    parser.add_argument("--vector-weight", type=float, default=0.1, help="with --loss tokens: weight of the vectors' error")
+    parser.add_argument("--window", type=int, default=2048, help="with --loss tokens: tokens of text the drafter reads in a step")
     parser.add_argument("--rate", type=float, default=3e-4)
     parser.add_argument("--every", type=int, default=8, help="rounds per update of the weights")
     parser.add_argument("--inner", type=int, default=512)
@@ -134,13 +239,16 @@ def main():
     with torch.inference_mode(False):
         predictor = StatePredictor(draft.config.hidden_size, args.inner, args.hidden, block=16).to(device)
         optimizer = torch.optim.AdamW(predictor.parameters(), lr=args.rate, weight_decay=0.0)
-    teach = Teach(predictor, optimizer, args.every)
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    teach = Teach(predictor, optimizer, args.every) if args.loss == "vectors" else \
+        TeachByTokens(predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed)
     curve, started = [], time.time()
 
     def report(done, learned, measured=None):
         status = {"done": done, "answers": learned, "answers_to_learn_from": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
-                  "sharp": args.sharp, "saved_adapters_used": notes, "save": args.save, "rate": args.rate,
+                  "sharp": args.sharp, "saved_adapters_used": notes, "save": args.save, "rate": args.rate, "loss": args.loss,
                   "every": args.every, "parameters": sum(value.numel() for value in predictor.parameters()),
                   "curve": curve, "restart_after_the_break": measured}
         if torch.cuda.is_available():
@@ -163,7 +271,14 @@ def main():
         if len(sequence) - prompt_length < 2 or (args.longest and len(sequence) - prompt_length > args.longest):
             continue
         predictor.train()
-        decode(sequence, prompt_length, teach, lambda ids, features, loop: teach.begin(ids, features))
+        if args.loss == "vectors":
+            decode(sequence, prompt_length, teach, lambda ids, features, loop: teach.begin(ids, features))
+        else:
+            ids = sequence.long().to(device)[None]
+            first.begin()
+            features = target_features(target, draft, ids).clone()       # a copy that learning can go through
+            teach.learn_from(ids, features, prompt_length)
+            del features
         learned += 1
         point = teach.progress()
         if point:

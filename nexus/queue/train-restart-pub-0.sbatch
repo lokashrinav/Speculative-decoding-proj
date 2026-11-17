@@ -6,6 +6,8 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb
 #SBATCH --time=06:00:00
+# (Queued before the script's default became --loss tokens: these jobs train on the tokens the drafter
+# writes with the predicted vectors, plus a tenth of the vectors' error. train-restart-*-1 match the vectors only.)
 # A small predictor of the target's states that a restart of the drafter does not have yet
 # (nexus/train_restart.py, dflash/stand_in.py): trained on replays of the training answers to write, for
 # this round's first token and the draft tokens before the break, the vectors the drafter would read if

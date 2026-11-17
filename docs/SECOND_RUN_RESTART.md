@@ -50,9 +50,11 @@ together with the swap's rows; with a short check; on the add-on weights; next t
 read the target's hidden states directly. It reads them after its own projection, one vector of
 2,560 numbers per token. The predictor writes that vector. For a token of this round it reads
 three things that exist at the time of the second run: the drafter's own final state at that token
-from the first run, the token itself, and the last real vector before the round. It is trained on
-saved answers, where the real vectors are known, first by matching them and then, if that is not
-enough, by the tokens the drafter writes with them. Decision: continue if the restart with
+from the first run and at the token after it, the token itself, and the last real vector before the
+round. It is trained on saved answers, where the real vectors are known, in two ways: on the tokens
+the drafter writes when it restarts with the predicted vectors (jobs `train-restart-pub-0`,
+`train-restart-opd-0`), and by matching the real vectors only (`train-restart-pub-1`,
+`train-restart-opd-1`). Decision: continue if the restart with
 predicted states closes at least half of the gap between leaving the states out and the real ones.
 
 **E4. The whole second run in replay.** Restarts at the four likely breaks with the best stand-in

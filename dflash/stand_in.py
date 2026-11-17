@@ -7,6 +7,8 @@ token and the draft tokens before the break, and the target has not read those y
 
 StatePredictor writes them. For each of those tokens it reads what exists at that moment:
   - the drafter's own final state at that token of the block, from the first run;
+  - the drafter's final state at the NEXT token of the block: the target's state at a token is
+    what the target predicts the next token from, and this is the drafter's counterpart of it;
   - the token itself (its embedding);
   - the last real vector before the round;
   - how far into the block the token is.
@@ -27,17 +29,22 @@ class StatePredictor(nn.Module):
         super().__init__()
         self.sizes = {"size": size, "inner": inner, "hidden": hidden, "block": block}
         self.from_state = nn.Linear(size, inner)
+        self.from_next = nn.Linear(size, inner)
         self.from_token = nn.Linear(size, inner)
         self.from_last = nn.Linear(size, inner)
         self.place = nn.Embedding(block, inner)
-        self.body = nn.Sequential(nn.Linear(3 * inner, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU())
+        self.body = nn.Sequential(nn.Linear(4 * inner, hidden), nn.GELU(), nn.Linear(hidden, hidden), nn.GELU())
         self.out = nn.Linear(hidden, size)
 
-    def forward(self, states: torch.Tensor, tokens: torch.Tensor, last: torch.Tensor, places: torch.Tensor) -> torch.Tensor:
-        """states, tokens: [count, size]; last: [1, size] or [count, size]; places: [count] (0 = the block's
-        first token). Returns [count, size]: what goes through the drafter's hidden_norm (see as_context)."""
+    def forward(self, states: torch.Tensor, following: torch.Tensor, tokens: torch.Tensor, last: torch.Tensor,
+                places: torch.Tensor) -> torch.Tensor:
+        """states, following, tokens: [count, size] (the drafter's final state at each token, at the
+        token after it (zeros past the block's end), and the token's embedding); last: [1, size];
+        places: [count] (0 = the block's first token). Returns [count, size]: what goes through the
+        drafter's hidden_norm (see as_context)."""
         joined = torch.cat((
             self.from_state(_unit(states)) + self.place(places),
+            self.from_next(_unit(following)),
             self.from_token(_unit(tokens)),
             self.from_last(_unit(last)).expand(states.shape[0], -1),
         ), dim=-1)
@@ -59,14 +66,23 @@ def as_context(drafter: nn.Module, written: torch.Tensor) -> torch.Tensor:
 
 def predictor_inputs(s, count: int):
     """What the predictor reads for the round's first `count` tokens (the block's first token and
-    the draft tokens after it): the drafter's final states there, the tokens' embeddings, the last
-    real vector before the round, and the places."""
+    the draft tokens after it): the drafter's final states there and one token further, the tokens'
+    embeddings, the last real vector before the round, and the places."""
     drafter = s.first_drafter
     scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
     tokens = _raw_input_embeddings(s.target, s.block_ids[:, :count], scale)[0].float()
-    states = s.draft_states[0, :count].float()
     last = project(drafter, s.context_features[:, -1:])[0].float()
-    return states, tokens, last, torch.arange(count, device=states.device)
+    return (*state_inputs(s.draft_states[0], count), tokens, last, torch.arange(count, device=tokens.device))
+
+
+def state_inputs(block_states: torch.Tensor, count: int):
+    """From the drafter's final states of a block ([block, size]): the states at its first `count`
+    tokens and at the token after each (zeros past the block's end)."""
+    states = block_states[:count].float()
+    following = torch.zeros_like(states)
+    reach = min(count, block_states.shape[0] - 1)
+    following[:reach] = block_states[1 : 1 + reach].float()
+    return states, following
 
 
 def predicted_states(predictor: StatePredictor, s, count: int) -> torch.Tensor:
