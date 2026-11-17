@@ -75,6 +75,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         has its edited draft scored; any other alternative draft counts if it gets further.
         A plug-in may return several alternative drafts (one per row): the best one counts. If it
         has alternative_tail = N, only the first differing token of each and N tokens after it count.
+        A plug-in with replace = True that returns several rows, or rows that end in -1, gives a
+        tree of drafts in place of the first draft (dflash/redraft.py: DraftTree): its best path counts.
     Returns the tokens gained in each round, as dflash_generate_redraft reports them.
     """
     length = ids.shape[1]
@@ -150,8 +152,11 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
                 ))
             if timers is not None and improver is not None:
                 timers["improve"] = timers.get("improve", 0.0) + _clock(device) - clock
+        tree = None
         if alternative is not None and getattr(improver, "replace", False):
-            if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
+            if alternative.shape[0] > 1 or bool((alternative < 0).any()):
+                tree = alternative       # a tree of drafts in place of the first draft: a row per leaf, -1 after it
+            elif alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
                 rounds_edited += int(bool((alternative != block_ids).any()))
                 block_ids = alternative
             alternative = None
@@ -172,6 +177,11 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
 
         truth = ids[:, start + 1 : start + block_len]
         accepted = _matches(block_ids[:, 1:], truth)
+        if tree is not None:             # the target follows its own choices through the tree: the best path counts
+            through = max(_matches(tree[row : row + 1, 1:], truth) for row in range(tree.shape[0]))
+            rounds_with_alternative += 1
+            alternative_wins += int(through > accepted)
+            accepted = through
         own = accepted
         if learner is not None and block_len > 2:
             clock = _clock(device) if timers is not None else None

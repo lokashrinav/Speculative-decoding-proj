@@ -14,7 +14,8 @@ This script takes the longest saved answer and, with the target's cache filled t
      chain16_mask       the same with the mask written out (what a given mask costs by itself)
      chain16_float      the same, the mask as numbers (0 and the lowest value) and not true/false
      chain20            4 tokens read again + 16 (the pass after an alternative has won)
-     chain32, chain64   32 and 64 tokens in order, no mask (what more rows cost)
+     chain32 ... chain256   32, 64, 128 and 256 tokens in order, no mask (what more rows cost:
+                        a tree of drafts with that many nodes costs the same, see tree32 and chain32)
      tree32             16 + four alternatives of 4 tokens (the swap with a tail of 3)
      tree32_float       the same, the mask as numbers
      tree54             16 + four alternatives to the end of the block
@@ -84,7 +85,7 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     answers = sorted(load_answers(args.data_dir), key=lambda answer: -answer[2].shape[0])
     ids = answers[0][2].long().to(device)[None]
-    lengths = [int(length) for length in args.lengths.split(",") if int(length) + BLOCK * (args.blocks + 2) + 64 < ids.shape[1]]
+    lengths = [int(length) for length in args.lengths.split(",") if int(length) + BLOCK * (args.blocks + 2) + 256 < ids.shape[1]]
     target, _, _ = load_transformers_models(args.model, args.draft, device)
     import transformers
     status = {"done": False, "answer_tokens": int(ids.shape[1]), "lengths": lengths, "torch": torch.__version__,
@@ -134,6 +135,8 @@ def main():
             "chain20": lambda: check(ids[:, length : length + 20], in_order(20)),
             "chain32": lambda: check(ids[:, length : length + 32], in_order(32)),
             "chain64": lambda: check(ids[:, length : length + 64], in_order(64)),
+            "chain128": lambda: check(ids[:, length : length + 128], in_order(128)),
+            "chain256": lambda: check(ids[:, length : length + 256], in_order(256)),
             "tree32": lambda: check(short[0], short[1], short[2]),
             "tree32_float": lambda: check(short[0], short[1], as_numbers(short[2], like)),
             "tree54": lambda: check(long[0], long[1], long[2]),

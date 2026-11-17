@@ -20,6 +20,9 @@ Methods (comma-separated):
                          redraft pass adds on top of the switch (truebreaks: the same at the true break)
   branchesKstN           the same, but the target checks only the switched token and the N tokens
                          after it (a shorter check; any branchesK method can end in tN)
+  treeB                  DDTree (arXiv 2604.12989): the B most probable nodes of the tree that the
+                         first pass's distributions span, in place of the first draft (tree15 is a
+                         block's worth of nodes; branches4st3 has 15 + 16)
   chainD                 D drafts in all, each redraft from the likely break of the one before it
   truebreak, truebreakl, truebreake, truebreaks
                          one redraft from where the target really rejects the first draft. Decoding
@@ -49,7 +52,7 @@ from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adap
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings, extract_context_feature
-from dflash.redraft import Branches, Chain, SelfRedraft, lowest_break, redrafts_from
+from dflash.redraft import Branches, Chain, DraftTree, SelfRedraft, lowest_break, redrafts_from
 from dflash.replay import _checked_matches, _clock, _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
 from nexus import bench_redraft
@@ -64,6 +67,10 @@ DEFAULT = "plain,self-keep1,self-keepconfidence,branches4,branches4l,branches4e,
 # the target's check of one block of 16, and one pass of the public drafter.
 MEASURED_AT = (1000, 2000, 4000, 8000, 16000, 24000, 32000)
 CHECK_MS = (48.2, 48.3, 48.6, 55.2, 97.7, 137.0, 176.8)
+# ... and what one more token in the target's check costs (nexus/results/time-check-0: 64 tokens in
+# order against 16; nothing up to 4,000 tokens of text; the last value is not measured). The mask
+# of a tree costs nothing by itself.
+ROW_MS = (0.0, 0.0, 0.0, 0.117, 0.160, 0.200, 0.240)
 DRAFT_MS = (8.11, 8.20, 8.30, 8.29, 8.56, 9.49, 11.04)
 COUNTS = ("rounds", "first_draft_broke", "break_was_among_the_redrafts", "redraft_got_past_the_break",
           "a_redraft_got_further", "tokens_added")
@@ -143,6 +150,9 @@ def make_method(name, ckpt_dir, like=None):
     if found:
         return SelfRedraft(model=model, keep=found[1] if found[1] == "confidence" else int(found[1]))
     kinds = {"": None, "l": "late", "e": "early", "s": "switch"}
+    found = re.fullmatch(r"tree(\d+)", body)
+    if found and model is None:
+        return DraftTree(int(found[1]))
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
@@ -172,7 +182,9 @@ def parse_setting(setting):
 class Watched:
     """Runs a method's plug-in, times it, and notes how its redrafts did against the saved answer.
 
-    For each position group it adds up the seconds of the extra drafter work and, on full blocks,
+    For each position group it adds up the seconds of the extra drafter work, the tokens the target
+    has to read beyond the block (extra_rows; a tree smaller than a block: fewer) with what they
+    cost (row_ms, from ROW_MS), and, on full blocks,
     COUNTS: rounds; rounds in which the first draft was not accepted whole; of those, rounds in which
     the true break was one of the breaks the method redrafted from; of those, rounds in which that
     redraft got the next token right; rounds in which any redraft got further than the first draft;
@@ -181,6 +193,9 @@ class Watched:
     def __init__(self, improver, ids, prompt_length, repetition_from, block=16):
         self.improver = improver
         self.alternative_tail = getattr(improver, "alternative_tail", None)     # the replay asks the plug-in it is given
+        self.replace = getattr(improver, "replace", False)
+        self.extra_rows = [0 for _ in GROUPS]
+        self.row_ms = [0.0 for _ in GROUPS]
         self.ids, self.prompt_length, self.repetition_from, self.block = ids, prompt_length, repetition_from, block
         self.seconds = [0.0 for _ in GROUPS]
         self.counts = [[0 for _ in COUNTS] for _ in GROUPS]
@@ -198,6 +213,15 @@ class Watched:
         if self.repetition_from is not None and where >= self.repetition_from:
             return drafts
         width = s.block_ids.shape[1]
+        extra = 0
+        if drafts is not None and self.replace and (drafts.shape[0] > 1 or bool((drafts < 0).any())):
+            extra = 1 + self.improver.nodes - width                     # a tree in place of the block
+        elif drafts is not None and not self.replace:
+            for row in drafts:                                          # each alternative from where it leaves the block
+                differs = (row != s.block_ids[0]).nonzero()
+                if differs.numel() and int(differs[0]) >= 1:
+                    split = int(differs[0])
+                    extra += (width if self.alternative_tail is None else min(width, split + 1 + self.alternative_tail)) - split
         add = [0 for _ in COUNTS]
         if width == self.block:
             truth = self.ids[:, s.start + 1 : s.start + width]
@@ -216,6 +240,8 @@ class Watched:
         for number, (_, low, high) in enumerate(GROUPS):
             if low <= where < high:
                 self.seconds[number] += seconds
+                self.extra_rows[number] += extra
+                self.row_ms[number] += extra * measured(ROW_MS, s.start)
                 for index, value in enumerate(add):
                     self.counts[number][index] += value
         return drafts
@@ -236,8 +262,11 @@ def in_real_time(records, names):
                 continue
             base_ms = sum(entry["check_and_draft_ms"][number] for entry in mine)
             extra_ms = 1000 * sum(entry.get("redraft_seconds", [0.0] * len(GROUPS))[number] for entry in mine)
-            row = {"tokens_per_second": 1000 * tokens / (base_ms + extra_ms),
+            row_ms = sum(entry.get("row_ms", [0.0] * len(GROUPS))[number] for entry in mine)
+            row = {"tokens_per_second": 1000 * tokens / (base_ms + extra_ms + row_ms),
                    "extra_drafter_ms_per_round": extra_ms / rounds,
+                   "extra_tokens_checked_per_round": sum(entry.get("extra_rows", [0] * len(GROUPS))[number] for entry in mine) / rounds,
+                   "extra_check_ms_per_round": row_ms / rounds,
                    "check_and_first_draft_ms_per_round": base_ms / rounds}
             plain = [record["settings"]["plain"] for record in records
                      if "plain" in record["settings"] and name in record["settings"]]
@@ -454,6 +483,8 @@ def main():
                                             check_and_draft_ms(result.acceptance_lengths, prompt_length, repetition_from)]}
             if watched is not None:
                 entry["redraft_seconds"] = [round(value, 4) for value in watched.seconds]
+                entry["extra_rows"] = watched.extra_rows
+                entry["row_ms"] = [round(value, 2) for value in watched.row_ms]
                 entry["breaks"] = watched.counts
             record["settings"][setting] = entry
         del features

@@ -479,6 +479,82 @@ def test_the_drafter_can_be_shown_only_the_last_tokens_of_the_text(differ):
     assert wide.acceptance_lengths == whole.acceptance_lengths
 
 
+def test_a_draft_tree_is_the_most_probable_nodes():
+    """DDTree: the tree is the budget's most probable choices of tokens for the first positions,
+    whatever the budget (checked against all of them on a small case), and holds every node's parent."""
+    import itertools
+
+    from dflash.redraft import DraftTree
+
+    torch.manual_seed(0)
+    logits = torch.randn(1, 4, 6) * 2                       # four positions, six tokens
+    state = SimpleNamespace(draft_logits=logits, block_ids=torch.tensor([[9, 0, 0, 0, 0]]))
+    scores = logits[0].log_softmax(dim=-1)
+    every = {}
+    for depth in range(1, 5):
+        for choice in itertools.product(range(6), repeat=depth):
+            every[choice] = sum(float(scores[at, token]) for at, token in enumerate(choice))
+    for budget in (1, 3, 7, 12, 40):
+        tree = DraftTree(budget)
+        nodes = set()
+        for row in tree(state).tolist():
+            path = [token for token in row[1:] if token >= 0]
+            assert row[0] == 9 and row[1:] == path + [-1] * (4 - len(path))
+            nodes.update(tuple(path[:depth]) for depth in range(1, len(path) + 1))
+        assert len(nodes) == tree.nodes == budget
+        assert nodes == set(sorted(every, key=every.get, reverse=True)[:budget])
+    # With a drafter that is sure of itself the tree is the first draft.
+    sure = torch.full((1, 4, 6), -30.0)
+    sure[0, torch.arange(4), torch.tensor([2, 5, 1, 3])] = 30.0
+    assert DraftTree(4)(SimpleNamespace(draft_logits=sure, block_ids=state.block_ids)).tolist() == [[9, 2, 5, 1, 3]]
+
+
+class Seen:
+    """Keeps what a plug-in returned in every round."""
+
+    def __init__(self, inner):
+        self.inner, self.rounds, self.replace = inner, [], getattr(inner, "replace", False)
+
+    def start(self, drafter):
+        self.inner.start(drafter)
+
+    def __call__(self, round_state):
+        rows = self.inner(round_state)
+        self.rounds.append((round_state.start, rows.clone()))
+        return rows
+
+
+def test_the_replay_follows_the_targets_choices_through_a_draft_tree():
+    from dflash.redraft import DraftTree
+
+    target, draft = make_models()
+    lively(draft)
+    plain, length = answer(target, draft, budget=120)
+    ids = plain.output_ids
+    chain = replay_decode(draft, target, ids, length, ended=False, block_size=BLOCK)
+    seen = Seen(DraftTree(24))
+    tree = replay_decode(draft, target, ids, length, ended=False, improver=seen, block_size=BLOCK)
+    assert sum(tree.acceptance_lengths) == sum(chain.acceptance_lengths) and tree.rounds < chain.rounds
+    assert tree.alternative_wins > 0
+    at = length
+    for (start, rows), produced in zip(seen.rounds, tree.acceptance_lengths):
+        assert start == at                                   # every round was the tree's
+        truth = ids[0, start + 1 : start + BLOCK].tolist()
+        best = 0
+        for row in rows.tolist():                            # the longest way through the tree that is the text
+            count = 0
+            while count < len(truth) and row[1 + count] == truth[count]:
+                count += 1
+            best = max(best, count)
+        assert produced == min(best + 1, ids.shape[1] - start - 1)
+        at += produced
+    # More nodes, fewer rounds; and real decoding does not take a tree yet.
+    more = replay_decode(draft, target, ids, length, ended=False, improver=DraftTree(200), block_size=BLOCK)
+    assert more.rounds <= tree.rounds
+    with pytest.raises(NotImplementedError):
+        dflash_generate_redraft(draft, target, ids[:, :length], 40, None, improver=DraftTree(24), block_size=BLOCK)
+
+
 def test_times_between_the_measured_lengths_and_the_cost_of_an_answers_rounds():
     from nexus.adapt_drafter import GROUPS
     from nexus.redraft_long import CHECK_MS, DRAFT_MS, check_and_draft_ms, measured
@@ -642,6 +718,8 @@ def test_the_switch_alone_is_the_first_draft_with_its_second_choice_at_the_break
     assert compared > 5
     switch = make_method("branches4s", "/nowhere")
     assert isinstance(switch, Branches) and switch.differ == "switch" and make_method("truebreaks", "/nowhere").differ == "switch"
+    tree = make_method("tree31", "/nowhere")
+    assert type(tree).__name__ == "DraftTree" and tree.budget == 31 and tree.replace
     short = make_method("branches4st3", "/nowhere")
     assert short.differ == "switch" and short.alternative_tail == 3 and switch.alternative_tail is None
     assert make_method("branches2et0", "/nowhere").alternative_tail == 0

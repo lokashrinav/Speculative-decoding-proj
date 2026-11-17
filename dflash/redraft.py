@@ -12,6 +12,7 @@ a small editor, or a rule. The original draft is always kept, so an improver can
 only add accepted tokens, never remove them. Greedy decoding only.
 """
 
+import heapq
 from types import SimpleNamespace
 
 import torch
@@ -378,6 +379,65 @@ class Chain:
         self.inner.roll_back(tokens)
 
 
+class DraftTree:
+    """DDTree (Ringel and Romano, arXiv 2604.12989): a tree of drafts from the first pass alone.
+
+    The drafter gives one distribution per position of the block. A node of the tree is a choice of
+    token for every position up to its own, and its probability is the product of those tokens'
+    probabilities. The tree is the `budget` most probable nodes, found best first with a heap; it is
+    the tree from which most tokens would be accepted if the drafter's distributions were right
+    and independent of each other. The target checks all nodes in one pass and follows its own
+    choices through the tree. The first draft is the path of first choices: it is in the tree only
+    as far as its nodes are among the most probable, so the tree takes the place of the first draft
+    (a budget of 15 is a block's worth of nodes, placed where they are most likely to be used).
+
+    Returned: one row per leaf: [the block's first token, the tokens on the way to the leaf, -1 ...].
+    nodes: how many nodes the last tree had (the target reads one row more, the block's first token).
+    Scored in replay only so far."""
+
+    replace = True
+
+    def __init__(self, budget: int):
+        if budget < 1:
+            raise ValueError("budget must be at least 1")
+        self.budget = budget
+        self.nodes = 0
+
+    def start(self, drafter: nn.Module) -> None:
+        self.nodes = 0
+
+    def paths(self, scores: list[list[float]]) -> list[tuple[int, ...]]:
+        """The `budget` most probable nodes, each as the ranks of its tokens (0 = the first choice),
+        from scores[position][rank], the log-probabilities in falling order. A node comes after its
+        parent and after the sibling of the rank before it."""
+        depth, width = len(scores), len(scores[0])
+        heap, chosen = [(-scores[0][0], (0,))], []
+        while heap and len(chosen) < self.budget:
+            negative, ranks = heapq.heappop(heap)
+            chosen.append(ranks)
+            at, last = len(ranks), ranks[-1]
+            if last + 1 < width:                                        # the next sibling
+                heapq.heappush(heap, (negative + scores[at - 1][last] - scores[at - 1][last + 1], ranks[:-1] + (last + 1,)))
+            if at < depth:                                              # the first child
+                heapq.heappush(heap, (negative - scores[at][0], ranks + (0,)))
+        return chosen
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor:
+        logits = s.draft_logits[0].float()
+        best = logits.log_softmax(dim=-1).topk(min(self.budget, logits.shape[-1]), dim=-1)
+        tokens = best.indices.tolist()
+        chosen = self.paths(best.values.tolist())
+        self.nodes = len(chosen)
+        parents = {ranks[:-1] for ranks in chosen}
+        leaves = [ranks for ranks in chosen if ranks not in parents]
+        rows = torch.full((len(leaves), s.block_ids.shape[1]), -1, dtype=s.block_ids.dtype, device=s.block_ids.device)
+        rows[:, 0] = s.block_ids[0, 0]
+        for number, ranks in enumerate(leaves):
+            rows[number, 1 : len(ranks) + 1] = torch.tensor([tokens[at][rank] for at, rank in enumerate(ranks)],
+                                                           dtype=rows.dtype, device=rows.device)
+        return rows
+
+
 class Resample:
     """A second draft with no second pass: keep slot 1, sample the other slots
     from the probabilities the first pass already produced."""
@@ -631,6 +691,8 @@ def dflash_generate_redraft(
 
         # An improver that replaces the draft: the edited draft is the only one checked.
         if alternative is not None and getattr(improver, "replace", False):
+            if alternative.shape[0] > 1 or bool((alternative < 0).any()):
+                raise NotImplementedError("a tree of drafts in place of the first draft is scored in replay only")
             if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
                 rounds_edited += int(bool((alternative != block_ids).any()))
                 block_ids = alternative
