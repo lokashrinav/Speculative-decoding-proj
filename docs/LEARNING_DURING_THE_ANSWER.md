@@ -233,6 +233,45 @@ day became why a second draft helps (docs/WHY_A_SECOND_DRAFT_HELPS.md, to come),
 queued for them were given that work. Their benchmark shards are queued again as `long-opd-0b` to
 `long-opd-3b`.
 
+## Result 9: the drafter sees only the last tokens of the text (Nov 17)
+
+The first suspect for the fall-off on long answers was that the drafter sees more text than it was
+trained on (the public drafter: 3,072 tokens). The test: the drafter is given the target's hidden
+states of the last N tokens only (`plain:window=N`; the target still reads everything and decides
+every token). Public drafter, the 100 validation answers, replay (`long-opd-3b`). Tokens per round
+by how long the answer already is, and the gain over the plain drafter with its 95% range:
+
+| the drafter sees | 0-2k | 2k+ | 8k+ | 16k+ | all | gain, all | gain, 8k+ |
+|---|---|---|---|---|---|---|---|
+| everything (plain) | 3.05 | 3.28 | 2.76 | 2.14 | 3.20 | | |
+| the last 1,024 tokens | 2.99 | 3.93 | 4.16 | 3.70 | 3.56 | +11.4% [7.3, 14.8] | +50.7% [46.9, 54.3] |
+| the last 2,048 tokens | 3.05 | 4.09 | 4.34 | 3.90 | 3.68 | +14.9% [10.5, 18.5] | +57.2% [53.0, 61.1] |
+| the last 3,072 tokens | 3.05 | 4.13 | 4.39 | 3.93 | 3.70 | +15.7% [11.3, 19.5] | +59.0% [54.0, 63.5] |
+| the last 4,096 tokens | 3.05 | 4.07 | 4.28 | 3.78 | 3.67 | +14.7% [10.6, 18.2] | +55.0% [50.2, 59.3] |
+| the last 8,192 tokens | 3.05 | 3.39 | 3.02 | 2.69 | 3.27 | +2.2% [1.3, 3.0] | +9.4% [7.5, 10.8] |
+
+So most of the fall-off is the drafter being shown more text than it was trained on. A window at
+its training length (3,072) is the best one, it loses nothing on short text, and it needs no
+training. On the same answers it does better than sharper attention (3.56 tokens per round over
+all positions, 3.79 beyond 8,000) and comes close to learning during the answer (3.87 and 4.73) and
+to the weights taught ahead of time (+25.9% over all positions). The gain is on the long
+mathematical answers (+22% and +20% for the two kinds); the writing and chat answers are short and
+do not change.
+
+In real decoding (`live-swap-opd-0`, three answers so far, the text is plain decoding's) the better
+drafter with a window of 4,096 tokens gives +6% tokens per second over all positions and +15%
+beyond 8,000 tokens, about what its taught weights give (+6% and +16%). The public drafter's real
+numbers are being measured (`live-swap-pub-0`).
+
+This is not a new idea. A window for a drafter that reads the target's hidden states is the method
+of "Long-Context Drafting Does Not Require Long-Context Drafters" (arXiv 2610.20865, with the
+positions re-based as well, for inputs of up to two million tokens), and "Attention Drift" (arXiv
+2605.09992) notes that drafters trained on short contexts fail beyond them and that a sliding
+window is the known remedy. What our numbers add is this drafter on long thinking answers, and the
+comparison with sharper attention, taught weights and learning during the answer on the same text.
+What it means for our main line: the repair that learning during the answer makes on long answers
+can be had for nothing.
+
 ## Where this leaves the main line (Nov 17)
 
 On answers of up to 16,384 tokens, learning during the answer loses in real time to weights that
