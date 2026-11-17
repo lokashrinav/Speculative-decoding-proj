@@ -2,3 +2,7 @@
 # job-name: script.py arguments      (the results go to that job's own results folder)
 adapt-amount-0: cost_check.py --data-dir ~/specdec-data/long1
 adapt-amount-1: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 8000 --max-answers 6 --max-hours 3.2 --settings plain,plain:sharp,frozen@off-a,immediate:3e-4:onepass,immediate:3e-4:onepass:stride=4
+# Does the public drafter fall off on long answers only because it sees more text than it was trained on
+# (3,072 tokens)? The 100 validation answers with the drafter seeing only the last N tokens.
+# (The results are in nexus/results/long-opd-3: they are NOT part of the long-opd family.)
+long-opd-3: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 9 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
