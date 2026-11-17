@@ -1,0 +1,233 @@
+{
+ "done": false,
+ "answers": 7,
+ "answers_in_this_job": 50,
+ "part": "validation",
+ "hours": 0.073,
+ "draft": "opd",
+ "second": "",
+ "control": "",
+ "edit": "",
+ "fixed": "",
+ "sharp": false,
+ "saved_adapters_used": {},
+ "columns": [
+  "answer",
+  "where",
+  "broke_after",
+  "confidence",
+  "target_confidence",
+  "error",
+  "p_first",
+  "p_again",
+  "covered",
+  "covered_with_zero",
+  "rank_first",
+  "rank_again",
+  "rank_random",
+  "rank_elsewhere",
+  "rank_second",
+  "rank_second_random",
+  "rank_second_blind",
+  "rank_control",
+  "again",
+  "first_token",
+  "random",
+  "elsewhere",
+  "switch",
+  "early",
+  "late",
+  "right_token_old_rest",
+  "right_token_new_rest",
+  "next_round",
+  "second",
+  "second_late",
+  "second_random",
+  "second_blind",
+  "control",
+  "edit",
+  "four",
+  "four_random",
+  "four_switch",
+  "four_early",
+  "four_late"
+ ],
+ "files": 0,
+ "answers_read": [
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    4
+   ],
+   "tokens": 4988,
+   "rounds": 721,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    13
+   ],
+   "tokens": 5932,
+   "rounds": 751,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    33
+   ],
+   "tokens": 5893,
+   "rounds": 899,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard0of4.pt",
+    52
+   ],
+   "tokens": 942,
+   "rounds": 437,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard0of4.pt",
+    66
+   ],
+   "tokens": 5204,
+   "rounds": 1095,
+   "ended_by_itself": true,
+   "repetition_from": null
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    76
+   ],
+   "tokens": 16384,
+   "rounds": 3814,
+   "ended_by_itself": false,
+   "repetition_from": null
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard0of4.pt",
+    86
+   ],
+   "tokens": 1944,
+   "rounds": 746,
+   "ended_by_itself": true,
+   "repetition_from": null
+  }
+ ],
+ "summary": {
+  "rounds": 8431,
+  "rounds_in_which_the_first_draft_broke": 8103,
+  "tokens_accepted_from_the_first_draft": 3.8861345036176016,
+  "second_drafts": {
+   "again": {
+    "rounds_tried": 6345,
+    "got_past_the_break": 0.1954294720252167,
+    "tokens_added_per_round_tried": 0.4654058313632782,
+    "tokens_added_per_round_with_a_break": 0.3644329260767617
+   },
+   "first_token": {
+    "rounds_tried": 6345,
+    "got_past_the_break": 0.13900709219858157,
+    "tokens_added_per_round_tried": 0.383451536643026,
+    "tokens_added_per_round_with_a_break": 0.3002591632728619
+   },
+   "random": {
+    "rounds_tried": 6345,
+    "got_past_the_break": 0.05988967691095351,
+    "tokens_added_per_round_tried": 0.10464933018124507,
+    "tokens_added_per_round_with_a_break": 0.08194495865728743
+   },
+   "elsewhere": {
+    "rounds_tried": 6345,
+    "got_past_the_break": 0.06193853427895981,
+    "tokens_added_per_round_tried": 0.10890464933018125,
+    "tokens_added_per_round_with_a_break": 0.0852770578797976
+   },
+   "switch": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.4573614710601012,
+    "tokens_added_per_round_tried": 0.8943601135381958,
+    "tokens_added_per_round_with_a_break": 0.8943601135381958
+   },
+   "early": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.4573614710601012,
+    "tokens_added_per_round_tried": 0.9419967913118598,
+    "tokens_added_per_round_with_a_break": 0.9419967913118598
+   },
+   "late": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.3578921387140565,
+    "tokens_added_per_round_tried": 0.7809453288905344,
+    "tokens_added_per_round_with_a_break": 0.7809453288905344
+   },
+   "right_token_old_rest": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 1.0,
+    "tokens_added_per_round_tried": 1.7317043070467728,
+    "tokens_added_per_round_with_a_break": 1.7317043070467728
+   },
+   "right_token_new_rest": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 1.0,
+    "tokens_added_per_round_tried": 1.856596322349747,
+    "tokens_added_per_round_with_a_break": 1.856596322349747
+   },
+   "next_round": {
+    "rounds_tried": 8097,
+    "got_past_the_break": 1.0,
+    "tokens_added_per_round_tried": 3.9993824873409904,
+    "tokens_added_per_round_with_a_break": 3.9964210786128596
+   },
+   "four": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.1859805010489942,
+    "tokens_added_per_round_tried": 0.48673330865111686,
+    "tokens_added_per_round_with_a_break": 0.48673330865111686
+   },
+   "four_random": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.060471430334444035,
+    "tokens_added_per_round_tried": 0.12168332716277921,
+    "tokens_added_per_round_with_a_break": 0.12168332716277921
+   },
+   "four_switch": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.39849438479575466,
+    "tokens_added_per_round_tried": 0.7998272244847587,
+    "tokens_added_per_round_with_a_break": 0.7998272244847587
+   },
+   "four_early": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.40194989510058005,
+    "tokens_added_per_round_tried": 0.8505491793163026,
+    "tokens_added_per_round_with_a_break": 0.8505491793163026
+   },
+   "four_late": {
+    "rounds_tried": 8103,
+    "got_past_the_break": 0.32407750215969394,
+    "tokens_added_per_round_tried": 0.7109712452178205,
+    "tokens_added_per_round_with_a_break": 0.7109712452178205
+   }
+  }
+ },
+ "gpu_memory_peak_gb": 12.84
+}
