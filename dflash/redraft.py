@@ -453,7 +453,8 @@ def dflash_generate_redraft(
     timers: dict | None = None,
     round_clock: list | None = None,
     context_window: int = 0,
-    recheck: bool = True,
+    recheck: bool = False,
+    follow: torch.Tensor | None = None,
 ):
     """Greedy DFlash decoding that verifies the first draft and alternative drafts together.
 
@@ -465,14 +466,26 @@ def dflash_generate_redraft(
     ``alternative_tail = N``, only the token at the split and the N tokens after it are checked
     (a shorter pass: most of what an alternative wins is in those tokens).
 
-    recheck: tokens accepted on an alternative's rows are read by the target a second time anyway, in
-    order, at the front of the next pass (their cache entries have to be stored in order). There the
-    target computes exactly what plain decoding computes, while on an alternative's rows the same
-    numbers are summed in another order: in 16-bit arithmetic that can change the last bit and so the
-    first choice between two nearly tied tokens. With recheck the second reading decides: if it
-    disagrees, decoding goes back to that token and takes the target's choice. The tokens are then the
-    tokens of plain decoding. (Without it they are the target's first choices up to rounding, as with
-    any tree of drafts.) The rows of the first draft need none of this: they are read in order.
+    Which tokens come out. In 16-bit arithmetic the target's numbers for a token depend a little on
+    the shape of the pass that computes them: a pass with more rows (alternatives, or tokens read
+    again) rounds every row differently from plain decoding's pass of one block. Where the target's
+    two best tokens are nearly tied (about 1 row in 100, measured by nexus/time_check.py) the first
+    choice can then be the other one, and from there the answer is another answer. Every token is
+    still the target's first choice in the pass that checked it; the text is plain decoding's text
+    only up to such ties. This is so for any check of a tree of drafts.
+
+    follow: a text (ids, prompt included) that decoding is to write, normally plain decoding's
+    answer to the same prompt. Every pass is computed as usual, but what the target "says" after a
+    token is read from this text, so that all settings write the same answer and their times can be
+    compared. The stats count the rows used and how many of them the pass itself decided otherwise
+    (followed_rows, followed_against).
+
+    recheck: tokens accepted on an alternative's rows are read by the target a second time anyway,
+    in order, at the front of the next pass (their cache entries have to be stored in order). With
+    recheck that second reading decides, and decoding goes back to a token on which it disagrees.
+    It makes the tokens those of in-order reading where only the alternatives' rows are off (the
+    tests arrange that); on the GPU the second reading is itself a pass of another shape, so it does
+    not give plain decoding's text there. Off by default.
 
     context_window: the drafter sees only the last N tokens of the text so far (0 = all of it). A
     drafter trained on short texts drafts better on a long answer that way, and its pass is shorter.
@@ -518,6 +531,7 @@ def dflash_generate_redraft(
     )
     acceptance_lengths = []
     rounds_with_alternative = alternative_wins = alternative_extra_tokens = rounds_edited = corrections = 0
+    followed_rows = followed_against = 0
     start = num_input_tokens
     # Accepted tokens whose target cache entries were computed on the alternative
     # branch. They are fed again at the front of the next verification pass.
@@ -657,7 +671,11 @@ def dflash_generate_redraft(
             past_key_values=target_cache, use_cache=True,
             output_hidden_states=block_len > 1, attention_mask=attention_mask,
         )
-        verified = output.logits.argmax(dim=-1)
+        verified = own_choice = output.logits.argmax(dim=-1)
+        if follow is not None:
+            # The token the text to follow has after each row's token (rows past its end: its last token).
+            after = (torch.cat(verify_positions, dim=1) + 1).clamp(max=follow.shape[1] - 1)
+            verified = follow.to(device)[:, after[0]]
         if canvas_top and block_len > 1:
             best = output.logits[0, num_pending : num_pending + block_len - 1].float().log_softmax(dim=-1)
             best = best.topk(canvas_top, dim=-1)
@@ -704,6 +722,10 @@ def dflash_generate_redraft(
             ])
 
         bonus = verified[0, winner_rows[accepted]]
+        if follow is not None:                               # the rows that decided this round
+            used = winner_rows[: accepted + 1]
+            followed_rows += accepted + 1
+            followed_against += int((own_choice[0, used] != verified[0, used]).sum())
         output_ids[:, start : start + accepted + 1] = winner_ids[:, : accepted + 1]
         output_ids[:, start + accepted + 1] = bonus
         if learner is not None and block_len > 2:
@@ -751,4 +773,6 @@ def dflash_generate_redraft(
         alternative_extra_tokens=alternative_extra_tokens,
         rounds_edited=rounds_edited,
         corrections=corrections,
+        followed_rows=followed_rows,
+        followed_against=followed_against,
     )

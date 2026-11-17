@@ -364,7 +364,7 @@ def test_tokens_accepted_on_an_alternatives_rows_are_read_again_in_order(differ,
     corrections, differed = 0, 0
     for budget in (120, 97, 61, 40, 33, 20):
         live = dflash_generate_redraft(draft, target, prompt, budget, None, improver=Branches(k=3, differ=differ, tail=tail),
-                                       block_size=BLOCK, return_stats=True)
+                                       block_size=BLOCK, return_stats=True, recheck=True)
         assert torch.equal(live.output_ids, plain.output_ids[:, : length + budget])
         assert sum(live.acceptance_lengths) == budget - 1
         corrections += live.corrections
@@ -386,9 +386,59 @@ def test_a_stop_token_accepted_on_an_alternatives_rows_is_confirmed():
     for stop in sorted(set(plain.output_ids[0, length + 20 :].tolist()))[:12]:
         expected = dflash_generate_redraft(draft, target, prompt, 120, [stop], block_size=BLOCK, return_stats=True)
         live = dflash_generate_redraft(draft, target, prompt, 120, [stop], improver=Branches(k=3, differ="switch"),
-                                       block_size=BLOCK, return_stats=True)
+                                       block_size=BLOCK, return_stats=True, recheck=True)
         assert torch.equal(live.output_ids, expected.output_ids)
     del target.forward
+
+
+def unsure_everywhere(target, every=7):
+    """On a GPU a pass of another shape rounds ALL its rows differently: here the target's two best
+    tokens change places on every `every`-th row of any pass that is given a mask."""
+    plain_forward, count = target.forward, [0]
+
+    def forward(*args, **kwargs):
+        output = plain_forward(*args, **kwargs)
+        if kwargs.get("attention_mask") is not None:
+            for row in range(output.logits.shape[1]):
+                count[0] += 1
+                if count[0] % every == 0:
+                    best = output.logits[0, row].topk(2).indices
+                    output.logits[0, row, best] = output.logits[0, row, best.flip(0)]
+        return output
+
+    target.forward = forward
+    return count
+
+
+@pytest.mark.parametrize("differ,tail", [("switch", 3), ("early", None)])
+def test_decoding_can_follow_a_text_so_that_all_settings_write_the_same_answer(differ, tail):
+    """Where the passes with alternatives decide some nearly tied tokens otherwise, decoding left to
+    itself writes another answer. Told to follow plain decoding's answer it writes that answer, in
+    the rounds of the replay, and counts the rows that the pass itself decided otherwise."""
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    make = lambda: Branches(k=3, differ=differ, tail=tail)
+    exact = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                    follow=plain.output_ids)
+    assert torch.equal(exact.output_ids, plain.output_ids) and exact.followed_against == 0
+    assert exact.followed_rows == sum(exact.acceptance_lengths) > 0
+    unsure_everywhere(target)
+    free = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True)
+    assert not torch.equal(free.output_ids, plain.output_ids)
+    led = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                  follow=plain.output_ids)
+    del target.forward
+    assert torch.equal(led.output_ids, plain.output_ids)
+    assert led.acceptance_lengths == exact.acceptance_lengths and led.followed_against > 0
+    again = replay_decode(draft, target, plain.output_ids, length, ended=False, improver=make(), block_size=BLOCK)
+    assert again.acceptance_lengths == led.acceptance_lengths
+    # Following a text that ends on a stop token ends there.
+    stop = int(plain.output_ids[0, length + 50])
+    short = dflash_generate_redraft(draft, target, prompt, 120, [stop], block_size=BLOCK, return_stats=True)
+    led = dflash_generate_redraft(draft, target, prompt, 120, [stop], improver=make(), block_size=BLOCK, return_stats=True,
+                                  follow=short.output_ids)
+    assert torch.equal(led.output_ids, short.output_ids)
 
 
 class Window:

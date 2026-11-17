@@ -13,8 +13,17 @@ at each of its K most likely breaks (dflash/redraft.py: Branches, "switch"). The
 run again. With tN only the switched token and the N tokens after it are checked.
 +redraftK is the comparison that does run the drafter again: the same second choices at the same
 breaks, and one more drafter pass that rewrites what follows each of them (Branches, "early").
-A setting with :window=N (plain:window=3072, frozen@off-a:window=3072+swap4t3) lets the drafter see
+A setting with :window=N (plain:window=3072, frozen:window=3072@off-a+swap4t3) lets the drafter see
 only the last N tokens of the text.
+
+The same text for every setting. A pass with alternatives has more rows than plain decoding's pass,
+and in 16-bit arithmetic that rounds the target's numbers differently: about 1 row in 100 has two
+nearly tied best tokens, and there the first choice can be the other one (nexus/time_check.py).
+Left to itself such a setting soon writes another answer than plain decoding, of another length,
+and its speed cannot be compared. So the settings with alternatives FOLLOW plain decoding's answer
+to the same prompt (decoded first): every pass is computed and timed as usual, but what the target
+says after a token is read from that answer. "followed" gives the rows that decided and how many
+of them the pass itself decided otherwise. --free turns this off.
 Decoding is lossless whatever the setting, so every setting should write the same tokens; this
 is checked against the plain drafter's output and the saved answer. The order of the settings
 changes from prompt to prompt, so that no setting always runs first.
@@ -101,6 +110,7 @@ def main():
     parser.add_argument("--max-new-tokens", type=int, default=16384)
     parser.add_argument("--max-answers", type=int, default=12)
     parser.add_argument("--max-hours", type=float, default=3.0)
+    parser.add_argument("--free", action="store_true", help="settings with alternatives do not follow the saved answer")
     args = parser.parse_args()
     if stepped_aside(args.results_dir):
         return
@@ -135,12 +145,13 @@ def main():
         # A setting that trains nothing needs no call in every round: its state is set by begin().
         return (trainer if trainer.optimizer is not None else swap), int(trainer.context_window or 0)
 
-    def decode(name, prompt):
+    def decode(name, prompt, plain_ids=None):
         improver, window = improver_of(name)
         timers, round_clock = {}, []
+        follow = plain_ids if swaps[name][1] is not None and not args.free else None
         result = dflash_generate_redraft(draft, target, prompt, args.max_new_tokens, stops, improver=improver,
                                          block_size=16, return_stats=True, timers=timers, round_clock=round_clock,
-                                         context_window=window)
+                                         context_window=window, follow=follow)
         return result, timers, round_clock
 
     def report(done):
@@ -171,10 +182,12 @@ def main():
                                         improver=improver, context_window=window)
             warmed = True
         record = {"source": source, "origin": [name, index], "saved_tokens": len(saved) - prompt_length, "settings": {}}
-        outputs = {}
-        turn = len(records) % len(names)
-        for setting in names[turn:] + names[:turn]:
-            result, timers, round_clock = decode(setting, prompt)
+        outputs, plain_ids = {}, None
+        others = names[1:]
+        turn = len(records) % max(len(others), 1)
+        for setting in names[:1] + others[turn:] + others[:turn]:      # plain first: the others may follow its answer
+            result, timers, round_clock = decode(setting, prompt, plain_ids)
+            plain_ids = result.output_ids if setting == "plain" else plain_ids
             outputs[setting] = result.output_ids[0].tolist()
             record["settings"][setting] = {
                 "tokens": len(outputs[setting]) - prompt_length, "rounds": int(result.rounds),
@@ -186,7 +199,9 @@ def main():
                 # rounds with alternatives, rounds one of them won, tokens they added, and how often the
                 # second reading of tokens accepted on an alternative's rows corrected one
                 "alternatives": [int(result.rounds_with_alternative), int(result.alternative_wins),
-                                 int(result.alternative_extra_tokens), int(result.corrections)]}
+                                 int(result.alternative_extra_tokens), int(result.corrections)],
+                # rows that decided while following the saved answer, and how many the pass decided otherwise
+                "followed": [int(result.followed_rows), int(result.followed_against)]}
         for setting in names:
             record["settings"][setting]["differs_from_plain_at"] = first_difference(outputs[setting], outputs["plain"])
         records.append(record)

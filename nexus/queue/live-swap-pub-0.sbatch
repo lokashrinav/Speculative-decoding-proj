@@ -10,8 +10,8 @@
 # and more: the swap (the first draft with the drafter's second choice at its four likely breaks, in
 # the target's one check, NO second drafter pass), the context window (the drafter sees only the last
 # 3,072 tokens, the length it was trained on), the add-on weights taught ahead of time, and these
-# together. Tokens accepted on an alternative's rows are read a second time in order, so every setting
-# must write plain decoding's tokens. The settings: nexus/settings/live-swap-pub.txt (first line).
+# together. The settings with alternatives follow plain decoding's answer (nexus/live_speed.py), so
+# every setting writes the same text. The settings: nexus/settings/live-swap-pub.txt (first line).
 ENV="$HOME/specdec-env"
 CODE="$HOME/specdec-code/$JOB_NAME-$SLURM_JOB_ID"
 export HF_HOME="$HOME/hf-cache" TOKENIZERS_PARALLELISM=false
