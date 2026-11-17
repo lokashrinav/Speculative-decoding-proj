@@ -209,8 +209,8 @@ plain decoding's shape:
 | The rows of the alternatives | none | 39 (0.9%) |
 
 In 16-bit arithmetic a pass with more rows rounds every row differently. Where the first choice
-changed, the target's two best tokens were never more than 0.25 apart, which is two steps of the
-16-bit scale at that size. So about one token in a hundred is a coin toss between two tokens, and
+changed, the target's two best tokens were never more than 0.25 apart, which is one or two steps
+of the 16-bit scale for numbers of that size. So about one token in a hundred is a coin toss between two tokens, and
 any change in the shape of the pass can flip it. This holds for every method that checks a tree of
 drafts in one pass, and it means that "the same text as plain decoding" cannot be promised bit for
 bit in 16 bits, only "the target's first choice in the pass that checked it".
