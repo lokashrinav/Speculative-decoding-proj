@@ -446,3 +446,121 @@ def test_the_switch_alone_is_the_first_draft_with_its_second_choice_at_the_break
     assert compared > 5
     switch = make_method("branches4s", "/nowhere")
     assert isinstance(switch, Branches) and switch.differ == "switch" and make_method("truebreaks", "/nowhere").differ == "switch"
+
+
+def made_up_answer(target, draft, accept, block=16):
+    """A text on which the drafter's first draft is accepted for exactly accept[0], accept[1], ...
+    tokens, round after round: its own draft is copied that far and then left."""
+    from dflash.model import _draft_value, _output_head, _raw_input_embeddings
+    from dflash.replay import target_features
+
+    ids = torch.tensor([[1, 2, 3, 4, 5, 9]])
+    scale = float(_draft_value(draft.config, "input_embedding_scale", 1.0))
+    for count in accept:
+        anchor = ids.shape[1] - 1
+        features = target_features(target, draft, ids)
+        tokens = torch.full((1, block), draft.mask_token_id, dtype=torch.long)
+        tokens[0, 0] = ids[0, anchor]
+        with torch.no_grad():
+            states = draft(target_hidden=features[:, :anchor], noise_embedding=_raw_input_embeddings(target, tokens, scale),
+                           position_ids=torch.arange(anchor + block)[None])[:, -block:, :]
+            guess = draft.compute_logits(states[:, 1:, :], _output_head(target)).argmax(dim=-1)[0]
+        if count == block - 1:
+            new = torch.cat((guess, torch.tensor([7])))
+        else:
+            new = torch.cat((guess[:count], (guess[count : count + 1] + 3) % 30))
+        ids = torch.cat((ids, new[None]), dim=1)
+    return ids, 5
+
+
+def test_every_kind_of_second_draft_is_scored_on_the_same_rounds(tmp_path):
+    from dflash.redraft import redrafts_from
+    from nexus.why_redraft import ARMS, COLUMNS, Why, summary
+
+    target, draft, other = make_models(second=True)
+    lively(draft, other)
+    accept = [2, 0, 5, 1, 15, 3, 0, 7, 4]
+    ids, length = made_up_answer(target, draft, accept)
+    ids = torch.cat((ids, torch.randint(0, 30, (1, 20), generator=torch.Generator().manual_seed(1))), dim=1)
+
+    class Reference:
+        """The same second drafts, made one by one with the parts tested above."""
+
+        def __init__(self):
+            self.inner, self.rounds = SelfRedraft(keep=1), {}
+
+        def start(self, first_drafter):
+            self.inner.start(first_drafter)
+
+        def __call__(self, s):
+            if s.block_ids.shape[1] != 16 or s.start + 16 > ids.shape[1]:
+                return None
+            truth = ids[:, s.start + 1 : s.start + 16]
+
+            def best(rows):
+                return max(_matches(rows[n : n + 1, 1:], truth) for n in range(rows.shape[0]))
+
+            broke = _matches(s.block_ids[:, 1:], truth)
+            out = {"broke_after": broke}
+            if broke < 15:
+                if broke:
+                    out["again"] = best(self.inner.redraft(s, broke))
+                    out["first_token"] = best(self.inner.redraft(s, 1))
+                for name in ("switch", "early", "late"):
+                    out[name] = best(redrafts_from(self.inner, s, [broke], name, together=False))
+                for name, differ in (("four", None), ("four_switch", "switch"), ("four_early", "early"), ("four_late", "late")):
+                    branches = Branches(k=4, differ=differ, together=False)
+                    branches.inner = self.inner
+                    out[name] = best(branches(s))
+            self.rounds[s.start] = out
+            return None
+
+    probe, reference = Why(second=other, control=other, edit=other), Reference()
+    probe.begin(ids, length, None, None, answer=0)
+    plain = replay_decode(draft, target, ids, length, ended=False, block_size=16)
+    watched = replay_decode(draft, target, ids, length, ended=False, improver=probe, block_size=16)
+    replay_decode(draft, target, ids, length, ended=False, improver=reference, block_size=16)
+    assert watched.acceptance_lengths == plain.acceptance_lengths                 # the probe changes nothing
+    assert plain.acceptance_lengths[: len(accept)] == [count + 1 for count in accept]
+    table = [dict(zip(COLUMNS, row)) for row in probe.rows]
+    assert [row["broke_after"] for row in table[: len(accept)]] == accept
+    starts, start = [], length
+    for gained in plain.acceptance_lengths:
+        starts.append(start)
+        start += gained
+    checked = 0
+    for number, row in enumerate(table):
+        expected = reference.rounds[starts[number]]
+        broke = row["broke_after"]
+        assert broke == expected["broke_after"] and row["where"] == starts[number] - length
+        if broke == 15:
+            assert all(row[name] == -1 for name in ARMS if name != "next_round")
+        else:
+            for name, value in expected.items():
+                assert row[name] == value, (number, name)
+            assert row["right_token_old_rest"] > broke and row["right_token_new_rest"] > broke
+            assert row["switch"] == broke or row["switch"] > broke
+            assert row["rank_first"] >= 2 and 0 <= row["confidence"] <= 1000
+            assert row["second_blind"] >= 0 and row["control"] >= 0 and row["second"] >= broke and row["edit"] >= 0
+            if broke:
+                assert row["again"] >= broke and row["random"] >= broke and row["elsewhere"] >= broke
+                assert row["second_random"] >= broke and row["rank_again"] >= 1
+            else:
+                assert row["again"] == row["random"] == row["elsewhere"] == row["first_token"] == -1
+                assert row["late"] == row["early"]                         # nothing new to read: the switch is shown
+            checked += 1
+        if number + 1 < len(table):
+            after = table[number + 1]["broke_after"]
+            assert row["next_round"] == (broke + 1 + min(after, 14 - broke) if broke < 15 else -1) or broke == 15
+    assert checked >= len(accept) - 1 and any(row["again"] > row["broke_after"] or row["early"] > row["broke_after"]
+                                                 or row["second"] > row["broke_after"] for row in table)
+    brief = summary(probe.rows)
+    assert brief["rounds"] == len(table) and brief["rounds_in_which_the_first_draft_broke"] == checked
+    assert set(brief["second_drafts"]) == set(ARMS)
+    assert brief["second_drafts"]["right_token_old_rest"]["got_past_the_break"] == 1.0
+    # Without saved second drafters those columns stay empty.
+    alone = Why()
+    alone.begin(ids, length, None, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, improver=alone, block_size=16)
+    assert all(row[COLUMNS.index(name)] == -1 for name in ("second", "control", "edit") for row in alone.rows)
+    assert [row[COLUMNS.index("early")] for row in alone.rows] == [row["early"] for row in table]

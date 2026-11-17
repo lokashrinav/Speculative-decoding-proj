@@ -4,9 +4,9 @@ adapt-amount-0: cost_check.py --data-dir ~/specdec-data/long1
 adapt-amount-1: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 8000 --max-answers 6 --max-hours 3.2 --settings plain,plain:sharp,frozen@off-a,immediate:3e-4:onepass,immediate:3e-4:onepass:stride=4
 # Does the public drafter fall off on long answers only because it sees more text than it was trained on
 # (3,072 tokens)? The 100 validation answers with the drafter seeing only the last N tokens.
-# (Moved from long-opd-3 to tune32-eval-0, whose tuning run is no longer needed first. The results are in
-# nexus/results/tune32-eval-0: they are NOT part of the tune32-eval family.)
-tune32-eval-0: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 6.5 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
+# (Moved back in the queue twice, behind the question of the day. The results will be in
+# nexus/results/long-opd-3b: they are NOT part of the long-opd family.)
+long-opd-3b: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 9 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
 # Running the drafter more than once in a round (nexus/redraft_long.py), on 50 of the 100 validation
 # answers (up to 16,384 tokens), public drafter. The benchmark shards these three jobs were queued
 # for are queued again as long-opd-0b, -1b and -2b.
@@ -23,3 +23,15 @@ long-opd-2: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --
 #    at each likely break (branchesKs), next to the redraft that knows the switch (branchesKe), on the
 #    same 50 answers; and how many breaks are needed
 long-opd-3: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches15s,truebreaks,branches4e,truebreake,branches1e,branches2e
+# WHY does a second draft help? (nexus/why_redraft.py) Every candidate reason on the same rounds of plain
+# decoding: shown its own draft, shown random text, the switch with and without a second pass, the right
+# token with the old and the new rest, the trained second drafters shown the draft or nothing. The five
+# tuning jobs that waited next are used for it (their results are NOT part of the tune32 families).
+# public drafter, the 100 validation answers in two halves, with the October second drafters
+tune32-eval-0: why_redraft.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 6.3 --second v1-prefix --control v1-control --edit v1-edit
+tune32-eval-1: why_redraft.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 1 --max-hours 6.3 --second v1-prefix --control v1-control --edit v1-edit
+# the better drafter (Draft-OPD), the same answers in two halves
+tune32-eval-2: why_redraft.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 6.3
+tune32-opd-0: why_redraft.py --draft opd --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 1 --max-hours 6.3
+# the public drafter once it is repaired for long answers (the add-on weights off-a), half of the answers
+tune32-opd-1: why_redraft.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 6.3 --fixed off-a

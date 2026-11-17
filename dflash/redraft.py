@@ -150,7 +150,7 @@ class SelfRedraft:
         return (alternative, logits) if with_logits else alternative
 
     def redraft_together(self, s: SimpleNamespace, keeps: list[int], blocks: torch.Tensor | None = None,
-                         context_done: bool = False, no_copies: bool = True):
+                         context_done: bool = False, no_copies: bool = False):
         """Several redrafts of the round `s` in ONE pass of the drafter: row n shows the first keeps[n]
         tokens of blocks[n] (of the first draft if no blocks are given). Returns the drafts (one per
         row) and the pass's predictions for them.
@@ -158,8 +158,9 @@ class SelfRedraft:
         The copies of the block are laid one after the other in a single sequence. Every copy has the
         block's own positions and sees the context and itself, never another copy, so each row is the
         draft redraft() would give, while the context is neither copied nor read more than once.
-        no_copies=False goes through the library's masked attention call instead (slower on long
-        texts; kept to time the difference)."""
+        no_copies=True attends directly, without the copies of the keys the library's masked call
+        makes for every head. Timed on an A5000 it was the slower of the two up to 16,000 tokens of
+        text for four redrafts or more (nexus/results/long-opd-0/timing.json), so it is off."""
         block_len, count = s.block_ids.shape[1], len(keeps)
         device = s.block_ids.device
         slots = torch.arange(block_len, device=device)[None]
