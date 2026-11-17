@@ -12,16 +12,16 @@ The current direction, the plan and an index of every experiment are in [`docs/D
 - What is missing after the break is the target's hidden states. With the right token at the break, the first draft's old tokens give 0.55 more accepted tokens, and the drafter with the target's hidden states gives 2.03.
 - So we are building a second pass that restarts the drafter after the break, and studying what to give it in place of the hidden states it does not have yet. The research plan is in [`docs/SECOND_RUN_RESTART.md`](docs/SECOND_RUN_RESTART.md).
 
-Real tokens per second on long thinking answers, Qwen3-4B on an RTX A5000, every setting writing the same text (5 answers on the public drafter and 7 on Draft-OPD so far):
+Real tokens per second on long thinking answers, Qwen3-4B on an RTX A5000, every setting writing the same text (16 answers per drafter, complete):
 
 | Setting | Public drafter | Draft-OPD |
 |---|---|---|
-| Plain DFlash | 45.4 | 85.1 |
-| The swap: the drafter's second-choice token at its four likely breaks, checked in the same pass, no second drafter pass | 51.4 (+13%) | 93.3 (+10%) |
-| The drafter sees only the last 3,072 tokens (4,096 for Draft-OPD) | 57.0 (+25%) | 90.9 (+7%) |
-| That window and the swap | 64.5 (+42%) | 99.7 (+17%) |
-| Small add-on weights taught ahead of time | 64.4 (+42%) | 91.1 (+7%) |
-| Those weights and the swap | 72.3 (+59%) | 100.2 (+18%) |
+| Plain DFlash | 44.2 | 68.8 |
+| The swap: the drafter's second-choice token at its four likely breaks, checked in the same pass, no second drafter pass | 50.2 (+14%) | 76.0 (+10%) |
+| The drafter sees only the last 3,072 tokens (4,096 for Draft-OPD) | 54.8 (+24%) | 73.8 (+7%) |
+| That window and the swap | 62.0 (+40%) | 81.5 (+18%) |
+| Small add-on weights taught ahead of time | 59.6 (+35%) | 73.6 (+7%) |
+| Those weights and the swap | 67.2 (+52%) | 81.6 (+19%) |
 
 The window and trees of drafts are published ideas; see the direction document for what is and is not ours.
 

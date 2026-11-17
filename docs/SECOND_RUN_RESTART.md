@@ -74,24 +74,24 @@ both drafters, alone and with the long-answer fix. The bar is the swap and DDTre
 
 ## Results so far
 
-**E1 (November 17, still running: 25 of 100 answers on the public drafter, 68 of 100 on
-Draft-OPD).** Tokens the target accepts after the right token at the break, when the drafter
-restarts there:
+**E1 (November 17, complete: the 100 validation answers; 179,747 rounds with a break on the public
+drafter and 117,090 on Draft-OPD; jobs `restart-pub-0`, `restart-opd-0`).** Tokens the target
+accepts after the right token at the break, when the drafter restarts there:
 
 | What the drafter gets for the states it does not have | Public drafter | Draft-OPD |
 | --- | --- | --- |
-| The real states (the limit) | 2.08 | 3.78 |
-| Nothing | 0.59 | 0.95 |
-| The last real state, repeated | 0.43 | 0.63 |
-| Older real states | 0.42 | 0.62 |
-| Only the real state of the token right before the restart | 1.84 | 3.29 |
-| All real states but that one | 1.23 | 2.46 |
-| The real states with noise of 25% of each dimension's spread | 2.06 | 3.75 |
-| ... of 50% | 2.00 | 3.66 |
-| ... of 100% | 1.74 | 3.29 |
-| ... of 200% | 1.07 | 2.16 |
-| For comparison: the first draft's old tokens | 0.56 | 0.65 |
-| For comparison: a second pass inside the block | 0.64 | 0.84 |
+| The real states (the limit) | 2.17 | 3.65 |
+| Nothing | 0.59 | 0.93 |
+| The last real state, repeated | 0.44 | 0.62 |
+| Older real states | 0.43 | 0.62 |
+| Only the real state of the token right before the restart | 1.91 | 3.18 |
+| All real states but that one | 1.28 | 2.38 |
+| The real states with noise of 25% of each dimension's spread | 2.14 | 3.62 |
+| ... of 50% | 2.08 | 3.53 |
+| ... of 100% | 1.82 | 3.18 |
+| ... of 200% | 1.11 | 2.10 |
+| For comparison: the first draft's old tokens | 0.55 | 0.64 |
+| For comparison: a second pass inside the block | 0.64 | 0.83 |
 
 What this says:
 
@@ -137,11 +137,55 @@ no guess:
 
 4. Restart one token earlier. A new block from the LAST token the first draft got right, with the
    states of the tokens before it, writes the token at the break again, this time with those
-   states, and goes on from there. Whether that gets the break right more often than the second
-   choice does is measured next to the restart from the second choice on the same rounds
-   (`nexus/restart_probe.py --reanchor`; the results are in `nexus/results/tree-replay-opd-3` and
-   `tree-replay-pub-3`, two jobs that were waiting for something else). The same run counts how
-   often the right token is the drafter's third or fourth choice.
+   states, and goes on from there. It is measured next to the restart from the second choice on
+   the same rounds (`nexus/restart_probe.py --reanchor`; the results are in
+   `nexus/results/tree-replay-opd-3` and `tree-replay-pub-3`, two jobs that were waiting for
+   something else).
+
+**The restart one token earlier (November 17; 40 answers and 50,964 rounds on Draft-OPD; 12
+answers and 31,201 rounds on the public drafter so far).** Tokens the target accepts from the token
+at the break on, with the real states:
+
+| | Public drafter | Draft-OPD |
+| --- | --- | --- |
+| A restart from the second choice (nothing when that choice is wrong) | 1.30 | 2.39 |
+| A restart from the last right token | 1.17 | 2.32 |
+| The better of the two in each round | 1.91 | 3.44 |
+| The restart from the last right token gets the token at the break right | 36% | 49% |
+| The right token is the drafter's second choice | 39% | 46% |
+| ... its third choice | 16% | 16% |
+| ... its fourth choice | 9% | 8% |
+
+The two kinds are worth about the same and they win in different rounds, so both together give 44%
+to 46% more than the second choice alone. The earlier restart cannot help when the first draft
+breaks at its very first token (it would be the first draft again), and it is the stronger of
+the two when the break comes late: after five or more right tokens it gets 4.1 against 3.1 on
+Draft-OPD. Both kinds fit in the same one drafter pass (`Restarts(kind="both")`, method names
+`restart4rx...`). With noise of 100% on the states the earlier restart keeps 84% (Draft-OPD), the
+same as the other kind.
+
+The earlier restart also asks less of a predictor. The other kind needs the state of the last
+right token, which is the state the target chooses the token at the break from, and that is exactly
+where the drafter was wrong. The earlier restart needs the states only up to the token before, and
+there the drafter was right.
+
+**E3, the first predictor (November 17, job `train-restart-opd-0`, Draft-OPD).** A small network
+(11 million weights) trained for one pass over 366 answers on the tokens the drafter writes with
+its vectors. Measured on 12 validation answers (18,316 rounds with a break), tokens accepted after
+the right token at the break: 1.67 with the predicted states, 1.02 with nothing, 4.09 with the real
+ones. It closes 21% of the gap, so it fails the rule (half of the gap). The reason is in how it was
+taught: restarts at any place in a round, whatever the first draft did there. On such rounds it
+closes 57% of the gap (seen in the public drafter's run of the same training, which reports the
+same restarts with the real states and with none). In use, a restart comes right after a token
+the drafter got wrong, and the drafter's own states, which the predictor reads, are different
+there.
+
+**The second predictor (running since 22:45 UTC, jobs `tree-replay-opd-4` and `tree-replay-pub-4`,
+which were waiting for something else; saved as `opd-b0` and `pub-b0`).** Taught where the first
+draft really breaks, for both kinds of restart, with the vectors' error weighted 2 instead of 0.1,
+two passes over the answers. Two more runs (`train-restart-opd-1`, `-pub-1`) teach the vectors
+alone; after 8,000 steps their vectors point 0.7 of the way along the real ones (cosine), where
+the first predictor's reached 0.08.
 
 ## What is ours and what is not
 

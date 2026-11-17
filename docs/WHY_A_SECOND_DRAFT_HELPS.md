@@ -2,7 +2,7 @@
 
 This file records the study of November 17. The numbers come from `nexus/why_report.py` and
 `nexus/why_ceiling.py` on the results of `nexus/why_redraft.py`, and from the whole-answer runs
-of `nexus/redraft_long.py`. Results 1 to 7 are complete. Result 8 (real decoding) is in progress.
+of `nexus/redraft_long.py`. Results 1 to 8 are complete.
 
 ## The question
 
@@ -177,7 +177,7 @@ the few tokens after it. With the target checking only the switched token and N 
 | Public drafter: more tokens per round | +10.0% | +13.8% | +15.6% | +16.6% | +17.1% | +17.9% |
 | Draft-OPD: more tokens per round | +7.6% | +10.2% | +11.8% | +12.7% | +13.4% | +14.8% |
 
-## Result 8: real decoding (in progress)
+## Result 8: real decoding
 
 Real decoding now checks the first draft and several alternatives in the target's one pass
 (`dflash_generate_redraft`). The first real runs and a timing probe (`nexus/time_check.py`, job
@@ -226,6 +226,22 @@ decoding's answer (`follow` in `dflash_generate_redraft`): every pass is compute
 usual, but what the target says after a token is read from plain decoding's answer, and the rows
 the pass itself decided otherwise are counted. The runs `live-swap-pub-0` and `live-swap-opd-1`
 measure it that way.
+
+**The result (16 long answers per drafter; every setting wrote plain decoding's tokens in all 16).**
+Real tokens per second, and the gain over the plain drafter:
+
+| Setting | Public drafter | beyond 8,000 tokens | Draft-OPD | beyond 8,000 tokens |
+| --- | --- | --- | --- | --- |
+| Plain | 44.2 | 30.4 | 68.8 | 55.8 |
+| The swap (four likely breaks, 3 tokens checked after the switched one) | 50.2 (+13.5%) | +14.3% | 76.0 (+10.4%) | +10.3% |
+| The drafter sees only the last 3,072 tokens (4,096 for Draft-OPD) | 54.8 (+24.0%) | +58.7% | 73.8 (+7.2%) | +18.6% |
+| That window and the swap | 62.0 (+40.2%) | +79.5% | 81.5 (+18.5%) | +30.8% |
+| Add-on weights taught ahead of time | 59.6 (+34.8%) | +71.7% | 73.6 (+7.0%) | +16.6% |
+| Those weights and the swap | 67.2 (+52.1%) | +93.2% | 81.6 (+18.6%) | +29.1% |
+
+A round takes 70 ms on these answers with either drafter. The swap adds 3 ms to it and 18% (public)
+or 15% (Draft-OPD) to the tokens of a round. The swap's gain adds on top of the window and of the
+add-on weights. The window and the add-on weights do not add to each other.
 
 **What is already clean.** Settings without alternatives write plain decoding's text by themselves
 (every answer so far), so their real speed is settled:
