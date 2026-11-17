@@ -102,6 +102,13 @@ costs gain roughly in step with the saving. Choosing the rounds with an early re
 than simply taking every 4th round, although it keeps twice as many updates. The last layer alone
 is not enough.
 
+Second round (jobs `cheap2-opd-0..3`, 100 answers), each against full one-pass learning on the
+same answers, beyond 8,000 tokens: starting to learn only at 2,000 tokens -0.0%, only at 4,000
+tokens -0.3% (so what is learned early is of no use later); every 2nd round -2.8%; only the
+attention weights -0.5% (they carry the whole gain); only the other weights -7.8%; a three times
+larger step on every 4th round is worse than the usual step (-2.0%); sharper attention adds +1.4%
+to learning on every 4th round.
+
 ## Result 4: what a round costs, by the length of the text (Nov 16)
 
 Job `adapt-amount-0` (it ran `nexus/cost_check.py`), RTX A5000, milliseconds.
@@ -124,57 +131,97 @@ a second stream of the same GPU) hides most of its cost while the text is short,
 at 32,000 tokens, where the check already keeps the GPU busy. So that trick helps only where
 learning has little to gain; we do not build it for now.
 
-## Result 5: real tokens per second, with the target in the loop (Nov 16, still running)
+## Result 5: real tokens per second, with the target in the loop (Nov 16-17)
 
 `nexus/live_speed.py` decodes the same prompts once per setting. Prompts: validation prompts
 whose saved answers are at least 8,000 tokens long. Every setting wrote exactly the plain
-drafter's tokens. Gains are tokens per second over the plain drafter, by how far into the answer
-the round began.
+drafter's tokens (decoding is lossless). Gains are tokens per second over the plain drafter, by
+how far into the answer the round began; "16k+" is only the last few hundred tokens of each answer.
 
-Better drafter (job `live-speed-0`, 6 of 8 answers so far; plain: 73.8 tokens per second):
-
-| setting | 0-2k | 2k+ | 8k+ | 16k+ | all |
-|---|---|---|---|---|---|
-| sharper attention (free) | -0.2% | +4.4% | +7.1% | +1.4% | +3.8% |
-| extra weights taught ahead of time, fixed | -1.0% | +12.5% | +17.0% | +9.3% | +10.8% |
-| learning on every round (one pass) | -26.6% | -9.7% | +0.2% | +31.1% | -12.0% |
-| learning on every 4th round | -10.2% | +0.1% | +5.6% | +22.6% | -1.2% |
-
-Public drafter (job `adapt-amount-1`, 2 of 6 answers so far; plain: 38.0 tokens per second):
+Better drafter (job `live-speed-0`, 8 answers; plain: 78.4 tokens per second):
 
 | setting | 0-2k | 2k+ | 8k+ | 16k+ | all |
 |---|---|---|---|---|---|
-| sharper attention (free) | +0.1% | +25.7% | +36.2% | +49.6% | +22.5% |
-| extra weights taught ahead of time, fixed | +8.0% | +58.5% | +83.4% | +121% | +51.3% |
-| learning on every round (one pass) | -23.9% | +17.1% | +40.9% | +75.3% | +11.0% |
-| learning on every 4th round | -8.4% | +31.3% | +54.5% | +105% | +25.8% |
+| sharper attention (free) | -0.2% | +5.0% | +8.0% | +6.7% | +4.4% |
+| extra weights taught ahead of time, fixed | -0.6% | +13.6% | +18.5% | +15.3% | +11.7% |
+| learning on every round (one pass) | -26.4% | -10.0% | -0.2% | +27.9% | -12.3% |
+| learning on every 4th round | -9.9% | +0.7% | +6.9% | +25.4% | -0.6% |
 
-Reading so far. The measured rounds match the cost table (a round with an update is about 22 ms
+Public drafter (job `adapt-amount-1`, 6 answers; plain: 40.8 tokens per second):
+
+| setting | 0-2k | 2k+ | 8k+ | 16k+ | all |
+|---|---|---|---|---|---|
+| sharper attention (free) | -0.0% | +25.3% | +34.6% | +36.0% | +22.2% |
+| extra weights taught ahead of time, fixed | +10.1% | +55.4% | +71.6% | +71.1% | +49.3% |
+| learning on every round (one pass) | -23.6% | +20.5% | +42.3% | +79.8% | +13.9% |
+| learning on every 4th round | -7.8% | +32.9% | +52.6% | +86.3% | +27.3% |
+
+Reading. The measured rounds match the cost table (a round with an update is about 22 ms
 longer). On answers of up to 16,384 tokens, learning on every round is slower than the plain
-drafter overall, and learning on every 4th round is about level with the free rule. The weights
-taught ahead of time are the fastest on both drafters. The one place where learning during the
-answer is ahead of everything else is the last stretch, beyond 16,000 tokens, on the better
-drafter (+31% against +9% for the weights taught ahead of time and +1% for the free rule), but
-that stretch is only a few hundred tokens per answer here, so it is a hint and not a result.
+drafter on the better drafter and behind the free rule on the public one; learning on every 4th
+round is about level with the free rule. The weights taught ahead of time are the fastest on both
+drafters. The one place where learning during the answer is ahead is the last stretch, beyond
+16,000 tokens (better drafter: +25 to +28% against +15% for the weights taught ahead of time and
++7% for the free rule; public drafter: +80 to +86% against +71% and +36%). That stretch is a few
+hundred tokens per answer here, so it is a hint and not a result.
 
-What follows from Results 4 and 5: learning during the answer can pay only far into long answers.
-There the check is slow, so an update is cheap next to it, and the plain drafter has fallen off,
-so there is much to gain; and nothing taught ahead of time on shorter answers reaches there. The
-replays of answers of up to 32,768 tokens (below) test exactly this, including a variant that
-starts to learn only once the answer is 8,000 tokens long.
+## Result 6: a short spell of learning does not last (Nov 17)
+
+Jobs `burst-eval-0..3` (public drafter, 97 answers) and `burst-opd-0..3` (better drafter, 73 of
+100 answers when read). The drafter learns only while the answer is between two lengths and keeps
+what it learned afterwards. Gains beyond 8,000 tokens, over the plain drafter:
+
+| the drafter learns while the answer has ... tokens | public drafter | better drafter |
+|---|---|---|
+| always (for comparison) | +71.3% | +20.0% |
+| never, sharper attention instead (for comparison) | +37.5% | +7.8% |
+| 2,000 to 4,000 | +4.0% | -0.1% |
+| 4,000 to 5,000 | +14.2% | +0.6% |
+| 4,000 to 6,000 | +43.7% | +2.9% |
+| 4,000 to 8,000 | +58.3% | +10.4% |
+| 8,000 to 10,000 | +55.8% | +10.9% |
+| 4,000 to 5,000 and 8,000 to 9,000 | +52.4% | +7.4% |
+
+Reading. What the drafter learns at one length helps at that length and fades as the answer
+grows: learning at 2,000 to 4,000 tokens is worth nothing beyond 8,000. On the public drafter two
+short spells keep about three quarters of the gain; on the better drafter a spell keeps at most
+half of it. So the drafter has to keep learning as the answer grows; one spell is not enough.
+(Fixed weights taught ahead of time do work at every length up to the lengths they were taught
+on, because they were taught on all of those lengths at once.)
+
+## Result 7: the two controls for teaching ahead of time (Nov 17)
+
+Public drafter, 100 validation answers, fixed weights, tokens per round over the plain drafter.
+
+How many answers are needed (jobs `amount2-0..3`): after 10 training answers +22.3%, after 30
++23.4%, after 100 +26.7%, after 150 +27.5%. Ten answers give most of it.
+
+Does it carry over to other kinds of answers (jobs `kinds2-0..3`): weights taught on writing and
+chat only give +24.1% on old AIME problems and +22.2% on hard MATH problems, which they never
+saw (weights taught on math only: +36.5% and +33.1%). On writing and chat everything gains
+little (+0.3% to +4.8%), because those answers are short. So about two thirds of the gain is not
+about the kind of answer at all.
+
+## Where this leaves the main line (Nov 17)
+
+On answers of up to 16,384 tokens, learning during the answer loses in real time to weights that
+were taught once (from as few as ten answers, of any kind) and then kept fixed, on both drafters;
+on the better drafter it also loses to doing nothing. Everything we tried to make it cheap gives
+up gain about in step with the saving. What the drafter learns during an answer is mostly a
+repair of its attention for the current length of the text. Where learning during the answer can
+still win is beyond the lengths that anything taught ahead of time has seen. The replays of the
+benchmark answers of up to 32,768 tokens test that.
 
 ## Still to come
 
-- The rest of the real-speed runs (`live-speed-0`, `adapt-amount-1`).
 - Answers of up to 32,768 new tokens on the benchmark problems (AIME 2024, AIME 2025, hardest
-  MATH-500; 194 answers, 2.2 million tokens, decoded by `bench3-decode-0..3`), replayed with both
-  drafters (`long-eval`, `long-opd`): plain, sharper attention, weights taught ahead of time,
-  learning on every round, on every 4th round, and only once the answer is 8,000 tokens long.
-  The settings were fixed before any of these results existed.
-- A long validation set (`val32-decode`): the validation prompts whose answers hit the old limit,
-  decoded again to 32,768 tokens. Choices about very long answers are made on it, not on the benchmark.
-- Second round on cheap learning (`cheap2-opd`), and the two controls for teaching ahead of time
-  (`kinds2`, `amount2`).
+  MATH-500; 194 answers, 2.2 million tokens), replayed with both drafters (`long-eval`,
+  `long-opd`): plain, sharper attention, weights taught ahead of time, learning on every round,
+  on every 4th round, only once the answer is 8,000 tokens long, and in four short spells. The
+  settings were fixed before any of these results existed.
+- The long validation set (`val32-decode`: 12 validation answers of up to 32,768 tokens) replayed
+  with both drafters (`tune32-opd`, `tune32-eval`): choices about very long answers are made on
+  it, among them fixed weights that start to learn at 16,000 tokens.
 - Gate on Dec 6: continue only if learning during the answer shows a clear gain in real speed
   on the better drafter; otherwise stop and write up what the measurements show.
 
