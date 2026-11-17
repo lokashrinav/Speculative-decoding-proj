@@ -2,8 +2,7 @@
 
 This file records the study of November 17. The numbers come from `nexus/why_report.py` and
 `nexus/why_ceiling.py` on the results of `nexus/why_redraft.py`, and from the whole-answer runs
-of `nexus/redraft_long.py`. Results 1 to 7 are complete. Result 8 (real decoding) is a first look:
-its runs are still going and one of its findings led to a change in the code.
+of `nexus/redraft_long.py`. Results 1 to 7 are complete. Result 8 (real decoding) is in progress.
 
 ## The question
 
@@ -178,49 +177,66 @@ the few tokens after it. With the target checking only the switched token and N 
 | Public drafter: more tokens per round | +10.0% | +13.8% | +15.6% | +16.6% | +17.1% | +17.9% |
 | Draft-OPD: more tokens per round | +7.6% | +10.2% | +11.8% | +12.7% | +13.4% | +14.8% |
 
-## Result 8: real decoding (first look)
+## Result 8: real decoding (in progress)
 
 Real decoding now checks the first draft and several alternatives in the target's one pass
-(`dflash_generate_redraft`). The first real runs (`nexus/results/long-opd-0b` and `-1b`, three and
-five answers when this was written) showed two things that the replay could not show.
+(`dflash_generate_redraft`). The first real runs and a timing probe (`nexus/time_check.py`, job
+`time-check-0`) showed two things that the replay could not show.
 
-**The tokens were not plain decoding's tokens.** Every run with alternatives wrote a different
-token from plain decoding somewhere in the first 150 to 550 tokens, and from there on a different
-answer. The places were the same for both drafters on the same prompt (token 147 of the first
-prompt, for example). On the rows of an alternative the target's numbers are summed in another
-order than plain decoding sums them. In 16-bit arithmetic that can change the last bit, and with it
-the first choice between two nearly tied tokens. A small check on the tiny test models in 16 bits
-shows the same thing: rows of an alternative are not always bit-equal to the same tokens read in
-order, while the rows of the first draft always are. Every draft tree has this property, so it is
-worth knowing for DDTree-style methods as well.
+**What the larger check costs.** The target's check on an RTX A5000, by how much text came before
+(median of 15 passes, in ms):
 
-The fix is in the code now (`recheck`, on by default). Tokens accepted on an alternative's rows
-are read by the target a second time anyway, in order, at the front of the next pass. If the
-target disagrees there, decoding goes back to that token and takes the target's choice. The tests
-flip the target's choice on alternative rows on purpose and get plain decoding's tokens back.
-Whether this gives plain decoding's tokens on the GPU is what the next runs show
-(`live-swap-pub-0`, `live-swap-opd-0`).
+| Text so far (tokens) | 1,000 | 4,000 | 8,000 | 12,000 | 16,000 | 24,000 |
+| --- | --- | --- | --- | --- | --- | --- |
+| The first draft alone (16 tokens) | 48.5 | 48.5 | 54.8 | 73.9 | 97.3 | 135.9 |
+| With four alternatives of 4 tokens (32 tokens) | 48.4 | 48.6 | 56.9 | 76.3 | 100.0 | 139.4 |
+| With four alternatives to the end of the block (54 tokens) | 49.4 | 49.5 | 59.8 | 79.7 | 103.9 | 144.6 |
 
-**The larger check is not free on long text.** Because the text differs between settings in these
-first runs, the numbers are rough, but the pattern is clear.
+The swap with a tail of 3 costs nothing up to 4,000 tokens of text and 2 to 3.5 ms more per round
+beyond 8,000. The mask costs nothing: 32 tokens read in order take the same time as the 32 tokens
+of the swap, and writing the mask takes 0.4 ms.
 
-| Public drafter, three answers | Under 2,000 tokens of text | Beyond 2,000 tokens |
+**The text is plain decoding's text only up to nearly tied tokens.** Every free-running run with
+alternatives wrote a different token from plain decoding somewhere in the first 150 to 550 tokens,
+and from there on a different answer, often of a very different length. The probe shows why. On
+4,480 rows (640 at each of seven text lengths), compared with the same tokens read in a pass of
+plain decoding's shape:
+
+| Rows | Bit-equal | First choice differs |
 | --- | --- | --- |
-| Plain: time per round | 61.8 ms | 67.5 ms |
-| Swap, tail of 3: time per round | 64.1 ms | 80.6 ms |
-| Swap, tail of 3: tokens per round | +19.2% | +14.5% |
-| Swap, tail of 3: tokens per second | +15.0% | −4.0% |
-| Real second run at the same breaks: tokens per second | +1.0% | +2.0% |
+| The first draft's 16 rows, with the mask written out | all | 0 |
+| The first draft's 16 rows, with alternatives after them in the pass | none | 17 (0.4%) |
+| The rows of the alternatives | none | 39 (0.9%) |
 
-On short text the swap is a real gain: 15% more tokens per second for 2 ms more per round, where a
-real second run gains 1%. On long text the check with alternatives takes about 9 to 17 ms longer,
-and that eats the gain. The extra time is the same for 32 and for 64 tokens checked, so it is not
-the number of tokens. `nexus/time_check.py` (job `time-check-0`) times the check in each form to
-find where it goes.
+In 16-bit arithmetic a pass with more rows rounds every row differently. Where the first choice
+changed, the target's two best tokens were never more than 0.25 apart, which is two steps of the
+16-bit scale at that size. So about one token in a hundred is a coin toss between two tokens, and
+any change in the shape of the pass can flip it. This holds for every method that checks a tree of
+drafts in one pass, and it means that "the same text as plain decoding" cannot be promised bit for
+bit in 16 bits, only "the target's first choice in the pass that checked it".
 
-The add-on weights for long answers are a clean result even in these first runs, because they
-change no token: 66.3 against 49.9 tokens per second (+33%) on the public drafter, with plain
-decoding's tokens on all three answers.
+An attempt to repair this (`recheck`: let the second, in-order reading of the tokens accepted on
+an alternative's rows decide) does not give plain decoding's text on the GPU, because that second
+reading is itself a pass of another shape (job `live-swap-opd-0`). It is off by default.
+
+**How speed is measured from here on.** Settings that write different text cannot be compared: the
+first runs seemed to show the swap 4% slower beyond 2,000 tokens, and that came from the settings
+having written answers of different lengths. Now the settings with alternatives follow plain
+decoding's answer (`follow` in `dflash_generate_redraft`): every pass is computed and timed as
+usual, but what the target says after a token is read from plain decoding's answer, and the rows
+the pass itself decided otherwise are counted. The runs `live-swap-pub-0` and `live-swap-opd-1`
+measure it that way.
+
+**What is already clean.** Settings without alternatives write plain decoding's text by themselves
+(every answer so far), so their real speed is settled:
+
+| Setting, real tokens per second against the plain drafter | All text | Beyond 8,000 tokens |
+| --- | --- | --- |
+| Public drafter, add-on weights off-a (8 answers) | +34% | +83% |
+| Public drafter, sharper attention (8 answers) | +14% | +36% |
+| Draft-OPD, add-on weights opd-g (12 answers) | +8% | +17% |
+| Draft-OPD, sharper attention (12 answers) | +3% | +7% |
+| Draft-OPD, the drafter sees only the last 4,096 tokens (3 answers) | +6% | +15% |
 
 ## What the first draft's mistakes look like
 
@@ -247,8 +263,8 @@ blur after it. The next round, with the target's hidden states, is sharp again f
    not the target's hidden states. This is well supported: with the right token in place, the
    rewritten rest adds 0.09 tokens and the target's real hidden states add 1.39 more.
 3. A trained second drafter adds one real thing: a better alternative token (45.4% against 36.1%).
-4. More accepted tokens are not yet more speed. In real decoding the swap is faster on short text
-   and, as the code stands, not on long text (Result 8).
+4. What the swap is worth in real time is not measured yet. Its check costs little (Result 8),
+   and the runs that time every setting on the same text are under way.
 
 The limits of the study: one target model, greedy decoding, one kind of text (long thinking
 answers), second drafters trained by us in October on short text, and replay in place of live
