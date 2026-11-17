@@ -1,5 +1,487 @@
 {
  "done": false,
- "answers": 0,
- "answers_to_learn_from": 366
+ "answers": 22,
+ "answers_to_learn_from": 366,
+ "part": "train",
+ "hours": 0.086,
+ "draft": "z-lab/Qwen3-4B-DFlash-b16",
+ "fixed": "",
+ "sharp": false,
+ "saved_adapters_used": {},
+ "save": "pub-b0",
+ "rate": 0.0003,
+ "loss": "tokens",
+ "every": 8,
+ "parameters": 11024896,
+ "vector_weight": 2.0,
+ "where": "breaks",
+ "one_token_earlier_too": true,
+ "passes": 2,
+ "start_from": "",
+ "curve": [
+  {
+   "answers": 1,
+   "rounds": 225,
+   "examples": 1111,
+   "steps": 28,
+   "loss_by_tokens": 3.3275,
+   "loss": 1.20964,
+   "likeness_to_the_real_vector": 0.079,
+   "tokens_right_after_the_restart": 1.013,
+   "on_the_same_rounds": {
+    "rounds": 56,
+    "predicted": 1.071,
+    "real": 3.946,
+    "none": 1.179
+   },
+   "one_token_earlier": {
+    "rounds": 49,
+    "predicted": 0.653,
+    "real": 2.939
+   }
+  },
+  {
+   "answers": 2,
+   "rounds": 308,
+   "examples": 1315,
+   "steps": 38,
+   "loss_by_tokens": 5.2423,
+   "loss": 1.16998,
+   "likeness_to_the_real_vector": 0.0547,
+   "tokens_right_after_the_restart": 0.361,
+   "on_the_same_rounds": {
+    "rounds": 21,
+    "predicted": 0.429,
+    "real": 1.19,
+    "none": 0.381
+   },
+   "one_token_earlier": {
+    "rounds": 10,
+    "predicted": 0.2,
+    "real": 1.0
+   }
+  },
+  {
+   "answers": 3,
+   "rounds": 392,
+   "examples": 1624,
+   "steps": 49,
+   "loss_by_tokens": 3.9001,
+   "loss": 1.04475,
+   "likeness_to_the_real_vector": 0.0872,
+   "tokens_right_after_the_restart": 0.786,
+   "on_the_same_rounds": {
+    "rounds": 21,
+    "predicted": 0.952,
+    "real": 2.571,
+    "none": 0.667
+   },
+   "one_token_earlier": {
+    "rounds": 16,
+    "predicted": 0.438,
+    "real": 1.688
+   }
+  },
+  {
+   "answers": 4,
+   "rounds": 642,
+   "examples": 2735,
+   "steps": 80,
+   "loss_by_tokens": 3.1821,
+   "loss": 0.90828,
+   "likeness_to_the_real_vector": 0.1391,
+   "tokens_right_after_the_restart": 1.084,
+   "on_the_same_rounds": {
+    "rounds": 62,
+    "predicted": 1.0,
+    "real": 3.323,
+    "none": 0.435
+   },
+   "one_token_earlier": {
+    "rounds": 48,
+    "predicted": 0.646,
+    "real": 2.0
+   }
+  },
+  {
+   "answers": 5,
+   "rounds": 752,
+   "examples": 3189,
+   "steps": 94,
+   "loss_by_tokens": 4.434,
+   "loss": 0.8745,
+   "likeness_to_the_real_vector": 0.0944,
+   "tokens_right_after_the_restart": 0.736,
+   "on_the_same_rounds": {
+    "rounds": 28,
+    "predicted": 0.857,
+    "real": 2.643,
+    "none": 0.786
+   },
+   "one_token_earlier": {
+    "rounds": 23,
+    "predicted": 0.435,
+    "real": 2.522
+   }
+  },
+  {
+   "answers": 6,
+   "rounds": 1142,
+   "examples": 5096,
+   "steps": 142,
+   "loss_by_tokens": 3.2817,
+   "loss": 0.76361,
+   "likeness_to_the_real_vector": 0.1659,
+   "tokens_right_after_the_restart": 1.226,
+   "on_the_same_rounds": {
+    "rounds": 97,
+    "predicted": 1.113,
+    "real": 3.247,
+    "none": 0.732
+   },
+   "one_token_earlier": {
+    "rounds": 80,
+    "predicted": 0.738,
+    "real": 2.737
+   }
+  },
+  {
+   "answers": 7,
+   "rounds": 1323,
+   "examples": 6084,
+   "steps": 165,
+   "loss_by_tokens": 3.219,
+   "loss": 0.69699,
+   "likeness_to_the_real_vector": 0.1604,
+   "tokens_right_after_the_restart": 1.215,
+   "on_the_same_rounds": {
+    "rounds": 45,
+    "predicted": 1.133,
+    "real": 3.911,
+    "none": 1.0
+   },
+   "one_token_earlier": {
+    "rounds": 40,
+    "predicted": 0.775,
+    "real": 2.65
+   }
+  },
+  {
+   "answers": 8,
+   "rounds": 1486,
+   "examples": 6690,
+   "steps": 185,
+   "loss_by_tokens": 3.416,
+   "loss": 0.68481,
+   "likeness_to_the_real_vector": 0.1855,
+   "tokens_right_after_the_restart": 1.227,
+   "on_the_same_rounds": {
+    "rounds": 41,
+    "predicted": 0.854,
+    "real": 2.366,
+    "none": 0.415
+   },
+   "one_token_earlier": {
+    "rounds": 34,
+    "predicted": 0.618,
+    "real": 1.382
+   }
+  },
+  {
+   "answers": 9,
+   "rounds": 1740,
+   "examples": 7820,
+   "steps": 217,
+   "loss_by_tokens": 3.0739,
+   "loss": 0.65243,
+   "likeness_to_the_real_vector": 0.1917,
+   "tokens_right_after_the_restart": 1.22,
+   "on_the_same_rounds": {
+    "rounds": 64,
+    "predicted": 1.062,
+    "real": 2.797,
+    "none": 0.625
+   },
+   "one_token_earlier": {
+    "rounds": 51,
+    "predicted": 0.804,
+    "real": 2.373
+   }
+  },
+  {
+   "answers": 10,
+   "rounds": 2016,
+   "examples": 9033,
+   "steps": 252,
+   "loss_by_tokens": 3.0875,
+   "loss": 0.60954,
+   "likeness_to_the_real_vector": 0.1882,
+   "tokens_right_after_the_restart": 1.275,
+   "on_the_same_rounds": {
+    "rounds": 69,
+    "predicted": 1.406,
+    "real": 3.13,
+    "none": 0.797
+   },
+   "one_token_earlier": {
+    "rounds": 58,
+    "predicted": 0.362,
+    "real": 1.586
+   }
+  },
+  {
+   "answers": 11,
+   "rounds": 2320,
+   "examples": 10374,
+   "steps": 290,
+   "loss_by_tokens": 3.3149,
+   "loss": 0.60371,
+   "likeness_to_the_real_vector": 0.184,
+   "tokens_right_after_the_restart": 1.217,
+   "on_the_same_rounds": {
+    "rounds": 76,
+    "predicted": 1.447,
+    "real": 2.671,
+    "none": 0.487
+   },
+   "one_token_earlier": {
+    "rounds": 64,
+    "predicted": 0.875,
+    "real": 1.812
+   }
+  },
+  {
+   "answers": 12,
+   "rounds": 2569,
+   "examples": 11469,
+   "steps": 321,
+   "loss_by_tokens": 3.4561,
+   "loss": 0.60201,
+   "likeness_to_the_real_vector": 0.1855,
+   "tokens_right_after_the_restart": 1.181,
+   "on_the_same_rounds": {
+    "rounds": 62,
+    "predicted": 1.419,
+    "real": 2.968,
+    "none": 0.806
+   },
+   "one_token_earlier": {
+    "rounds": 52,
+    "predicted": 0.385,
+    "real": 2.308
+   }
+  },
+  {
+   "answers": 13,
+   "rounds": 2727,
+   "examples": 12022,
+   "steps": 340,
+   "loss_by_tokens": 4.4163,
+   "loss": 0.61379,
+   "likeness_to_the_real_vector": 0.1394,
+   "tokens_right_after_the_restart": 0.797,
+   "on_the_same_rounds": {
+    "rounds": 39,
+    "predicted": 0.667,
+    "real": 2.231,
+    "none": 0.41
+   },
+   "one_token_earlier": {
+    "rounds": 31,
+    "predicted": 0.258,
+    "real": 1.677
+   }
+  },
+  {
+   "answers": 14,
+   "rounds": 2802,
+   "examples": 12160,
+   "steps": 350,
+   "loss_by_tokens": 4.8603,
+   "loss": 0.61371,
+   "likeness_to_the_real_vector": 0.1602,
+   "tokens_right_after_the_restart": 0.573,
+   "on_the_same_rounds": {
+    "rounds": 19,
+    "predicted": 0.316,
+    "real": 0.947,
+    "none": 0.053
+   },
+   "one_token_earlier": {
+    "rounds": 12,
+    "predicted": 1.083,
+    "real": 1.167
+   }
+  },
+  {
+   "answers": 15,
+   "rounds": 3379,
+   "examples": 15859,
+   "steps": 422,
+   "loss_by_tokens": 2.2792,
+   "loss": 0.53166,
+   "likeness_to_the_real_vector": 0.2215,
+   "tokens_right_after_the_restart": 1.745,
+   "on_the_same_rounds": {
+    "rounds": 144,
+    "predicted": 1.951,
+    "real": 5.181,
+    "none": 1.153
+   },
+   "one_token_earlier": {
+    "rounds": 127,
+    "predicted": 0.559,
+    "real": 4.039
+   }
+  },
+  {
+   "answers": 16,
+   "rounds": 3441,
+   "examples": 16016,
+   "steps": 430,
+   "loss_by_tokens": 4.4754,
+   "loss": 0.57476,
+   "likeness_to_the_real_vector": 0.1506,
+   "tokens_right_after_the_restart": 0.903,
+   "on_the_same_rounds": {
+    "rounds": 16,
+    "predicted": 1.625,
+    "real": 1.625,
+    "none": 0.75
+   },
+   "one_token_earlier": {
+    "rounds": 9,
+    "predicted": 0.0,
+    "real": 0.889
+   }
+  },
+  {
+   "answers": 17,
+   "rounds": 3849,
+   "examples": 17646,
+   "steps": 481,
+   "loss_by_tokens": 3.1838,
+   "loss": 0.50029,
+   "likeness_to_the_real_vector": 0.2219,
+   "tokens_right_after_the_restart": 1.279,
+   "on_the_same_rounds": {
+    "rounds": 102,
+    "predicted": 1.51,
+    "real": 2.833,
+    "none": 0.98
+   },
+   "one_token_earlier": {
+    "rounds": 75,
+    "predicted": 0.787,
+    "real": 2.133
+   }
+  },
+  {
+   "answers": 18,
+   "rounds": 4055,
+   "examples": 18551,
+   "steps": 506,
+   "loss_by_tokens": 3.93,
+   "loss": 0.53061,
+   "likeness_to_the_real_vector": 0.1898,
+   "tokens_right_after_the_restart": 0.971,
+   "on_the_same_rounds": {
+    "rounds": 51,
+    "predicted": 0.824,
+    "real": 3.078,
+    "none": 0.608
+   },
+   "one_token_earlier": {
+    "rounds": 42,
+    "predicted": 0.357,
+    "real": 2.595
+   }
+  },
+  {
+   "answers": 19,
+   "rounds": 4124,
+   "examples": 18705,
+   "steps": 515,
+   "loss_by_tokens": 4.7547,
+   "loss": 0.53569,
+   "likeness_to_the_real_vector": 0.1717,
+   "tokens_right_after_the_restart": 0.464,
+   "on_the_same_rounds": {
+    "rounds": 18,
+    "predicted": 0.611,
+    "real": 1.611,
+    "none": 0.222
+   },
+   "one_token_earlier": {
+    "rounds": 13,
+    "predicted": 0.0,
+    "real": 0.692
+   }
+  },
+  {
+   "answers": 20,
+   "rounds": 4697,
+   "examples": 21234,
+   "steps": 587,
+   "loss_by_tokens": 3.0592,
+   "loss": 0.46276,
+   "likeness_to_the_real_vector": 0.245,
+   "tokens_right_after_the_restart": 1.328,
+   "on_the_same_rounds": {
+    "rounds": 143,
+    "predicted": 1.343,
+    "real": 3.266,
+    "none": 0.888
+   },
+   "one_token_earlier": {
+    "rounds": 117,
+    "predicted": 0.709,
+    "real": 2.325
+   }
+  },
+  {
+   "answers": 21,
+   "rounds": 4841,
+   "examples": 21584,
+   "steps": 605,
+   "loss_by_tokens": 4.216,
+   "loss": 0.50756,
+   "likeness_to_the_real_vector": 0.1764,
+   "tokens_right_after_the_restart": 0.667,
+   "on_the_same_rounds": {
+    "rounds": 36,
+    "predicted": 1.028,
+    "real": 2.222,
+    "none": 0.722
+   },
+   "one_token_earlier": {
+    "rounds": 25,
+    "predicted": 1.12,
+    "real": 2.12
+   }
+  },
+  {
+   "answers": 22,
+   "rounds": 4905,
+   "examples": 21715,
+   "steps": 613,
+   "loss_by_tokens": 5.0279,
+   "loss": 0.53748,
+   "likeness_to_the_real_vector": 0.171,
+   "tokens_right_after_the_restart": 0.391,
+   "on_the_same_rounds": {
+    "rounds": 16,
+    "predicted": 0.438,
+    "real": 0.812,
+    "none": 0.188
+   },
+   "one_token_earlier": {
+    "rounds": 7,
+    "predicted": 0.143,
+    "real": 0.143
+   }
+  }
+ ],
+ "restart_after_the_break": null,
+ "gpu_memory_peak_gb": 12.04
 }
