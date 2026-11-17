@@ -4,8 +4,9 @@ adapt-amount-0: cost_check.py --data-dir ~/specdec-data/long1
 adapt-amount-1: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 8000 --max-answers 6 --max-hours 3.2 --settings plain,plain:sharp,frozen@off-a,immediate:3e-4:onepass,immediate:3e-4:onepass:stride=4
 # Does the public drafter fall off on long answers only because it sees more text than it was trained on
 # (3,072 tokens)? The 100 validation answers with the drafter seeing only the last N tokens.
-# (The results are in nexus/results/long-opd-3: they are NOT part of the long-opd family.)
-long-opd-3: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 9 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
+# (Moved from long-opd-3 to tune32-eval-0, whose tuning run is no longer needed first. The results are in
+# nexus/results/tune32-eval-0: they are NOT part of the tune32-eval family.)
+tune32-eval-0: adapt_drafter.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --max-hours 6.5 --settings plain,plain:window=1024,plain:window=2048,plain:window=3072,plain:window=4096,plain:window=8192
 # Running the drafter more than once in a round (nexus/redraft_long.py), on 50 of the 100 validation
 # answers (up to 16,384 tokens), public drafter. The benchmark shards these three jobs were queued
 # for are queued again as long-opd-0b, -1b and -2b.
@@ -18,3 +19,7 @@ long-opd-1: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --
 # 3. on top of what already repairs the drafter on long answers: the add-on weights trained ahead of
 #    time (off-a), and sharper attention
 long-opd-2: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --time-passes 1000,4000,8000,16000 --settings plain,plain+fixed@off-a,branches4+fixed@off-a,branches4l+fixed@off-a,branches4e+fixed@off-a,truebreake+fixed@off-a,plain+sharp,branches4e+sharp
+# 4. the control for the switch at the break: NO second pass, only the first draft with its second choice
+#    at each likely break (branchesKs), next to the redraft that knows the switch (branchesKe), on the
+#    same 50 answers; and how many breaks are needed
+long-opd-3: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --num-shards 2 --shard 0 --max-hours 9 --settings plain,branches4s,branches15s,truebreaks,branches4e,truebreake,branches1e,branches2e

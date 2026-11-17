@@ -402,3 +402,47 @@ def test_masked_attention_without_copies_is_the_librarys_attention():
     again = _masked_attention(q, changed, v, visible[None, None], scaling)
     assert blind.any() and torch.allclose(again[:, :, blind], ours[:, :, blind], atol=1e-12)
     assert not torch.allclose(again[:, :, ~blind], ours[:, :, ~blind], atol=1e-6)
+
+
+def test_the_switch_alone_is_the_first_draft_with_its_second_choice_at_the_break():
+    """The control without a second pass: nothing but one token of the first draft changes."""
+    from nexus.redraft_long import make_method
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    ids = plain.output_ids
+    watch, early = Record(Branches(k=3, differ="switch")), Record(Branches(k=3, differ="early"))
+    passes = []
+    forward = draft.forward
+
+    def counted(*args, **kwargs):
+        passes.append(1)
+        return forward(*args, **kwargs)
+
+    draft.forward = counted
+    try:
+        result = replay_decode(draft, target, ids, length, ended=False, improver=watch, block_size=BLOCK)
+        assert len(passes) == result.rounds                                    # one pass per round: the first draft
+    finally:
+        draft.forward = forward
+    replay_decode(draft, target, ids, length, ended=False, improver=early, block_size=BLOCK)
+    assert result.alternative_wins > 0
+    for round_ in watch.rounds:
+        second_choice = round_.logits[0].topk(2, dim=-1).indices[:, 1]
+        for row, at in zip(round_.drafts, round_.kept):
+            expected = round_.first[0].clone()
+            expected[at + 1] = second_choice[at]
+            assert torch.equal(row, expected)
+    # The redraft that knows the switch starts from the same rows and may change only what follows the switch.
+    first = {round_.start: round_ for round_ in early.rounds}
+    compared = 0
+    for round_ in watch.rounds:
+        other = first.get(round_.start)
+        if other is None or other.kept != round_.kept:
+            continue
+        for row, redrafted, at in zip(round_.drafts, other.drafts, round_.kept):
+            assert torch.equal(row[: at + 2], redrafted[: at + 2])
+            compared += 1
+    assert compared > 5
+    switch = make_method("branches4s", "/nowhere")
+    assert isinstance(switch, Branches) and switch.differ == "switch" and make_method("truebreaks", "/nowhere").differ == "switch"

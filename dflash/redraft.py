@@ -230,6 +230,10 @@ class Branches:
                after it come from the same pass, so they do not know the switch.
       "early"  the first draft's own second choice for token i + 1 is put there before the pass,
                which then fills in the rest knowing the switch.
+      "switch" NO second pass at all: the first draft with its own second choice at token i + 1 and
+               everything else as it was drafted. This is what branching on the drafter's second
+               choices gives without running it again (a small draft tree): the control that
+               shows what the redraft pass itself adds to "early".
     With differ the same drafter can also take i = 0: its second choice for the first token is
     shown and the rest is filled in ("late" does this too: the pass has nothing new to go on there).
     Several alternative drafts are scored in replay only (dflash/replay.py).
@@ -238,8 +242,8 @@ class Branches:
     def __init__(self, k: int = 4, model: nn.Module | None = None, differ: str | None = None, together: bool = True):
         if k < 1:
             raise ValueError("k must be at least 1")
-        if differ not in (None, "late", "early"):
-            raise ValueError("differ must be None, 'late' or 'early'")
+        if differ not in (None, "late", "early", "switch"):
+            raise ValueError("differ must be None, 'late', 'early' or 'switch'")
         self.k = k
         self.differ = differ
         self.together = together
@@ -277,7 +281,7 @@ def redrafts_from(inner: SelfRedraft, s: SimpleNamespace, breaks: list[int], dif
     at = torch.tensor(breaks, device=device)
     blocks, keeps = s.block_ids.repeat(count, 1), at.clone()
     early = torch.zeros(count, dtype=torch.bool, device=device)
-    if differ == "early":
+    if differ in ("early", "switch"):
         early[:] = True
     elif differ == "late" and inner.model is None:
         early = at == 0
@@ -285,6 +289,9 @@ def redrafts_from(inner: SelfRedraft, s: SimpleNamespace, breaks: list[int], dif
         second_choice = s.draft_logits[0].topk(2, dim=-1).indices[:, 1]       # of draft tokens 1, 2, ...
         blocks[rows[early], at[early] + 1] = second_choice[at[early]]
         keeps = keeps + early.long()
+    if differ == "switch":                      # the drafter is not run again
+        inner.skip(s)
+        return blocks
     drafter = s.first_drafter if inner.model is None else inner.model
     if together and count > 1 and _batches(drafter):
         drafts, logits = inner.redraft_together(s, keeps.tolist(), blocks)

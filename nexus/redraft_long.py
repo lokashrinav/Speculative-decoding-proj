@@ -15,8 +15,11 @@ Methods (comma-separated):
   branchesKl, branchesKe the same, and each redraft is made to differ from the first draft right at
                          its break: l(ate) takes its best other token there, e(arly) is shown the first
                          draft's second choice there before the pass (dflash/redraft.py: Branches)
+  branchesKs             NO second pass: the first draft with its second choice at each of the K likely
+                         breaks and nothing else changed. The control for branchesKe: what the
+                         redraft pass adds on top of the switch (truebreaks: the same at the true break)
   chainD                 D drafts in all, each redraft from the likely break of the one before it
-  truebreak, truebreakl, truebreake
+  truebreak, truebreakl, truebreake, truebreaks
                          one redraft from where the target really rejects the first draft. Decoding
                          cannot know that place: this is the most that finding the break could give.
   ckpt:NAME:MODE         a saved second drafter (nexus/train_redraft.py), MODE keep0, keep1 or edit
@@ -137,15 +140,16 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"self-keep(\d+|confidence)", body)
     if found:
         return SelfRedraft(model=model, keep=found[1] if found[1] == "confidence" else int(found[1]))
-    found = re.fullmatch(r"branches(\d+)([le]?)", body)
+    kinds = {"": None, "l": "late", "e": "early", "s": "switch"}
+    found = re.fullmatch(r"branches(\d+)([les]?)", body)
     if found:
-        return Branches(k=int(found[1]), model=model, differ={"": None, "l": "late", "e": "early"}[found[2]])
+        return Branches(k=int(found[1]), model=model, differ=kinds[found[2]])
     found = re.fullmatch(r"chain(\d+)", body)
     if found:
         return Chain(depth=int(found[1]), model=model)
-    found = re.fullmatch(r"truebreak([le]?)", body)
+    found = re.fullmatch(r"truebreak([les]?)", body)
     if found:
-        return TrueBreak(model=model, differ={"": None, "l": "late", "e": "early"}[found[1]])
+        return TrueBreak(model=model, differ=kinds[found[1]])
     raise ValueError(f"cannot read the method {name}")
 
 
