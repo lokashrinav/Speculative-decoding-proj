@@ -202,6 +202,37 @@ saw (weights taught on math only: +36.5% and +33.1%). On writing and chat everyt
 little (+0.3% to +4.8%), because those answers are short. So about two thirds of the gain is not
 about the kind of answer at all.
 
+## Result 8: benchmark answers of up to 32,768 tokens, public drafter (Nov 17)
+
+All 194 benchmark answers (AIME 2024, AIME 2025, hardest MATH-500; `long-eval-0..3`, replay), with
+the settings fixed beforehand. Tokens per round by how long the answer already is:
+
+| setting | 0-2k | 2k+ | 8k+ | 16k+ | 24k+ |
+|---|---|---|---|---|---|
+| plain | 3.81 | 2.96 | 2.43 | 2.07 | 1.89 |
+| sharper attention, no training | 3.81 | 3.91 | 3.76 | 3.69 | 3.72 |
+| weights taught ahead of time (off-a) | 4.21 | 4.78 | 4.81 | 4.70 | 4.69 |
+| learning on every round | 3.93 | 4.60 | 4.77 | 4.84 | 4.97 |
+| learning once the answer has 8,000 tokens | 3.81 | 4.07 | 4.62 | 4.79 | 4.93 |
+| learning on every 4th round | 3.85 | 4.33 | 4.49 | 4.53 | 4.64 |
+| learning in four short spells | 3.81 | 4.36 | 4.51 | 4.53 | 4.60 |
+
+Beyond 16,000 tokens learning during the answer accepts a little more per round than the weights
+taught ahead of time (+3% at 16k+, +6% at 24k+), and both more than double the plain drafter
+(+127% and +134% at 16k+, +148% and +163% at 24k+; ranges over answers about 7 points either way).
+In real time the order turns around. With the measured costs (Result 4) a round at 24,000 tokens
+takes about 152 ms plain, 154 ms with the fixed weights and 175 ms with an update in it, which
+gives about 12.5, 30.6 and 28.4 tokens per second; at 16,000 tokens about 18.6, 41.5 and 35.9.
+So on the public drafter the weights taught ahead of time are the faster choice at every length,
+also on answers twice as long as any they were taught on (they were taught on answers of up to
+16,384 tokens). Learning on every 4th round costs less time and still does not catch up (4.64
+tokens per round at 24k+ in about 159 ms: 29.1 tokens per second).
+
+The same replays with the better drafter (`long-opd`) were not run: on Nov 17 the question of the
+day became why a second draft helps (docs/WHY_A_SECOND_DRAFT_HELPS.md, to come), and the jobs
+queued for them were given that work. Their benchmark shards are queued again as `long-opd-0b` to
+`long-opd-3b`.
+
 ## Where this leaves the main line (Nov 17)
 
 On answers of up to 16,384 tokens, learning during the answer loses in real time to weights that
