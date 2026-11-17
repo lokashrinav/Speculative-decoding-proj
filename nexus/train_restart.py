@@ -114,13 +114,15 @@ def first_run_states(drafter, target, features, ids, start, low=0, width=16):
                    position_ids=positions)[0]
 
 
-def restart_logits(drafter, target, features, ids, start, written, low=0, width=16):
+def restart_logits(drafter, target, features, ids, start, written, low=0, width=16, anchor=None):
     """What the drafter predicts after the token at start + count when it restarts there, reading the
     target's states of ids[low:start] and `written` ([count, size], as the drafter reads states) for
     the tokens start .. start + count - 1: [width - 1, vocabulary]. Nothing is cached, so a predictor
-    can learn through it; with the real vectors it is the first draft of a round that starts there."""
-    anchor = start + written.shape[0]
-    positions = torch.cat((torch.arange(low, anchor, device=ids.device), torch.arange(anchor, anchor + width, device=ids.device)))[None]
+    can learn through it; with the real vectors it is the first draft of a round that starts there.
+    anchor: where the restart starts when `written` covers fewer tokens than are missing (none: [0, size])."""
+    anchor = start + written.shape[0] if anchor is None else anchor
+    positions = torch.cat((torch.arange(low, start + written.shape[0], device=ids.device),
+                           torch.arange(anchor, anchor + width, device=ids.device)))[None]
     hidden = drafter(target_hidden=features[:, low:start], context_states=written[None],
                      noise_embedding=_block_at(drafter, target, ids, anchor, width), position_ids=positions)
     return drafter.compute_logits(hidden[:, 1:, :], _output_head(target))[0]
@@ -132,9 +134,12 @@ class TeachByTokens:
     # how many tokens of a round the target has not read at a restart: as often as the first draft breaks there
     MISSING = (0.31, 0.24, 0.14, 0.11, 0.08, 0.05, 0.04, 0.03)
 
-    def __init__(self, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8, width=16, seed=0):
+    def __init__(self, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8, width=16, seed=0,
+                 compare_every=4):
         self.predictor, self.optimizer, self.drafter, self.target = predictor, optimizer, drafter, target
         self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
+        self.compare_every = compare_every   # every so many rounds the same restart is also made with the real vectors and with none
+        self.compared = []                   # [tokens right with the predicted vectors, with the real ones, with none]
         self.weights = decay ** torch.arange(width - 1, dtype=torch.float32)
         self.generator = torch.Generator().manual_seed(seed)
         self.rounds = self.examples = self.steps = 0
@@ -178,6 +183,12 @@ class TeachByTokens:
         with torch.no_grad():
             right = (logits.argmax(dim=-1) == answer).long().cumprod(dim=0).sum()
             alike = torch.nn.functional.cosine_similarity(written, real, dim=-1).mean()
+            if self.compare_every and self.rounds % self.compare_every == 0:
+                # The same restart with the real vectors (the limit) and with none: what the predictor is between.
+                others = [restart_logits(self.drafter, self.target, features, ids, start, given.to(written.dtype), low, self.width,
+                                         anchor=start + count) for given in (real, real[:0])]
+                self.compared.append([float(right)] + [float((other.argmax(dim=-1) == answer).long().cumprod(dim=0).sum())
+                                                       for other in others])
         self.recent.append([float(by_tokens.detach()), float(by_vectors.detach()), float(alike), float(right)])
 
     def progress(self):
@@ -185,9 +196,15 @@ class TeachByTokens:
         if not recent:
             return None
         by_tokens, by_vectors, alike, right = (sum(column) / len(recent) for column in zip(*recent))
-        return {"rounds": self.rounds, "examples": self.examples, "steps": self.steps, "loss_by_tokens": round(by_tokens, 4),
-                "loss": round(by_vectors, 5), "likeness_to_the_real_vector": round(alike, 4),
-                "tokens_right_after_the_restart": round(right, 3)}
+        point = {"rounds": self.rounds, "examples": self.examples, "steps": self.steps, "loss_by_tokens": round(by_tokens, 4),
+                 "loss": round(by_vectors, 5), "likeness_to_the_real_vector": round(alike, 4),
+                 "tokens_right_after_the_restart": round(right, 3)}
+        compared, self.compared = self.compared, []
+        if compared:
+            mine, limit, nothing = (sum(column) / len(compared) for column in zip(*compared))
+            point["on_the_same_rounds"] = {"rounds": len(compared), "predicted": round(mine, 3), "real": round(limit, 3),
+                                           "none": round(nothing, 3)}
+        return point
 
 
 def main():
@@ -211,6 +228,7 @@ def main():
     parser.add_argument("--hidden", type=int, default=1024)
     parser.add_argument("--max-hours", type=float, default=3.0, help="of training; the measurement comes after")
     parser.add_argument("--max-answers", type=int, default=0, help="train on at most this many answers")
+    parser.add_argument("--passes", type=int, default=1, help="times it goes through the answers (other rounds of them each time)")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens")
     parser.add_argument("--check-answers", type=int, default=12, help="validation answers the restart is measured on afterwards")
     parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"))
@@ -265,7 +283,7 @@ def main():
         replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=plug_in, block_size=16)
 
     learned = 0
-    for name, index, sequence, prompt_length, source in answers:
+    for name, index, sequence, prompt_length, source in [entry for _ in range(max(args.passes, 1)) for entry in answers]:
         if time.time() - started > args.max_hours * 3600 or (args.max_answers and learned >= args.max_answers):
             break
         if len(sequence) - prompt_length < 2 or (args.longest and len(sequence) - prompt_length > args.longest):
