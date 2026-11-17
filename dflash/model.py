@@ -173,6 +173,30 @@ def _attention_mask(query, key, *, is_causal, sliding_window):
     return visible[None, None]
 
 
+def _masked_attention(q, k, v, visible, scaling):
+    """Attention under a mask of what each query may see, without a copy of the keys and values
+    for every query head. (The library's call makes those copies whenever a mask is given, and on
+    a long context they cost more than the attention itself.)
+
+    q: (batch, heads, queries, size); k, v: (batch, key heads, keys, size), each key head serving
+    heads / key heads query heads; visible: (queries, keys) or anything that broadcasts from
+    (1, 1, queries, keys). Returns (batch, heads, queries, size)."""
+    batch, heads, queries, size = q.shape
+    key_heads = k.shape[1]
+    per = heads // key_heads
+    q = q.reshape(batch, key_heads, per * queries, size)                 # the query heads of one key head, side by side
+    scores = torch.matmul(q, k.transpose(-1, -2))
+    if scores.dtype not in (torch.float32, torch.float64):             # 16-bit numbers: the weights are worked out in 32
+        scores = scores.float()
+    scores *= scaling
+    visible = visible.reshape(-1, queries, visible.shape[-1])[-1]
+    hidden = (~visible).any(dim=0).nonzero()
+    if hidden.numel():                                                   # only the columns that hide something are touched
+        first = int(hidden[0])
+        scores[..., first:].masked_fill_(~visible[:, first:].repeat(per, 1), float("-inf"))
+    return torch.matmul(scores.softmax(dim=-1).to(v.dtype), v).reshape(batch, heads, queries, size)
+
+
 def _cuda_time() -> float:
     torch.cuda.synchronize()
     return time.perf_counter()
@@ -392,6 +416,9 @@ class Qwen3DFlashAttention(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         bsz, q_len = hidden_states.shape[:-1]
         ctx_len = target_hidden.shape[1]
+        # no_copies: with a mask of true/false, attend without copying the keys for every head
+        # (_masked_attention). Asked for by a pass that redrafts a block several times at once.
+        no_copies = kwargs.pop("no_copies", False)
         q = self.q_proj(hidden_states)
         q = q.view(bsz, q_len, -1, self.head_dim)
         q = self.q_norm(q).transpose(1, 2)
@@ -423,17 +450,21 @@ class Qwen3DFlashAttention(nn.Module):
                 is_causal=self.is_causal,
                 sliding_window=self.sliding_window,
             )
-        attn_output, attn_weights = ALL_ATTENTION_FUNCTIONS["sdpa"](
-            self,
-            q,
-            k,
-            v,
-            attention_mask,
-            dropout=0.0 if not self.training else self.attention_dropout,
-            scaling=self.scaling,
-            sliding_window=self.sliding_window,
-            **kwargs,
-        )
+        if no_copies and attention_mask is not None and attention_mask.dtype == torch.bool and not self.training:
+            attn_output, attn_weights = _masked_attention(q, k, v, attention_mask, self.scaling), None
+            attn_output = attn_output.transpose(1, 2).contiguous()
+        else:
+            attn_output, attn_weights = ALL_ATTENTION_FUNCTIONS["sdpa"](
+                self,
+                q,
+                k,
+                v,
+                attention_mask,
+                dropout=0.0 if not self.training else self.attention_dropout,
+                scaling=self.scaling,
+                sliding_window=self.sliding_window,
+                **kwargs,
+            )
         attn_output = attn_output.reshape(bsz, q_len, -1)
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights

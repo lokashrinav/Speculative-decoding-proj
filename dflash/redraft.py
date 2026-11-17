@@ -183,7 +183,7 @@ class SelfRedraft:
         sees[:, seen:] = copy[:, None] == copy[None, :]
         hidden = drafter(
             target_hidden=context, noise_embedding=noise, position_ids=positions,
-            attention_mask=sees[None, None], past_key_values=cache, use_cache=True,
+            attention_mask=sees[None, None], past_key_values=cache, use_cache=True, no_copies=True,
         )[:, -count * block_len :, :]
         _crop_to(cache, s.start)
         logits = drafter.compute_logits(hidden.reshape(count, block_len, -1)[:, 1:, :], _output_head(s.target))

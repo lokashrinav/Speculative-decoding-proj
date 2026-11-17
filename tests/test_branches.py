@@ -377,3 +377,28 @@ def test_redrafts_are_counted_against_the_saved_answer(differ):
     assert row["faster_than_plain"] <= more + 1e-9
     slower = true_entry["redraft_seconds"][everything] * 1000 / true_entry["check_and_draft_ms"][everything]
     assert abs((1 + row["faster_than_plain"]) * (1 + slower) - (1 + more)) < 1e-6
+
+
+def test_masked_attention_without_copies_is_the_librarys_attention():
+    from dflash.model import _masked_attention
+
+    torch.manual_seed(0)
+    batch, heads, key_heads, queries, keys, size = 1, 6, 2, 5, 11, 4
+    q = torch.randn(batch, heads, queries, size, dtype=torch.float64)
+    k = torch.randn(batch, key_heads, keys, size, dtype=torch.float64)
+    v = torch.randn(batch, key_heads, keys, size, dtype=torch.float64)
+    visible = torch.rand(queries, keys) > 0.4
+    visible[:, 0] = True                                                        # every query sees something
+    scaling = size**-0.5
+    ours = _masked_attention(q, k, v, visible[None, None], scaling)
+    per = heads // key_heads
+    theirs = torch.nn.functional.scaled_dot_product_attention(
+        q, k.repeat_interleave(per, dim=1), v.repeat_interleave(per, dim=1), attn_mask=visible[None, None], scale=scaling)
+    assert ours.shape == theirs.shape and torch.allclose(ours, theirs, atol=1e-12)
+    # A hidden key changes nothing for the queries that cannot see it.
+    changed = k.clone()
+    changed[:, :, 3] += 5.0
+    blind = ~visible[:, 3]
+    again = _masked_attention(q, changed, v, visible[None, None], scaling)
+    assert blind.any() and torch.allclose(again[:, :, blind], ours[:, :, blind], atol=1e-12)
+    assert not torch.allclose(again[:, :, ~blind], ours[:, :, ~blind], atol=1e-6)
