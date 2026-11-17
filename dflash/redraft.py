@@ -379,6 +379,111 @@ class Chain:
         self.inner.roll_back(tokens)
 
 
+def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: list, width: int) -> torch.Tensor:
+    """Several restarts of the first drafter in ONE pass. Restart n starts a block of masks at the
+    token anchors[n], placed at position begin[n], with the context the drafter already has (the
+    target's states of the text before this round) and stand_ins[n]: (states [1, count, D], their
+    positions) or None. A restart sees the context, its own stand-ins and itself. Returns the
+    tokens it writes after its anchor, one row per restart ([restarts, width - 1]), and leaves the
+    drafter's cache as it was."""
+    drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
+    block = torch.full((count, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
+    block[:, 0] = torch.as_tensor(anchors, dtype=block.dtype, device=device)
+    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+    noise = _raw_input_embeddings(s.target, block.reshape(1, -1), scale)
+    slots = torch.arange(width, device=device)
+    seen = s.draft_cache.get_seq_length()
+    given = [entry for entry in stand_ins if entry is not None]
+    extra = sum(states.shape[1] for states, _ in given)
+    context = torch.cat([states for states, _ in given], dim=1) if given else s.context_features[:, :0]
+    positions = torch.cat([where.to(device) for _, where in given] + [start + slots for start in begin])[None]
+    sees = torch.zeros((count * width, seen + extra + count * width), dtype=torch.bool, device=device)
+    sees[:, :seen] = True
+    at = seen
+    for number, entry in enumerate(stand_ins):
+        rows = slice(number * width, (number + 1) * width)
+        sees[rows, seen + extra + number * width : seen + extra + (number + 1) * width] = True
+        if entry is not None:
+            sees[rows, at : at + entry[0].shape[1]] = True
+            at += entry[0].shape[1]
+    hidden = drafter(
+        target_hidden=context.to(s.context_features.dtype), noise_embedding=noise, position_ids=positions,
+        attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True,
+    )[:, -count * width :, :]
+    s.draft_cache.crop(-(extra + count * width))
+    logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
+    return logits.argmax(dim=-1)
+
+
+class Restarts:
+    """A second run that RESTARTS the drafter after each likely break.
+
+    With the right token at the break, what the first draft has after it is rarely right, and a
+    second pass that rewrites it inside the block does little better: the drafter writes well only
+    where it has the target's hidden states of the text before (docs/WHY_A_SECOND_DRAFT_HELPS.md).
+    So this second run does what the next round does. For each of the k most likely breaks (after
+    i accepted draft tokens) it starts a NEW block at the drafter's second choice for token i + 1
+    and writes a whole block after it, all restarts in one drafter pass. The target checks the
+    first draft and, for each restart, [the first i draft tokens, the second choice, the new tokens].
+
+    At the time of the second run the target has not read this round's tokens, so the restart after
+    i tokens lacks the target's states of i + 1 tokens (the block's first token and the i draft
+    tokens). stand_in says what the drafter gets in their place:
+        "none"   nothing (the new block keeps its true positions)
+        "last"   the last state it does have, repeated
+        "real"   the target's real states: only possible in the replay of a saved answer, where it
+                 is the limit of any stand-in (the harness sets .features to the answer's states)
+    swap: also return the swap for every break (the second choice followed by the first draft's old
+    tokens): it costs no drafter pass, and where a stand-in is poor it is the better of the two.
+    tail: the target checks only the second choice and this many tokens after it.
+
+    Returned: rows of [first token, ...] that may be longer than the block (-1 after their end).
+    Scored in replay only so far."""
+
+    def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None):
+        if stand_in not in ("none", "last", "real"):
+            raise ValueError("stand_in must be 'none', 'last' or 'real'")
+        self.k, self.stand_in, self.swap, self.alternative_tail = k, stand_in, swap, tail
+        self.features = None        # the answer's states, for stand_in="real"
+        self.kept = []              # the breaks of the last round, most likely first
+
+    def start(self, first_drafter: nn.Module) -> None:
+        self.kept = []
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        s = round_state
+        width = s.block_ids.shape[1]
+        first = s.draft_logits[0].float()
+        scores = break_scores(first.softmax(dim=-1).amax(dim=-1))[: width - 1]
+        self.kept = scores.topk(min(self.k, scores.shape[0])).indices.tolist()
+        second = first.topk(2, dim=-1).indices[:, 1]
+        device = s.block_ids.device
+        begin, stand_ins = [], []
+        for broke in self.kept:
+            missing = broke + 1
+            places = torch.arange(s.start, s.start + missing, device=device)
+            if self.stand_in == "real":
+                if self.features is None or self.features.shape[1] < s.start + missing:
+                    raise ValueError("stand_in='real' needs the answer's states (replay only)")
+                stand_ins.append((self.features[:, s.start : s.start + missing], places))
+            elif self.stand_in == "last" and s.context_features.shape[1]:
+                stand_ins.append((s.context_features[:, -1:].repeat(1, missing, 1), places))
+            else:
+                stand_ins.append(None)
+            begin.append(s.start + broke + 1)
+        new = restarts(s, [second[broke] for broke in self.kept], begin, stand_ins, width)
+        rows = torch.full(((2 if self.swap else 1) * len(self.kept), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
+        for number, broke in enumerate(self.kept):
+            rows[number, : broke + 1] = s.block_ids[0, : broke + 1]
+            rows[number, broke + 1] = second[broke]
+            rows[number, broke + 2 : broke + 1 + width] = new[number]
+            if self.swap:
+                swapped = rows[len(self.kept) + number]
+                swapped[:width] = s.block_ids[0]
+                swapped[broke + 1] = second[broke]
+        return rows
+
+
 class DraftTree:
     """DDTree (Ringel and Romano, arXiv 2604.12989): a tree of drafts from the first pass alone.
 
@@ -701,6 +806,8 @@ def dflash_generate_redraft(
         # An alternative draft shares everything before its `split` with the first draft; only its
         # tokens from `split` up to `end` are added to the verification pass. [(draft, split, end)]
         branches = []
+        if alternative is not None and alternative.shape[1] != block_len:
+            raise NotImplementedError("drafts that reach past the block (restarts) are scored in replay only")
         if alternative is not None:
             tail = getattr(improver, "alternative_tail", None)
             for row in alternative.unbind(0):

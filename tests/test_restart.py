@@ -3,7 +3,8 @@ import pytest
 import torch
 
 from dflash.replay import _matches, replay_decode
-from nexus.restart_probe import ARMS, COLUMNS, Restart, restarts, summary
+from dflash.redraft import restarts
+from nexus.restart_probe import ARMS, COLUMNS, Restart, summary
 from tests.test_branches import BLOCK, _cpu_clock, answer, make_models  # noqa: F401  (_cpu_clock: a fixture for every test)
 
 
@@ -27,7 +28,7 @@ class Watch:
             before = s.draft_cache.get_seq_length()
             states = self.features[:, s.start : restart]
             places = torch.arange(s.start, restart)
-            both = restarts(s, truth[0, broke], [restart, restart], [(states, places), None], BLOCK)
+            both = restarts(s, [truth[0, broke]] * 2, [restart, restart], [(states, places), None], BLOCK)
             assert s.draft_cache.get_seq_length() == before                   # the drafter's cache is left as it was
             self.restarted[restart] = both
         return None
@@ -90,3 +91,104 @@ def test_the_probe_counts_what_the_target_accepts_after_the_break():
     assert not torch.equal(column["noisy200"], column["real"]) or not torch.equal(column["none"], column["real"])
     out = summary(probe.rows)
     assert out["rounds"] == len(table) and abs(out["all"]["real"] - float(column["real"].float().mean())) < 1e-3
+
+
+class Seen:
+    """Keeps what a plug-in returned in every round, with the round's first draft."""
+
+    def __init__(self, inner):
+        self.inner, self.rounds = inner, []
+        self.alternative_tail = getattr(inner, "alternative_tail", None)
+
+    def start(self, drafter):
+        self.inner.start(drafter)
+
+    def __call__(self, s):
+        rows = self.inner(s)
+        self.rounds.append((s.start, s.block_ids[0].clone(), s.draft_logits[0].clone(), rows.clone(), list(self.inner.kept)))
+        return rows
+
+
+def test_the_restart_second_run_in_the_replay():
+    """Restarts after the likely breaks: the rows are [the first draft up to the break, the second
+    choice, a new block's tokens]; the replay counts the longest row that is the text, also past the
+    block; with the target's real states a restart after a right second choice is the next round's
+    first draft."""
+    from dflash.redraft import Branches, Restarts, dflash_generate_redraft
+    from dflash.replay import target_features
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    watch = Watch(ids, features)
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, improver=watch, block_size=BLOCK)
+
+    real = Restarts(k=3, stand_in="real")
+    real.features = features
+    seen = Seen(real)
+    result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+    assert sum(result.acceptance_lengths) == sum(chain.acceptance_lengths) and result.rounds < chain.rounds
+    at, past_the_block, as_next_round = length, 0, 0
+    for (start, block, logits, rows, kept), produced in zip(seen.rounds, result.acceptance_lengths):
+        width = block.shape[0]                               # the last rounds of a text have a shorter block
+        assert start == at and rows.shape == (len(kept), 2 * width)
+        second = logits.topk(2, dim=-1).indices[:, 1]
+        truth = ids[0, start + 1 : start + 2 * width].tolist()
+        best = 0
+        for row, broke in zip(rows.tolist(), kept):
+            assert row[: broke + 1] == block[: broke + 1].tolist() and row[broke + 1] == int(second[broke])
+            assert all(token >= 0 for token in row[: broke + 1 + width]) and all(token == -1 for token in row[broke + 1 + width :])
+            count = 0
+            while count < len(truth) and row[1 + count] == truth[count]:
+                count += 1
+            best = max(best, count)
+            following = start + broke + 1
+            if width == BLOCK and row[1 : broke + 2] == truth[: broke + 1] and following in watch.first \
+                    and watch.first[following].shape[0] == BLOCK - 1:
+                # the first draft holds up to this break and the second choice is right: plain decoding's next round starts here
+                assert row[broke + 2 : broke + 1 + BLOCK] == watch.first[following].tolist()
+                as_next_round += 1
+        own = 0
+        while own < min(width - 1, len(truth)) and int(block[1 + own]) == truth[own]:
+            own += 1
+        assert produced == min(max(best, own) + 1, ids.shape[1] - start - 1)
+        past_the_block += int(produced > BLOCK)
+        at += produced
+    assert as_next_round > 3
+
+    # Without the states the restarts write other tokens; the swap's rows can be added; a tail shortens the check.
+    bare, repeated = Seen(Restarts(k=3)), Seen(Restarts(k=3, stand_in="last"))
+    none = replay_decode(draft, target, ids, length, ended=False, features=features, improver=bare, block_size=BLOCK)
+    last = replay_decode(draft, target, ids, length, ended=False, features=features, improver=repeated, block_size=BLOCK)
+    with_states = {start: rows for start, _, _, rows, _ in seen.rounds}
+    for other in (bare, repeated):
+        shared = [(rows, with_states[start]) for start, _, _, rows, _ in other.rounds if start in with_states]
+        assert len(shared) > 20 and sum(int(not torch.equal(mine, theirs)) for mine, theirs in shared) > 10
+    assert sum(none.acceptance_lengths) == sum(last.acceptance_lengths) == sum(chain.acceptance_lengths)
+    swap = replay_decode(draft, target, ids, length, ended=False, improver=Branches(k=3, differ="switch"), block_size=BLOCK)
+    both = Seen(Restarts(k=3, swap=True))
+    with_swap = replay_decode(draft, target, ids, length, ended=False, features=features, improver=both, block_size=BLOCK)
+    assert with_swap.rounds <= min(none.rounds, swap.rounds)
+    start, block, logits, rows, kept = both.rounds[0]
+    for number, broke in enumerate(kept):
+        swapped = block.clone()
+        swapped[broke + 1] = logits.topk(2, dim=-1).indices[broke, 1]
+        assert rows[len(kept) + number, :BLOCK].tolist() == swapped.tolist() and int(rows[len(kept) + number, BLOCK:].max()) == -1
+    checked_short = Restarts(k=3, stand_in="real", tail=1)
+    checked_short.features = features
+    short = replay_decode(draft, target, ids, length, ended=False, features=features, improver=checked_short, block_size=BLOCK)
+    assert chain.rounds >= short.rounds >= result.rounds
+    with pytest.raises(NotImplementedError):
+        dflash_generate_redraft(draft, target, ids[:, :length], 40, None, improver=Restarts(k=3), block_size=BLOCK)
+
+
+def test_restart_methods_by_name():
+    from nexus.redraft_long import make_method
+
+    plain = make_method("restart4n", "/nowhere")
+    assert type(plain).__name__ == "Restarts" and plain.k == 4 and plain.stand_in == "none" and not plain.swap
+    limit = make_method("restart4rs", "/nowhere")
+    assert limit.stand_in == "real" and limit.swap and limit.alternative_tail is None
+    short = make_method("restart2lt7", "/nowhere")
+    assert short.k == 2 and short.stand_in == "last" and short.alternative_tail == 7

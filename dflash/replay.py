@@ -55,11 +55,12 @@ def target_features(target, model, ids, chunk=1024, top=0):
 
 def _checked_matches(alternative, block_ids, truth, tail):
     """Tokens the target accepts from an alternative draft. With a tail, only the first token that
-    differs from the first draft and `tail` tokens after it are checked (see dflash_generate_redraft)."""
+    differs from the first draft and `tail` tokens after it are checked (see dflash_generate_redraft).
+    The alternative may reach past the block (a restart): `truth` then has to reach as far."""
     got = _matches(alternative[:, 1:], truth)
     if tail is None:
         return got
-    differs = (alternative != block_ids)[0].nonzero()
+    differs = (alternative[:, : block_ids.shape[1]] != block_ids)[0].nonzero()
     return got if not differs.numel() else min(got, int(differs[0]) + tail)
 
 
@@ -75,6 +76,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         has its edited draft scored; any other alternative draft counts if it gets further.
         A plug-in may return several alternative drafts (one per row): the best one counts. If it
         has alternative_tail = N, only the first differing token of each and N tokens after it count.
+        Alternative drafts may be longer than the block (-1 after their end): a restart writes a
+        block of its own after the break (dflash/redraft.py: Restarts).
         A plug-in with replace = True that returns several rows, or rows that end in -1, gives a
         tree of drafts in place of the first draft (dflash/redraft.py: DraftTree): its best path counts.
     Returns the tokens gained in each round, as dflash_generate_redraft reports them.
@@ -188,10 +191,13 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
             learner.learn(start, own, truth[0, : own + 1], canvas)
             if timers is not None:
                 timers["learn"] = timers.get("learn", 0.0) + _clock(device) - clock
-        if alternative is not None and alternative.shape[1:] == block_ids.shape[1:] \
-                and bool((alternative[:, :1] == block_ids[:, :1]).all()) and bool((alternative != block_ids).any()):
+        if alternative is not None and alternative.shape[1] >= block_len \
+                and bool((alternative[:, :1] == block_ids[:, :1]).all()) \
+                and bool((alternative[:, :block_len] != block_ids).any()):
             rounds_with_alternative += 1
-            other = max(_checked_matches(alternative[row : row + 1], block_ids, truth, getattr(improver, "alternative_tail", None))
+            # An alternative may reach past the block (a restart writes a block of its own after the break).
+            reach = ids[:, start + 1 : start + alternative.shape[1]]
+            other = max(_checked_matches(alternative[row : row + 1], block_ids, reach, getattr(improver, "alternative_tail", None))
                         for row in range(alternative.shape[0]))
             if other > accepted:
                 alternative_wins += 1

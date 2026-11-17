@@ -47,8 +47,7 @@ import torch
 from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adapters
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
-from dflash.model import _draft_value, _output_head, _raw_input_embeddings
-from dflash.redraft import SelfRedraft, break_scores
+from dflash.redraft import SelfRedraft, break_scores, restarts
 from dflash.replay import _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
 from nexus.fit_gate import split_of
@@ -62,41 +61,6 @@ ARMS = ("real", "none", "none_shift", "last", "stale", "mean", "only_nearest", "
     + tuple(f"noisy{level}" for level in NOISE)
 COLUMNS = ("answer", "where", "broke_after", "second_choice_right", "covered", "confidence", "old_rest", "new_rest") + ARMS
 MOST_ROUNDS_PER_FILE = 12000
-
-
-def restarts(s, anchor, begin, stand_ins, width=WIDTH):
-    """Several restarts of the drafter in ONE pass. Each starts a block of masks at the token
-    `anchor`, placed at position begin[n], with the context the drafter already has (the target's
-    states of the text before this round) and stand_ins[n]: (states [1, count, D], their positions)
-    or None. A restart sees the context, its own stand-ins and itself. Returns the tokens it writes
-    after the anchor, one row per restart, and leaves the drafter's cache as it was."""
-    drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
-    block = torch.full((1, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
-    block[0, 0] = anchor
-    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
-    noise = _raw_input_embeddings(s.target, block.repeat(1, count), scale)
-    slots = torch.arange(width, device=device)
-    seen = s.draft_cache.get_seq_length()
-    given = [entry for entry in stand_ins if entry is not None]
-    extra = sum(states.shape[1] for states, _ in given)
-    context = torch.cat([states for states, _ in given], dim=1) if given else s.context_features[:, :0]
-    positions = torch.cat([where for _, where in given] + [start + slots for start in begin])[None]
-    sees = torch.zeros((count * width, seen + extra + count * width), dtype=torch.bool, device=device)
-    sees[:, :seen] = True
-    at = seen
-    for number, entry in enumerate(stand_ins):
-        rows = slice(number * width, (number + 1) * width)
-        sees[rows, seen + extra + number * width : seen + extra + (number + 1) * width] = True
-        if entry is not None:
-            sees[rows, at : at + entry[0].shape[1]] = True
-            at += entry[0].shape[1]
-    hidden = drafter(
-        target_hidden=context.to(s.context_features.dtype), noise_embedding=noise, position_ids=positions,
-        attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True,
-    )[:, -count * width :, :]
-    s.draft_cache.crop(-(extra + count * width))
-    logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
-    return logits.argmax(dim=-1)
 
 
 class Restart:
@@ -164,7 +128,7 @@ class Restart:
         }
         stand_ins.update({f"noisy{level}": (noisy(level), places) for level in NOISE})
         begin = [s.start if name == "none_shift" else restart for name in ARMS]
-        tokens = restarts(s, token, begin, [stand_ins[name] for name in ARMS], full)
+        tokens = restarts(s, [token] * len(ARMS), begin, [stand_ins[name] for name in ARMS], full)
         for number, name in enumerate(ARMS):
             record[name] = _matches(tokens[number : number + 1], after)
         self.rows.append([record[name] for name in COLUMNS])

@@ -20,6 +20,12 @@ Methods (comma-separated):
                          redraft pass adds on top of the switch (truebreaks: the same at the true break)
   branchesKstN           the same, but the target checks only the switched token and the N tokens
                          after it (a shorter check; any branchesK method can end in tN)
+  restartKn, restartKl   a second run that RESTARTS the drafter after each of its K likely breaks, from
+                         its second choice there (dflash/redraft.py: Restarts), with nothing (n) or the
+                         last state repeated (l) in place of the target's states it does not have yet;
+  restartKr              ... with the target's real states: the limit of any stand-in (replay only)
+                         (an s after the letter adds the swap's rows; tN: only the second choice and
+                         N tokens after it are checked)
   treeB                  DDTree (arXiv 2604.12989): the B most probable nodes of the tree that the
                          first pass's distributions span, in place of the first draft (tree15 is a
                          block's worth of nodes; branches4st3 has 15 + 16)
@@ -52,7 +58,7 @@ from dflash.adapt import DraftTrainer, adapter_notes, attach_adapters, load_adap
 from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.model import _crop_to, _draft_value, _make_cache, _output_head, _raw_input_embeddings, extract_context_feature
-from dflash.redraft import Branches, Chain, DraftTree, SelfRedraft, lowest_break, redrafts_from
+from dflash.redraft import Branches, Chain, DraftTree, Restarts, SelfRedraft, lowest_break, redrafts_from
 from dflash.replay import _checked_matches, _clock, _matches, replay_decode, target_features
 from dflash.sharp import QueryScale
 from nexus import bench_redraft
@@ -153,6 +159,10 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
+    found = re.fullmatch(r"restart(\d+)([nlr])(s?)(?:t(\d+))?", body)
+    if found and model is None:
+        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[3]),
+                        tail=None if found[4] is None else int(found[4]))
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
@@ -190,8 +200,10 @@ class Watched:
     redraft got the next token right; rounds in which any redraft got further than the first draft;
     and the tokens that added."""
 
-    def __init__(self, improver, ids, prompt_length, repetition_from, block=16):
+    def __init__(self, improver, ids, prompt_length, repetition_from, block=16, features=None):
         self.improver = improver
+        if hasattr(improver, "features"):                       # a restart with the answer's real states
+            improver.features = features
         self.alternative_tail = getattr(improver, "alternative_tail", None)     # the replay asks the plug-in it is given
         self.replace = getattr(improver, "replace", False)
         self.extra_rows = [0 for _ in GROUPS]
@@ -218,15 +230,16 @@ class Watched:
             extra = 1 + self.improver.nodes - width                     # a tree in place of the block
         elif drafts is not None and not self.replace:
             for row in drafts:                                          # each alternative from where it leaves the block
-                differs = (row != s.block_ids[0]).nonzero()
+                differs = (row[:width] != s.block_ids[0]).nonzero()
                 if differs.numel() and int(differs[0]) >= 1:
-                    split = int(differs[0])
-                    extra += (width if self.alternative_tail is None else min(width, split + 1 + self.alternative_tail)) - split
+                    split, length = int(differs[0]), int((row >= 0).sum())      # it may reach past the block (a restart)
+                    extra += (length if self.alternative_tail is None else min(length, split + 1 + self.alternative_tail)) - split
         add = [0 for _ in COUNTS]
         if width == self.block:
             truth = self.ids[:, s.start + 1 : s.start + width]
             own = _matches(s.block_ids[:, 1:], truth)
-            got = [] if drafts is None else [_checked_matches(drafts[row : row + 1], s.block_ids, truth, self.alternative_tail)
+            reach = truth if drafts is None else self.ids[:, s.start + 1 : s.start + drafts.shape[1]]
+            got = [] if drafts is None else [_checked_matches(drafts[row : row + 1], s.block_ids, reach, self.alternative_tail)
                                              for row in range(drafts.shape[0])]
             kept = list(getattr(self.improver, "kept", []))
             add[0] = 1
@@ -473,7 +486,7 @@ def main():
                   "repetition_from": repetition_from, "settings": {}}
         for setting, (first, improver) in methods.items():
             first.begin()            # the first drafter's own state: saved add-on weights, sharper attention
-            watched = None if improver is None else Watched(improver, ids, prompt_length, repetition_from)
+            watched = None if improver is None else Watched(improver, ids, prompt_length, repetition_from, features=features)
             clock = time.time()
             result = replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=watched,
                                    block_size=16, timers=seconds[setting])
