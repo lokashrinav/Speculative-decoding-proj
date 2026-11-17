@@ -69,6 +69,40 @@ both drafters, alone and with the long-answer fix. The bar is the swap and DDTre
 
 **E7. Does it hold elsewhere?** Short benchmark prompts, and a second target size if time allows.
 
+## Results so far
+
+**E1 (November 17, still running: 25 of 100 answers on the public drafter, 68 of 100 on
+Draft-OPD).** Tokens the target accepts after the right token at the break, when the drafter
+restarts there:
+
+| What the drafter gets for the states it does not have | Public drafter | Draft-OPD |
+| --- | --- | --- |
+| The real states (the limit) | 2.08 | 3.78 |
+| Nothing | 0.59 | 0.95 |
+| The last real state, repeated | 0.43 | 0.63 |
+| Older real states | 0.42 | 0.62 |
+| Only the real state of the token right before the restart | 1.84 | 3.29 |
+| All real states but that one | 1.23 | 2.46 |
+| The real states with noise of 25% of each dimension's spread | 2.06 | 3.75 |
+| ... of 50% | 2.00 | 3.66 |
+| ... of 100% | 1.74 | 3.29 |
+| ... of 200% | 1.07 | 2.16 |
+| For comparison: the first draft's old tokens | 0.56 | 0.65 |
+| For comparison: a second pass inside the block | 0.64 | 0.84 |
+
+What this says:
+
+1. The states are needed. Without them, or with a crude stand-in, a restart is no better than
+   the first draft's old tokens. A second run with no training does not work.
+2. One state carries most of it. With only the real state of the token right before the restart,
+   the drafter keeps 87 to 88% of the limit.
+3. The states may be rough. Noise as large as half of each dimension's spread costs 3 to 4%, and
+   noise as large as the whole spread costs 13 to 16%. A wrong but real-looking state (the last
+   one repeated) is much worse than a noisy right one.
+
+So a predictor is needed, it mostly has to get one vector right, and it does not have to be
+exact. That is E3.
+
 ## What is ours and what is not
 
 Published: second drafts at likely breaks inside the block (D²SD), stand-in states for drafting
