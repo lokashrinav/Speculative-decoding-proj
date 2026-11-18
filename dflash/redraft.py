@@ -380,7 +380,8 @@ class Chain:
 
 
 def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: list, width: int,
-             layers=None, entering: torch.Tensor | None = None, timers: dict | None = None) -> torch.Tensor:
+             layers=None, entering: torch.Tensor | None = None, timers: dict | None = None,
+             lengths: list[int] | None = None) -> torch.Tensor:
     """Several restarts of the first drafter in ONE pass. Restart n starts a block of masks at the
     token anchors[n], placed at position begin[n], with the context the drafter already has (the
     target's states of the text before this round) and stand_ins[n]: (states [1, count, D], their
@@ -395,10 +396,15 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     entering: [restarts, width, D], the states the blocks enter the first of those layers with, in
     place of the embeddings of [anchor, masks]: states the FIRST run already had at those places
     after the layers left out here, so that the second run goes on from the first one.
+    lengths: restart n has only lengths[n] places (the first run has no states past its block's end);
+    the places after them are seen by no one, and what is written there means nothing.
     timers: seconds are added to its "prepare", "pass" and "head" (the clock waits for the GPU)."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
-    if layers is not None and len(set(layers)) != len(layers):
-        raise ValueError("a layer can run only once in a pass")
+    if layers is not None:                                            # (a trained copy of a layer counts as that layer)
+        layers = list(layers)
+        ran = [layer if isinstance(layer, int) else layer.self_attn.layer_idx for layer in layers]
+        if len(set(ran)) != len(ran):
+            raise ValueError("a layer can run only once in a pass")
     clock = _cuda_time() if timers is not None else None
     if entering is None:
         block = torch.full((count, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
@@ -420,7 +426,8 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     at = seen
     for number, entry in enumerate(stand_ins):
         rows = slice(number * width, (number + 1) * width)
-        sees[rows, seen + extra + number * width : seen + extra + (number + 1) * width] = True
+        own = width if lengths is None else lengths[number]
+        sees[rows, seen + extra + number * width : seen + extra + number * width + own] = True
         if entry is not None:
             sees[rows, at : at + entry[0].shape[1]] = True
             at += entry[0].shape[1]
@@ -435,7 +442,7 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     if layers is None:
         s.draft_cache.crop(-(extra + count * width))
     else:                                                             # only the layers that ran made their entries longer
-        for number in set(layers):
+        for number in ran:
             s.draft_cache.layers[number].crop(-(extra + count * width))
     if timers is not None:
         now = _cuda_time()
@@ -528,9 +535,28 @@ class Restarts:
         self.features = None        # the answer's states, for stand_in="real"
         self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
+        # second: a tiny second drafter (dflash/restart_layers.py: RestartLayers). The restarts then run
+        # through its layers only, which stand in for the drafter's last ones, and go on from the first
+        # run: a restart's places enter with the states the first run had there before those layers. A
+        # pass costs by the layers it runs, so this is the cheap second run. The first run has no states
+        # past its block's end, so a restart writes at most up to there.
+        self.second = None
+        self._hook, self._first_run = None, None
+
+    def close(self) -> None:
+        """Stops watching the drafter's first run (only a second run through a second drafter watches it)."""
+        if self._hook is not None:
+            self._hook.remove()
+            self._hook = None
 
     def start(self, first_drafter: nn.Module) -> None:
         self.kept = []
+        self.close()
+        if self.second is not None:
+            # What the drafter's layer before the second drafter's gave in its last pass: at the time of
+            # the second run that pass is the round's first draft.
+            self._hook = first_drafter.layers[self.second.first - 1].register_forward_hook(
+                lambda layer, came, output: setattr(self, "_first_run", output))
 
     def _from_the_last_check(self, s: SimpleNamespace, count: int):
         """Which of the round's first `count` tokens the last check read at the same place (their
@@ -638,7 +664,22 @@ class Restarts:
             self.counts["restarts_with_the_nearest_state_from_the_last_check"] += int(nearest in hits)
             stand_ins.append(entry)
         reach = width if self.block is None else min(self.block, width)
-        new = restarts(s, first_tokens, begin, stand_ins, reach)
+        if self.second is None:
+            new = restarts(s, first_tokens, begin, stand_ins, reach)
+        else:
+            # Through the tiny second drafter, going on from the first run. A restart's first token is at
+            # the block's place broke + 1 (from a choice) or broke (one token earlier).
+            first_place = torch.tensor([broke + 1 if choice else broke for broke, choice in starts], device=device)
+            lengths = (width - first_place).clamp(max=reach).tolist()
+            at = (first_place[:, None] + torch.arange(reach, device=device)[None]).clamp(max=width - 1)
+            scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
+            given = torch.stack(first_tokens + [torch.as_tensor(s.first_drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)])
+            embedded = _raw_input_embeddings(s.target, given[None], scale)[0]
+            entering = self.second.enter(self._first_run[0, -width:][at], embedded[:-1], embedded[-1])
+            new = restarts(s, first_tokens, begin, stand_ins, reach, layers=list(self.second.layers), entering=entering,
+                           lengths=lengths)
+            for number, own in enumerate(lengths):                    # nothing is written past the first block's end
+                new[number, max(own - 1, 0) :] = -1
         rows = torch.full((len(starts) + (chosen if self.swap else 0), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
         for number, (broke, choice) in enumerate(starts):
             rows[number, : broke + 1] = s.block_ids[0, : broke + 1]

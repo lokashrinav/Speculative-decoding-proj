@@ -635,7 +635,9 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         # layers: run only these of the drafter's layers (their numbers, in this order; None: all).
         # The cache entries of the other layers are neither read nor made longer. With
         # noise_embedding holding the states an earlier pass had before the first of them, this
-        # goes on from that pass.
+        # goes on from that pass. In place of a number, a layer of the same kind may be given: a
+        # trained copy of one of the drafter's layers (dflash/restart_layers.py), which reads and
+        # writes the cache entry of the layer it was copied from.
         hidden_states = noise_embedding
         target_hidden = self.hidden_norm(self.fc(target_hidden))
         if context_states is not None:
@@ -643,7 +645,9 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
             # target's states of tokens the target has not read yet. They follow target_hidden.
             target_hidden = torch.cat((target_hidden, context_states.to(target_hidden.dtype)), dim=1)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
-        for layer in self.layers if layers is None else [self.layers[number] for number in layers]:
+        for layer in self.layers if layers is None else [
+            self.layers[layer] if isinstance(layer, int) else layer for layer in layers
+        ]:
             hidden_states = layer(
                 hidden_states=hidden_states,
                 target_hidden=target_hidden,

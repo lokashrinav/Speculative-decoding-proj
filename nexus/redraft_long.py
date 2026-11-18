@@ -213,8 +213,15 @@ def make_method(name, ckpt_dir, like=None):
         method = Restarts(int(found[1]), "predicted", swap=bool(found[6]), tail=number(7), choices=int(found[4] or 1),
                           kind=KINDS[found[2]], best=number(5), block=number(8), stale=bool(found[3]),
                           gate=None if found[9] is None else float(found[9]))
-        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[10]}.pt"),
+        # @PREDICTOR, or @PREDICTOR~SECOND: the restarts run through the tiny second drafter warm-SECOND.pt
+        # (dflash/restart_layers.py), which goes on from the first run.
+        predictor, _, second = found[10].partition("~")
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{predictor}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
+        if second:
+            from dflash.restart_layers import load_restart_layers
+
+            method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
         return method
     body, _, second = name.partition("@")
     model = saved(second) if second else None

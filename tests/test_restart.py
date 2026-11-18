@@ -1189,3 +1189,215 @@ def test_the_probe_of_how_many_layers_a_restart_needs():
                  "first draft made again"):
         assert len(times["all"][name]) == 2 and times["all"][name][0] >= 0, name
     assert "predictor" not in times["all"]
+
+
+def test_the_tiny_second_drafter_and_its_training(tmp_path):
+    """The restart layers are copies of the drafter's last layers that go on from the first run. Before
+    training they are the drafter's own last layers; training changes only them (and the predictor),
+    never the drafter; saved and read again, and with their updates merged in, they write the same."""
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers, load_restart_layers, save_restart_layers
+    from dflash.stand_in import StatePredictor, project
+    from nexus.train_second import ARMS, TeachSecond, first_run, warm_logits
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features = target_features(target, draft, ids).clone()
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    with pytest.raises(ValueError):
+        RestartLayers(draft, count=3)
+    second = RestartLayers(draft, count=1, rank=4)
+    assert second.first == 2 and len(second.layers) == 1 and len(second.adapters) == 5
+    assert second.layers[0].self_attn.layer_idx == 2 and second.layers[0] is not draft.layers[2]
+    trained = sum(value.numel() for value in second.trained())
+    assert trained == sum(adapter.down.numel() + adapter.up.numel() for adapter in second.adapters) + 2 * 4 * 16
+
+    # Before training: a pass through the copies is a pass through the drafter's own last layer.
+    start = length + 9
+    with torch.no_grad():
+        final, kept = first_run(draft, target, features, ids, start, 0, BLOCK, keep=1)
+        assert final.shape == kept.shape == (BLOCK, 16)
+        real = project(draft, features[:, start : start + 3])[0]
+        pair = torch.tensor([[int(ids[0, start + 3]), draft.mask_token_id]])
+        token_in, mask_in = draft_embeddings(target, pair)[0]
+        entering = second.enter(kept[3:], token_in, mask_in)
+        assert torch.equal(entering[1:], kept[4:]) and torch.allclose(entering[0], kept[3] + token_in - mask_in)
+        mine = warm_logits(draft, second, target, features, ids, start, real, entering)
+        positions = torch.cat((torch.arange(0, start + 3), torch.arange(start + 3, start + BLOCK)))[None]
+        own = draft(target_hidden=features[:, :start], context_states=real[None], noise_embedding=entering[None],
+                    position_ids=positions, layers=[2])
+        assert torch.equal(mine, draft.compute_logits(own[:, 1:, :], target.lm_head)[0])
+        assert mine.shape == (BLOCK - 3 - 1, 32)
+
+    torch.manual_seed(0)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
+    before = {name: value.clone() for name, value in predictor.state_dict().items()}
+    drafter_before = {name: value.clone() for name, value in draft.state_dict().items()}
+    optimizer = torch.optim.AdamW([{"params": second.trained(), "lr": 3e-3}, {"params": list(predictor.parameters()), "lr": 1e-3}])
+    teach = TeachSecond(second, predictor, optimizer, draft, target, every=2, window=64, width=BLOCK, compare_every=1)
+    curve = []
+    for _ in range(5):
+        teach.learn_from(ids, features, length, most=12)
+        curve.append(teach.progress())
+    assert teach.steps >= 5 and all(point["loss_by_tokens"] == point["loss_by_tokens"] for point in curve)   # numbers, not NaN
+    assert curve[-1]["loss_by_tokens"] < curve[0]["loss_by_tokens"]
+    assert any(bool(adapter.up.abs().sum() > 0) for adapter in second.adapters)
+    assert bool(second.token_up.weight.abs().sum() > 0)
+    assert any(not torch.equal(before[name], value) for name, value in predictor.state_dict().items())
+    assert all(torch.equal(drafter_before[name], value) for name, value in draft.state_dict().items())    # the drafter is as it was
+    compared = curve[-1]["on_the_same_rounds"]
+    assert set(compared["tokens_right_inside_the_block"]) == set(ARMS) == set(compared["at_most_3_of_them"])
+    assert all(compared["at_most_3_of_them"][name] <= min(compared["tokens_right_inside_the_block"][name], 3) for name in ARMS)
+    assert compared["rounds"] > 0 and teach.saved_predictor is not predictor
+    assert all(torch.equal(before[name], value) for name, value in teach.saved_predictor.state_dict().items())
+
+    # With nothing learned: no weight changes, the same counts are made.
+    snapshot = [adapter.up.clone() for adapter in second.adapters]
+    steps = teach.steps
+    teach.learn_from(ids, features, length, most=6, learn=False)
+    assert teach.steps == steps and all(torch.equal(old, adapter.up) for old, adapter in zip(snapshot, second.adapters))
+    assert teach.progress()["on_the_same_rounds"]["rounds"] > 0
+
+    # A frozen predictor stays as it is.
+    frozen = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
+    kept_as = {name: value.clone() for name, value in frozen.state_dict().items()}
+    other = RestartLayers(draft, count=2, rank=2)
+    alone = TeachSecond(other, frozen, torch.optim.AdamW(other.trained(), lr=3e-3), draft, target, every=2, window=64, width=BLOCK,
+                        compare_every=2, train_predictor=False)
+    alone.learn_from(ids, features, length, most=8)
+    assert alone.steps >= 1 and alone.saved_predictor is frozen
+    assert all(torch.equal(kept_as[name], value) for name, value in frozen.state_dict().items())
+    assert other.first == 1 and len(other.layers) == 2
+
+    # Saved and read again, and merged for use: the same tokens' scores.
+    path = str(tmp_path / "warm-test.pt")
+    save_restart_layers(path, second, {"answers": 1})
+    again, notes = load_restart_layers(path, draft)
+    assert notes == {"answers": 1} and again.sizes == second.sizes
+    with torch.no_grad():
+        entering = second.enter(kept[3:], token_in, mask_in)
+        trained_logits = warm_logits(draft, second, target, features, ids, start, real, entering)
+        assert not torch.allclose(trained_logits, mine)
+        read = warm_logits(draft, again, target, features, ids, start, real, again.enter(kept[3:], token_in, mask_in))
+        assert torch.allclose(read, trained_logits, atol=1e-2)                     # (saved in 16-bit numbers)
+        merged = again.merge()
+        assert not merged.adapters and isinstance(merged.layers[0].mlp.up_proj, torch.nn.Linear)
+        assert torch.allclose(warm_logits(draft, merged, target, features, ids, start, real, merged.enter(kept[3:], token_in, mask_in)),
+                              read, atol=1e-6)
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(True)
+
+
+def draft_embeddings(target, tokens):
+    from dflash.model import _raw_input_embeddings
+
+    return _raw_input_embeddings(target, tokens, 1.0)
+
+
+class SeenWithFirstRun(Seen):
+    """Also keeps the round state and what the drafter's layer `layer` gave in the first draft's pass."""
+
+    def __init__(self, inner, drafter, layer):
+        super().__init__(inner)
+        self.given, self.checked = None, 0
+        self.hook = drafter.layers[layer].register_forward_hook(lambda module, came, output: setattr(self, "given", output))
+
+    def __call__(self, s):
+        first_run = self.given[0].clone()
+        rows = self.inner(s)
+        self.check(s, first_run, rows)
+        self.rounds.append((s.start, s.block_ids[0].clone(), s.draft_logits[0].clone(), rows.clone(), list(self.inner.kept)))
+        return rows
+
+    def check(self, s, first_run, rows):
+        """Each restart is the pass through the drafter's own last layer from the first run's states."""
+        width = s.block_ids.shape[1]
+        second = s.draft_logits[0].topk(2, dim=-1).indices[:, 1]
+        mask_in = draft_embeddings(s.target, torch.tensor([[s.first_drafter.mask_token_id]]))[0, 0]
+        for number, broke in enumerate(self.inner.kept):
+            places = width - (broke + 1)
+            assert rows[number, : broke + 1].tolist() == s.block_ids[0, : broke + 1].tolist()
+            assert int(rows[number, broke + 1]) == int(second[broke])
+            assert bool((rows[number, width:] == -1).all())                  # nothing past the first block's end
+            assert bool((rows[number, broke + 2 : width] >= 0).all())
+            if places < 2:
+                continue
+            entering = first_run[broke + 1 : width].clone()
+            entering[0] = entering[0] + draft_embeddings(s.target, second[broke].reshape(1, 1))[0, 0] - mask_in
+            stand_in = None
+            if self.inner.stand_in == "real":
+                stand_in = (self.inner.features[:, s.start : s.start + broke + 1], torch.arange(s.start, s.start + broke + 1))
+            alone = restarts(s, [second[broke]], [s.start + broke + 1], [stand_in], places, layers=[len(s.first_drafter.layers) - 1],
+                             entering=entering[None])
+            assert rows[number, broke + 2 : width].tolist() == alone[0].tolist()
+            self.checked += 1
+
+
+def test_the_second_run_through_the_tiny_second_drafter():
+    from dflash.redraft import DraftTree, Restarts, TreeWithRestarts, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+    from dflash.stand_in import StatePredictor
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, block_size=BLOCK)
+    second = RestartLayers(draft, count=1, rank=4)
+
+    # Before training the tiny second drafter is the drafter's own last layer: every restart is checked against it.
+    for stand_in in ("real", "none"):
+        method = Restarts(k=3, stand_in=stand_in)
+        method.features, method.second = features, second
+        seen = SeenWithFirstRun(method, draft, layer=1)
+        result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+        seen.hook.remove()
+        assert seen.checked > 30 and sum(result.acceptance_lengths) == sum(chain.acceptance_lengths)
+        assert result.rounds <= chain.rounds
+        method.start(draft)
+        method.start(draft)
+        assert len(draft.layers[1]._forward_hooks) == 1                      # one hook, however often it is started
+        method.close()
+        assert not draft.layers[1]._forward_hooks
+
+    # Trained (here: changed at random), with short blocks, the restart one token earlier, the swap and predicted
+    # states, alone and on a tree: real decoding writes the same text.
+    torch.manual_seed(5)
+    with torch.no_grad():
+        for adapter in second.adapters:
+            adapter.up.normal_(std=0.3)
+        second.token_up.weight.normal_(std=0.3)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
+    prompt = torch.tensor([[1, 2, 3, 4, 5]])
+    for kind, block, on_a_tree in (("choice", None, False), ("both", 4, False), ("choice", 4, True)):
+        method = Restarts(k=3, stand_in="predicted", swap=not on_a_tree, tail=2, kind=kind, block=block, choices=2)
+        method.predictor, method.second = predictor, second
+        improver = TreeWithRestarts(DraftTree(15), method) if on_a_tree else method
+        with_it = dflash_generate_redraft(draft, target, prompt, 200, None, improver=improver, block_size=BLOCK, return_stats=True)
+        assert torch.equal(with_it.output_ids, ids)
+        assert len(with_it.acceptance_lengths) <= len(plain.acceptance_lengths)
+        seen = Seen(method)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+        reach = BLOCK if block is None else block
+        for start, first, logits, rows, kept in seen.rounds:
+            width = first.shape[0]
+            for row in rows.tolist():
+                assert all(token == -1 for token in row[width:])
+        method.close()
+    # The merged copies write what the copies with their updates write.
+    method = Restarts(k=3, stand_in="none")
+    method.second = second
+    before = Seen(method)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=before, block_size=BLOCK)
+    method.close()
+    method = Restarts(k=3, stand_in="none")
+    method.second = second.merge()
+    after = Seen(method)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=after, block_size=BLOCK)
+    method.close()
+    assert len(before.rounds) == len(after.rounds) > 20
+    assert sum(int(torch.equal(mine[3], theirs[3])) for mine, theirs in zip(before.rounds, after.rounds)) > 0.9 * len(before.rounds)
+    assert not draft.layers[1]._forward_hooks
