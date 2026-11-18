@@ -226,6 +226,28 @@ def make_method(name, ckpt_dir, like=None):
         number = lambda at: None if found[at] is None else int(found[at])
         return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
                         whole=bool(found[2]))
+    found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?([nrp])(?:@(.+))?", name)
+    if found:
+        # btreeBfFtT: a tree of B nodes in which the second run writes after every node of a first tree of F
+        # nodes, T places each (dflash/redraft.py: BranchTree); cN: its N best tokens after each node; bN: blocks
+        # of N tokens (through the whole drafter); n, r, p: no states, the target's real ones (replay), predicted
+        # ones (@PREDICTOR, or @PREDICTOR~SECOND through the tiny second drafter warm-SECOND.pt).
+        from dflash.redraft import BranchTree
+
+        method = BranchTree(int(found[1]), int(found[2]), tail=int(found[3]), choices=int(found[4] or 2),
+                            block=None if found[5] is None else int(found[5]),
+                            stand_in={"n": "none", "r": "real", "p": "predicted"}[found[6]])
+        predictor, _, second = (found[7] or "").partition("~")
+        if found[6] == "p":
+            from dflash.stand_in import load_predictor
+
+            method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{predictor}.pt"),
+                                                 "cpu" if like is None else like.fc.weight.device)
+        if second:
+            from dflash.restart_layers import load_restart_layers
+
+            method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
+        return method
     found = re.fullmatch(r"tree(\d+)_((?:restart|echo|reanchor).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check
         from dflash.redraft import TreeWithRestarts

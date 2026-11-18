@@ -153,6 +153,25 @@ def predicted_states(predictor: StatePredictor, s, count: int, coming=None) -> t
     return as_context(s.first_drafter, predictor(*inputs))[None]
 
 
+def predicted_for(predictor: StatePredictor, s, places: list[int], tokens: list[int], coming: list[int]) -> torch.Tensor:
+    """Stand-ins for the target's states of any tokens at places of the block, not only the first
+    draft's own: the state at the block's place places[n] if the token there is tokens[n] and the
+    token after it is coming[n] (read only by a predictor that is told it). [n, size], as the drafter
+    reads states. For a predictor whose tokens do not look at each other: each state depends on its
+    own place and tokens alone, which is what lets one call serve every path of a tree."""
+    if len(predictor.mix):
+        raise ValueError("a predictor whose tokens look at each other writes a path at a time: use predicted_states")
+    drafter, device = s.first_drafter, s.block_ids.device
+    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+    block = s.draft_states[0].float()
+    at = torch.tensor(places, device=device)
+    states = block[at]
+    following = block[(at + 1).clamp(max=block.shape[0] - 1)] * (at + 1 < block.shape[0])[:, None]
+    embedded = _raw_input_embeddings(s.target, torch.tensor([tokens, coming], device=device), scale).float()
+    last = project(drafter, s.context_features[:, -1:])[0].float()
+    return as_context(drafter, predictor(states, following, embedded[0], last, at, embedded[1], None))
+
+
 def save_predictor(path: str, predictor: StatePredictor, notes: dict | None = None) -> None:
     torch.save({"sizes": predictor.sizes, "notes": notes or {},
                 "state": {name: value.detach().half().cpu() for name, value in predictor.state_dict().items()}}, path)

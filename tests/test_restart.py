@@ -1487,3 +1487,99 @@ def test_the_output_head_over_a_short_list_of_tokens(tmp_path):
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=method, block_size=BLOCK)
     assert set(method.timers) == {"decide", "states", "prepare", "pass", "head", "rows"}
     assert all(seconds >= 0 for seconds in method.timers.values())
+
+
+def test_a_tree_in_which_the_second_run_writes_after_every_node():
+    from dflash.redraft import BranchTree, DraftTree, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+    from dflash.stand_in import StatePredictor, predicted_for, predicted_states
+    from nexus.redraft_long import make_method
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, block_size=BLOCK)
+    with pytest.raises(ValueError):
+        BranchTree(8, 12)
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s, rows.clone(), self.inner.nodes))
+            return rows
+
+    # With the whole budget in the first tree it is DDTree.
+    same, tree = Kept(BranchTree(12, 12, stand_in="none")), Kept(DraftTree(12))
+    first = replay_decode(draft, target, ids, length, ended=False, features=features, improver=same, block_size=BLOCK)
+    second = replay_decode(draft, target, ids, length, ended=False, features=features, improver=tree, block_size=BLOCK)
+    assert first.acceptance_lengths == second.acceptance_lengths
+    for (_, mine, nodes), (_, theirs, their_nodes) in zip(same.rounds, tree.rounds):
+        assert sorted(mine.tolist()) == sorted(theirs.tolist()) and nodes == their_nodes
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    # A first tree of 8 nodes grown to 14 by what the second run writes: the first tree's nodes are all there,
+    # the tree has at most 14 nodes, and with the target's real states it gets at least as far as the first tree.
+    small = Kept(DraftTree(8))
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=small, block_size=BLOCK)
+    grown_tokens = {}
+    for stand_in in ("real", "none"):
+        method = BranchTree(14, 8, tail=2, stand_in=stand_in)
+        method.features = features
+        kept = Kept(method)
+        result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+        grew = 0
+        for (s, rows, nodes), (_, base, base_nodes) in zip(kept.rounds, small.rounds):
+            if rows.shape[1] != BLOCK:
+                continue
+            assert prefixes(base) <= prefixes(rows) and len(prefixes(rows)) == nodes <= 14 and base_nodes <= 8
+            assert bool((rows[:, 0] == rows[0, 0]).all())
+            grew += int(nodes > base_nodes)
+        assert grew > 20 and method.counts["nodes_from_the_second_run"] > 100
+        assert method.counts["rounds"] == len(kept.rounds)
+        grown_tokens[stand_in] = sum(result.acceptance_lengths)
+        assert sum(result.acceptance_lengths) == sum(chain.acceptance_lengths) and result.rounds <= chain.rounds
+        if stand_in == "real":
+            with_real = result.rounds
+    small_result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=DraftTree(8), block_size=BLOCK)
+    assert with_real <= small_result.rounds
+
+    # Predicted states for any path: for the first draft's own tokens they are the ones predicted_states writes.
+    torch.manual_seed(2)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK, coming=True)
+    s = kept.rounds[3][0]
+    block = s.block_ids[0].tolist()
+    with torch.inference_mode():
+        own = predicted_states(predictor, s, 4, coming=block[4])[0]
+        again = predicted_for(predictor, s, [0, 1, 2, 3], block[:4], block[1:5])
+        other = predicted_for(predictor, s, [0, 1, 2, 3], block[:4], block[1:4] + [(block[4] + 1) % 30])
+    assert torch.allclose(own, again, atol=1e-6)
+    assert torch.allclose(other[:3], again[:3], atol=1e-6) and not torch.allclose(other[3], again[3], atol=1e-6)
+
+    # In real decoding, with predicted states, through the whole drafter and through a tiny second drafter: the same text.
+    layers = RestartLayers(draft, count=1, rank=4)
+    with torch.no_grad():
+        for adapter in layers.adapters:
+            adapter.up.normal_(std=0.3)
+    for through in (None, layers):
+        method = BranchTree(14, 8, tail=2, stand_in="predicted", block=4)
+        method.predictor, method.second = predictor, through
+        with_it = dflash_generate_redraft(draft, target, torch.tensor([[1, 2, 3, 4, 5]]), 200, None, improver=method,
+                                          block_size=BLOCK, return_stats=True)
+        assert torch.equal(with_it.output_ids, ids) and len(with_it.acceptance_lengths) <= len(plain.acceptance_lengths)
+        assert method.counts["nodes_from_the_second_run"] > 0
+        method.close()
+    assert not any(layer._forward_hooks for layer in draft.layers)
+    # By name.
+    named = make_method("btree63f40t2c3b8r", "/nowhere")
+    assert (named.budget, named.first, named.tail, named.choices, named.block, named.stand_in) == (63, 40, 2, 3, 8, "real")
+    assert make_method("btree31f20t1n", "/nowhere").choices == 2

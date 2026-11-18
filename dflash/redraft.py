@@ -459,7 +459,7 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
 def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], context: torch.Tensor | None, counts: list[int],
                   context_places: list[int], width: int, layers=None, entering: torch.Tensor | None = None,
                   lengths: list[int] | None = None, shortlist=None, also: torch.Tensor | None = None,
-                  timers: dict | None = None) -> torch.Tensor:
+                  timers: dict | None = None, top: int | None = None, shared: list[list[int]] | None = None):
     """The pass of restarts(), prepared without small steps on the GPU: the tokens, the places and who
     sees whom are made as lists and sent over once each. tokens, begin: the restarts' first tokens and
     their positions. context: [states, D], the stand-ins of all restarts in the form the drafter reads
@@ -467,7 +467,10 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
     their positions. layers, entering, lengths: as in restarts(). shortlist: the best token is looked
     for among a short list of tokens and the tokens `also` (dflash/shortlist.py), not in the whole
     vocabulary. timers: seconds are added to its "prepare", "pass" and "head" (the clock waits for the
-    GPU). Returns [restarts, width - 1]."""
+    GPU). Returns [restarts, width - 1].
+    shared: the stand-ins are given once and shared: restart n sees the rows shared[n] of `context`
+    (counts is not read then). top: in place of the best token, the `top` best tokens of every place
+    with their log-probabilities are returned: ([restarts, width - 1, top], the same shape)."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
     clock = _cuda_time() if timers is not None else None
     ran = None
@@ -487,6 +490,9 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
         rows = slice(number * width, (number + 1) * width)
         own = width if lengths is None else lengths[number]
         new[rows, extra + number * width : extra + number * width + own] = True
+        if shared is not None:
+            new[rows, shared[number]] = True
+            continue
         new[rows, at : at + counts[number]] = True
         at += counts[number]
     sees = torch.cat((torch.ones((count * width, seen), dtype=torch.bool, device=device), torch.from_numpy(new).to(device)), dim=1)
@@ -509,7 +515,12 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
         timers["pass"] = timers.get("pass", 0.0) + now - clock
         clock = now
     states = hidden.reshape(count, width, -1)[:, 1:, :]
-    if shortlist is None:
+    if top is not None:
+        if shortlist is not None:
+            raise ValueError("the best tokens with their scores are read from the whole output head")
+        best = drafter.compute_logits(states, _output_head(s.target)).float().log_softmax(dim=-1).topk(top, dim=-1)
+        written = (best.indices, best.values)
+    elif shortlist is None:
         written = drafter.compute_logits(states, _output_head(s.target)).argmax(dim=-1)
     else:
         written = shortlist.best(states, also)
@@ -977,6 +988,152 @@ class DraftTree:
         width, first = s.block_ids.shape[1], int(s.block_ids[0, 0])
         rows = [[first] + [tokens[at][rank] for at, rank in enumerate(ranks)] + [-1] * (width - 1 - len(ranks)) for ranks in leaves]
         return torch.tensor(rows, dtype=s.block_ids.dtype, device=s.block_ids.device)
+
+
+class BranchTree:
+    """A tree of drafts in which the second run writes after EVERY node.
+
+    DDTree builds its tree from the first run alone. The first run fills all places of the block at
+    once, so what the tree holds after a token is what the first run guessed there without knowing
+    that token. Seven in ten of DDTree's rounds end right after an alternative token, where this is
+    worst (nexus/tree_ends.py). A restart writes the tokens after a token knowing it. One restart
+    costs a pass of the drafter, but a pass costs by the layers it runs and hardly by the restarts it
+    holds. So here the second run restarts at every node of a first tree at once:
+
+      1. a first tree of `first` nodes from the first run (DDTree's own rule);
+      2. ONE pass in which a new block starts at each of its nodes: the node's token, then `tail`
+         places. A block sees the stand-ins of the target's states for the tokens on its node's path
+         (stand_in: "predicted", "real" in replay, "none") and itself;
+      3. the tree grows to `budget` nodes by what the pass wrote: after node n the `choices` best
+         tokens of the first place, each with the log-probability of n's path plus its own, and after
+         the best one the best tokens of the next places, as a chain. The most probable ones are
+         added, as DDTree adds nodes. A token the first tree already has after n is not added again.
+
+    The target reads `budget` tokens, as with DDTree(budget). second: the restarts run through a tiny
+    second drafter that goes on from the first run (dflash/restart_layers.py); without one they run
+    through the whole drafter, with blocks of `block` tokens (None: a whole block), which costs a
+    whole pass and is the measure of what such a tree can hold. Rows as DraftTree returns them."""
+
+    replace = True
+
+    def __init__(self, budget: int, first: int, tail: int = 2, stand_in: str = "predicted", choices: int = 2,
+                 block: int | None = None):
+        if not 1 <= first <= budget:
+            raise ValueError("the first tree has at least one node and at most the whole budget")
+        if stand_in not in ("none", "real", "predicted"):
+            raise ValueError("stand_in must be 'none', 'real' or 'predicted'")
+        self.budget, self.first, self.tail, self.stand_in, self.choices, self.block = budget, first, tail, stand_in, choices, block
+        self.tree = DraftTree(first)
+        self.features, self.predictor, self.second = None, None, None
+        self.nodes, self._hook, self._first_run = 0, None, None
+        self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0,
+                       "second_run_tokens_the_first_tree_had": 0}
+
+    def close(self) -> None:
+        if self._hook is not None:
+            self._hook.remove()
+            self._hook = None
+
+    def start(self, drafter: nn.Module) -> None:
+        self.nodes = 0
+        self.close()
+        if self.second is not None:
+            self._hook = drafter.layers[self.second.first - 1].register_forward_hook(
+                lambda layer, came, output: setattr(self, "_first_run", output))
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor:
+        width, device = s.block_ids.shape[1], s.block_ids.device
+        logits = s.draft_logits[0].float()
+        best = logits.log_softmax(dim=-1).topk(min(self.first, logits.shape[-1]), dim=-1)
+        tokens, scores = best.indices.tolist(), best.values.tolist()
+        first_token = int(s.block_ids[0, 0])
+        chosen = self.tree.paths(scores)                              # the first tree's nodes, as ranks along their paths
+        path = {ranks: [tokens[at][rank] for at, rank in enumerate(ranks)] for ranks in chosen}
+        worth = {ranks: sum(scores[at][rank] for at, rank in enumerate(ranks)) for ranks in chosen}
+        had = {}                                                      # the tokens the first tree has after each node
+        for ranks in chosen:
+            had.setdefault(ranks[:-1], set()).add(path[ranks][-1])
+        if self.stand_in == "real" and self.features is None:
+            raise ValueError("stand_in='real' needs the answer's states (replay only)")
+        # Restarts at the nodes that have a place after them (and, with real states, lie inside the answer).
+        nodes = [ranks for ranks in chosen if len(ranks) < width - 1
+                 and (self.stand_in != "real" or s.start + len(ranks) <= self.features.shape[1])]
+        self.counts["rounds"] += 1
+        self.counts["nodes_from_the_first_run"] += len(chosen)
+        rows = self._rows(first_token, width, path, chosen, [])
+        if not nodes or self.budget == self.first:
+            self.nodes = len(chosen)
+            return torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
+        # The stand-ins: one for every node on a restart's path. The state of the token BEFORE a node,
+        # given that the node's token comes after it, belongs to the node (and to every restart below it).
+        context, shared, number = None, None, {}
+        on_paths = sorted({ranks[:depth] for ranks in nodes for depth in range(1, len(ranks) + 1)}, key=lambda ranks: (len(ranks), ranks))
+        if self.stand_in != "none":
+            number = {ranks: at for at, ranks in enumerate(on_paths)}
+            places = [len(ranks) - 1 for ranks in on_paths]
+            if self.stand_in == "real":
+                from .stand_in import project
+
+                context = project(s.first_drafter, self.features[:, s.start : s.start + max(places) + 1])[0][places]
+            else:
+                from .stand_in import predicted_for
+
+                before = [first_token if len(ranks) == 1 else path[ranks[:-1]][-1] for ranks in on_paths]
+                context = predicted_for(self.predictor, s, places, before, [path[ranks][-1] for ranks in on_paths])
+            shared = [[number[ranks[:depth]] for depth in range(1, len(ranks) + 1)] for ranks in nodes]
+            context_places = [s.start + place for place in places]
+        else:
+            context_places, shared = [], [[] for _ in nodes]
+        anchors = [path[ranks][-1] for ranks in nodes]
+        begin = [s.start + len(ranks) for ranks in nodes]
+        reach = min(1 + self.tail, width) if self.second is not None else (width if self.block is None else min(self.block, width))
+        lengths, entering = None, None
+        if self.second is not None:
+            lengths = [min(width - len(ranks), reach) for ranks in nodes]
+            at = torch.tensor([[min(len(ranks) + slot, width - 1) for slot in range(reach)] for ranks in nodes], device=device)
+            scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
+            given = torch.tensor([anchors + [s.first_drafter.mask_token_id]], dtype=s.block_ids.dtype, device=device)
+            embedded = _raw_input_embeddings(s.target, given, scale)[0]
+            entering = self.second.enter(self._first_run[0, -width:][at], embedded[:-1], embedded[-1])
+        wrote, likely = _restart_pass(s, anchors, begin, context, [], context_places, reach,
+                                      layers=None if self.second is None else list(self.second.layers), entering=entering,
+                                      lengths=lengths, top=max(self.choices, 1), shared=shared)
+        wrote, likely = wrote.tolist(), likely.tolist()
+        # What the pass wrote, most probable first: after node n its `choices` best tokens, and after the
+        # best one the best tokens of the next places (a chain: each is offered once the one before is in).
+        heap = []
+        for at, ranks in enumerate(nodes):
+            room = min(self.tail, width - 1 - len(ranks), (reach if lengths is None else lengths[at]) - 1)
+            for choice in range(min(self.choices, len(wrote[at][0])) if room > 0 else 0):
+                token = wrote[at][0][choice]
+                if token in had.get(ranks, ()):
+                    self.counts["second_run_tokens_the_first_tree_had"] += 1
+                    continue
+                heapq.heappush(heap, (-(worth[ranks] + likely[at][0][choice]), at, choice, 1, (token,)))
+        added = []
+        while heap and len(added) < self.budget - len(chosen):
+            negative, at, choice, depth, chain = heapq.heappop(heap)
+            added.append((nodes[at], chain))
+            room = min(self.tail, width - 1 - len(nodes[at]), (reach if lengths is None else lengths[at]) - 1)
+            if choice == 0 and depth < room:                          # the chain goes on after the best token only
+                heapq.heappush(heap, (negative - likely[at][depth][0], at, 0, depth + 1, chain + (wrote[at][depth][0],)))
+        self.counts["nodes_from_the_second_run"] += len(added)
+        self.nodes = len(chosen) + len(added)
+        return torch.tensor(self._rows(first_token, width, path, chosen, added), dtype=s.block_ids.dtype, device=device)
+
+    @staticmethod
+    def _rows(first_token, width, path, chosen, added):
+        """A row for every node of the first tree that nothing follows, and one for every chain."""
+        longer = {ranks for ranks, _ in added}
+        parents = {ranks[:-1] for ranks in chosen}
+        chains = {}
+        for ranks, chain in added:                                    # of chains that begin alike, the longest
+            key = (ranks, chain[0])
+            if len(chain) > len(chains.get(key, ())):
+                chains[key] = chain
+        rows = [[first_token] + path[ranks] for ranks in chosen if ranks not in parents and ranks not in longer]
+        rows += [[first_token] + path[ranks] + list(chain) for (ranks, _), chain in chains.items()]
+        return [row + [-1] * (width - len(row)) for row in rows]
 
 
 class EchoRows:
