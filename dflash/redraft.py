@@ -15,6 +15,7 @@ only add accepted tokens, never remove them. Greedy decoding only.
 import heapq
 from types import SimpleNamespace
 
+import numpy
 import torch
 from torch import nn
 
@@ -455,6 +456,49 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     return tokens
 
 
+def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], context: torch.Tensor | None, counts: list[int],
+                  context_places: list[int], width: int, layers=None, entering: torch.Tensor | None = None,
+                  lengths: list[int] | None = None) -> torch.Tensor:
+    """The pass of restarts(), prepared without small steps on the GPU: the tokens, the places and who
+    sees whom are made as lists and sent over once each. tokens, begin: the restarts' first tokens and
+    their positions. context: [states, D], the stand-ins of all restarts in the form the drafter reads
+    states, one restart after the other; counts[n]: how many of them are restart n's; context_places:
+    their positions. layers, entering, lengths: as in restarts(). Returns [restarts, width - 1]."""
+    drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
+    ran = None
+    if layers is not None:                                            # (a trained copy of a layer counts as that layer)
+        ran = [layer if isinstance(layer, int) else layer.self_attn.layer_idx for layer in layers]
+    if entering is None:
+        masks = [drafter.mask_token_id] * (width - 1)
+        block = torch.tensor([[token for first in tokens for token in [first] + masks]], dtype=s.block_ids.dtype, device=device)
+        noise = _raw_input_embeddings(s.target, block, float(_draft_value(drafter.config, "input_embedding_scale", 1.0)))
+    else:
+        noise = entering.reshape(1, count * width, -1)
+    seen, extra = s.draft_cache.get_seq_length(), len(context_places)
+    positions = torch.tensor([list(context_places) + [start + slot for start in begin for slot in range(width)]], device=device)
+    new = numpy.zeros((count * width, extra + count * width), dtype=bool)        # who sees which of the new entries
+    at = 0
+    for number in range(count):
+        rows = slice(number * width, (number + 1) * width)
+        own = width if lengths is None else lengths[number]
+        new[rows, extra + number * width : extra + number * width + own] = True
+        new[rows, at : at + counts[number]] = True
+        at += counts[number]
+    sees = torch.cat((torch.ones((count * width, seen), dtype=torch.bool, device=device), torch.from_numpy(new).to(device)), dim=1)
+    hidden = drafter(
+        target_hidden=s.context_features[:, :0], context_states=None if context is None else context[None],
+        noise_embedding=noise, position_ids=positions, attention_mask=sees[None, None], past_key_values=s.draft_cache,
+        use_cache=True, layers=layers,
+    )[:, -count * width :, :]
+    if ran is None:
+        s.draft_cache.crop(-(extra + count * width))
+    else:                                                             # only the layers that ran made their entries longer
+        for number in ran:
+            s.draft_cache.layers[number].crop(-(extra + count * width))
+    logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
+    return logits.argmax(dim=-1)
+
+
 class Restarts:
     """A second run that RESTARTS the drafter after each likely break.
 
@@ -575,10 +619,15 @@ class Restarts:
         return hits, project(s.first_drafter, left["features"][None, [shift + at for at in hits]])[0]
 
     def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        # A pass of the drafter is a few milliseconds, and so were the hundreds of small steps on the GPU
+        # that this method once took to pick the restarts, lay them out and put the rows together. So:
+        # what is decided here is decided from a few lists read from the GPU once, and what the pass needs
+        # (tokens, places, who sees whom) and the rows are made as lists and sent over once each.
         s = round_state
         width = s.block_ids.shape[1]
         first = s.draft_logits[0].float()
-        confidence = first.softmax(dim=-1).amax(dim=-1)
+        likely = first.softmax(dim=-1)
+        confidence = likely.amax(dim=-1)
         self.rounds_seen += 1
         if self.gate is not None and float(confidence.cumprod(dim=0).sum()) > self.gate:
             self.kept = []
@@ -595,7 +644,7 @@ class Restarts:
             if not self.kept:
                 return None
         choices = min(self.choices, first.shape[-1] - 1)
-        top = first.softmax(dim=-1).topk(1 + choices, dim=-1)
+        top = likely.topk(1 + choices, dim=-1)
         ranked = top.indices                                          # [place, the first choice and the next ones]
         device = s.block_ids.device
         starts = []                                                   # (the break, which choice; 0: one token earlier)
@@ -606,93 +655,110 @@ class Restarts:
             worth = holds[:, None] * top.values[: width - 1, 1:]      # [place, choice]: the text goes that way
             if self.stand_in == "real":                               # (no states past the answer's end)
                 worth[max(self.features.shape[1] - s.start, 0) :] = -1.0
-            for index in worth.flatten().topk(min(self.best, worth.numel())).indices.tolist():
-                if worth[index // choices, index % choices] >= 0:
+            best = worth.flatten().topk(min(self.best, worth.numel()))
+            for index, value in zip(best.indices.tolist(), best.values.tolist()):
+                if value >= 0:
                     starts.append((index // choices, 1 + index % choices))
         chosen = len(starts)
         if self.kind != "choice":
             starts += [(broke, 0) for broke in self.kept if broke >= 1]
         if not starts:
             return None
-        begin, stand_ins, given = [], [], {}
-        used = sorted({broke for broke, _ in starts})
-        hits, read = self._from_the_last_check(s, used[-1] + 1)
+        ranked_tokens, block = ranked.tolist(), s.block_ids[0].tolist()
+        most = max(broke for broke, _ in starts) + 1                  # the round's tokens that some restart lacks the states of
+        hits, read = self._from_the_last_check(s, most)
+        # The stand-ins of all restarts come from one table of vectors, in the form the drafter reads
+        # states (pool); a restart that lacks the states of the round's first `missing` tokens takes the
+        # rows have(missing), which stand at the places of the block's tokens at(missing).
+        pool, told = None, False
+        have = at = lambda missing: []
         if self.stand_in == "predicted":
             from .stand_in import predicted_states
 
-            written = predicted_states(self.predictor, s, used[-1] + 1)
+            pool = predicted_states(self.predictor, s, most)[0]
             if hits:
-                written = written.clone()
-                written[0, hits] = read.to(written.dtype)
-        for broke in used:
-            missing = broke + 1
-            places = torch.arange(s.start, s.start + missing, device=device)
-            if self.stand_in == "predicted":
-                given[broke] = (written[:, :missing], places, True)
-            elif self.stale and self.stand_in == "none":              # only the states the last check left
-                mine = [number for number, at in enumerate(hits) if at < missing]
-                given[broke] = (read[None, mine], places[[hits[number] for number in mine]], True) if mine else None
-            elif self.stand_in == "real":
-                given[broke] = (self.features[:, s.start : s.start + missing], places)
-            elif self.stand_in == "last" and s.context_features.shape[1]:
-                given[broke] = (s.context_features[:, -1:].repeat(1, missing, 1), places)
-            else:
-                given[broke] = None
-        first_tokens = []
-        told = self.stand_in == "predicted" and bool(self.predictor.sizes.get("coming"))
+                pool = pool.clone()
+                pool[hits] = read.to(pool.dtype)
+            have = at = lambda missing: list(range(missing))
+            told = bool(self.predictor.sizes.get("coming"))
+        elif self.stale and self.stand_in == "none":                  # only the states the last check left
+            pool = read
+            have = lambda missing: [number for number, place in enumerate(hits) if place < missing]
+            at = lambda missing: [place for place in hits if place < missing]
+        elif self.stand_in == "real":
+            from .stand_in import project
+
+            pool = project(s.first_drafter, self.features[:, s.start : s.start + most])[0]
+            have = at = lambda missing: list(range(missing))
+        elif self.stand_in == "last" and s.context_features.shape[1]:
+            from .stand_in import project
+
+            pool = project(s.first_drafter, s.context_features[:, -1:])[0]
+            have, at = (lambda missing: [0] * missing), (lambda missing: list(range(missing)))
+        first_tokens, begin, rows_taken, places_taken, counts, more = [], [], [], [], [], []
         for broke, choice in starts:
-            entry = given[broke]
             if choice:
-                first_tokens.append(ranked[broke, choice])
+                first_tokens.append(ranked_tokens[broke][choice])
                 begin.append(s.start + broke + 1)
-                if told:        # the predictor is told which token this restart starts from
-                    mine = predicted_states(self.predictor, s, broke + 1, coming=ranked[broke, choice])
-                    for number, at in enumerate(hits):
-                        if at <= broke:
-                            mine[0, at] = read[number].to(mine.dtype)
-                    entry = (mine, entry[1], True)
+                missing = broke + 1
             else:                                                     # from the last token before the break: one state fewer
-                first_tokens.append(s.block_ids[0, broke])
+                first_tokens.append(block[broke])
                 begin.append(s.start + broke)
-                if entry is not None:
-                    keep = entry[1] < s.start + broke
-                    entry = (entry[0][:, keep], entry[1][keep]) + tuple(entry[2:]) if bool(keep.any()) else None
-            nearest = broke if choice else broke - 1                  # the token right before the restart's first token
+                missing = broke
+            mine, where = have(missing), at(missing)
+            if choice and told:      # the predictor is told which token this restart starts from: vectors of its own
+                own = predicted_states(self.predictor, s, missing, coming=first_tokens[-1])[0]
+                for number, place in enumerate(hits):
+                    if place < missing:
+                        own[place] = read[number].to(own.dtype)
+                mine = list(range(pool.shape[0] + sum(extra.shape[0] for extra in more), pool.shape[0]
+                                  + sum(extra.shape[0] for extra in more) + missing))
+                more.append(own)
+            rows_taken += mine
+            places_taken += [s.start + place for place in where]
+            counts.append(len(mine))
+            nearest = missing - 1                                     # the token right before the restart's first token
             self.counts["restarts"] += 1
             self.counts["states_missing"] += nearest + 1
-            self.counts["states_from_the_last_check"] += sum(1 for at in hits if at <= nearest)
+            self.counts["states_from_the_last_check"] += sum(1 for place in hits if place <= nearest)
             self.counts["restarts_with_the_nearest_state_from_the_last_check"] += int(nearest in hits)
-            stand_ins.append(entry)
+        context = None
+        if rows_taken:
+            if more:
+                pool = torch.cat([pool] + more, dim=0)
+            context = pool[torch.tensor(rows_taken, device=device)]
         reach = width if self.block is None else min(self.block, width)
-        if self.second is None:
-            new = restarts(s, first_tokens, begin, stand_ins, reach)
-        else:
+        lengths, entering = None, None
+        if self.second is not None:
             # Through the tiny second drafter, going on from the first run. A restart's first token is at
-            # the block's place broke + 1 (from a choice) or broke (one token earlier).
-            first_place = torch.tensor([broke + 1 if choice else broke for broke, choice in starts], device=device)
-            lengths = (width - first_place).clamp(max=reach).tolist()
-            at = (first_place[:, None] + torch.arange(reach, device=device)[None]).clamp(max=width - 1)
+            # the block's place broke + 1 (from a choice) or broke (one token earlier); the first run has
+            # no states past the block's end, so nothing is written past it.
+            first_place = [broke + 1 if choice else broke for broke, choice in starts]
+            lengths = [min(width - place, reach) for place in first_place]
+            places = torch.tensor([[min(place + slot, width - 1) for slot in range(reach)] for place in first_place], device=device)
             scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
-            given = torch.stack(first_tokens + [torch.as_tensor(s.first_drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)])
-            embedded = _raw_input_embeddings(s.target, given[None], scale)[0]
-            entering = self.second.enter(self._first_run[0, -width:][at], embedded[:-1], embedded[-1])
-            new = restarts(s, first_tokens, begin, stand_ins, reach, layers=list(self.second.layers), entering=entering,
-                           lengths=lengths)
-            for number, own in enumerate(lengths):                    # nothing is written past the first block's end
-                new[number, max(own - 1, 0) :] = -1
-        rows = torch.full((len(starts) + (chosen if self.swap else 0), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
+            given = torch.tensor([first_tokens + [s.first_drafter.mask_token_id]], dtype=s.block_ids.dtype, device=device)
+            embedded = _raw_input_embeddings(s.target, given, scale)[0]
+            entering = self.second.enter(self._first_run[0, -width:][places], embedded[:-1], embedded[-1])
+        new = _restart_pass(s, first_tokens, begin, context, counts, places_taken, reach,
+                            layers=None if self.second is None else list(self.second.layers), entering=entering,
+                            lengths=lengths).tolist()
+        rows = [[-1] * (2 * width) for _ in range(len(starts) + (chosen if self.swap else 0))]
         for number, (broke, choice) in enumerate(starts):
-            rows[number, : broke + 1] = s.block_ids[0, : broke + 1]
+            row, written = rows[number], new[number]
+            if lengths is not None:                                   # nothing is written past the first block's end
+                written = written[: lengths[number] - 1] + [-1] * (reach - lengths[number])
+            row[: broke + 1] = block[: broke + 1]
             if not choice:
-                rows[number, broke + 1 : broke + reach] = new[number]
+                row[broke + 1 : broke + reach] = written
                 continue
-            rows[number, broke + 1] = ranked[broke, choice]
-            rows[number, broke + 2 : broke + 1 + reach] = new[number]
+            row[broke + 1] = ranked_tokens[broke][choice]
+            row[broke + 2 : broke + 1 + reach] = written
             if self.swap:
                 swapped = rows[len(starts) + number]
-                swapped[:width] = s.block_ids[0]
-                swapped[broke + 1] = ranked[broke, choice]
-        return rows
+                swapped[:width] = block
+                swapped[broke + 1] = ranked_tokens[broke][choice]
+        return torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
 
 
 class Reanchor:
@@ -858,12 +924,10 @@ class DraftTree:
         self.nodes = len(chosen)
         parents = {ranks[:-1] for ranks in chosen}
         leaves = [ranks for ranks in chosen if ranks not in parents]
-        rows = torch.full((len(leaves), s.block_ids.shape[1]), -1, dtype=s.block_ids.dtype, device=s.block_ids.device)
-        rows[:, 0] = s.block_ids[0, 0]
-        for number, ranks in enumerate(leaves):
-            rows[number, 1 : len(ranks) + 1] = torch.tensor([tokens[at][rank] for at, rank in enumerate(ranks)],
-                                                           dtype=rows.dtype, device=rows.device)
-        return rows
+        # (the rows are made as lists and sent to the GPU once: a row at a time cost over a millisecond a round)
+        width, first = s.block_ids.shape[1], int(s.block_ids[0, 0])
+        rows = [[first] + [tokens[at][rank] for at, rank in enumerate(ranks)] + [-1] * (width - 1 - len(ranks)) for ranks in leaves]
+        return torch.tensor(rows, dtype=s.block_ids.dtype, device=s.block_ids.device)
 
 
 class EchoRows:
@@ -1024,31 +1088,40 @@ class TreeWithRestarts:
         self.nodes = 0
 
     def __call__(self, s: SimpleNamespace) -> torch.Tensor:
-        rows = self.tree(s)
+        made = self.tree(s)
         width = s.block_ids.shape[1]
+        block = None
+        rows = made.tolist()                                          # (put together as lists, sent to the GPU once)
         if getattr(self.restarts, "wants_first_draft", False):       # the whole first draft is read too
-            rows = torch.cat((rows, s.block_ids.to(rows.dtype)), dim=0)
+            block = s.block_ids[0].tolist()
+            rows.append(list(block))
         more = self.restarts(s)
         if more is not None:
+            more = more.tolist()
             tail = getattr(self.restarts, "alternative_tail", None)
             if tail is not None:
+                block = s.block_ids[0].tolist() if block is None else block
                 for row in more:
-                    differs = (row[:width] != s.block_ids[0]).nonzero()
-                    split = int(differs[0]) if differs.numel() else width
-                    row[split + 1 + tail :] = -1
-            across = max(rows.shape[1], more.shape[1])
-            wide = torch.full((rows.shape[0] + more.shape[0], across), -1, dtype=rows.dtype, device=rows.device)
-            wide[: rows.shape[0], : rows.shape[1]] = rows
-            wide[rows.shape[0] :, : more.shape[1]] = more
-            rows = wide
-        seen = set()
-        for row in rows.tolist():
-            for end in range(2, len(row) + 1):
-                if row[end - 1] < 0:
+                    split = next((place for place in range(width) if row[place] != block[place]), width)
+                    row[split + 1 + tail :] = [-1] * max(len(row) - (split + 1 + tail), 0)
+            rows += more
+            across = max(len(row) for row in rows)
+            rows = [row + [-1] * (across - len(row)) for row in rows]
+        children, nodes = {}, 0                                       # the tokens read, counted once where rows share their beginning
+        for row in rows:
+            node = 0
+            for token in row[1:]:
+                if token < 0:
                     break
-                seen.add(tuple(row[:end]))
-        self.nodes = len(seen)
-        return rows
+                following = children.get((node, token))
+                if following is None:
+                    nodes += 1
+                    following = children[(node, token)] = nodes
+                node = following
+        self.nodes = nodes
+        if more is None and block is None:
+            return made
+        return torch.tensor(rows, dtype=made.dtype, device=made.device)
 
 
 class Resample:
