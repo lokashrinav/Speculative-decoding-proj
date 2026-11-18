@@ -1237,6 +1237,14 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     drafter_before = {name: value.clone() for name, value in draft.state_dict().items()}
     optimizer = torch.optim.AdamW([{"params": second.trained(), "lr": 3e-3}, {"params": list(predictor.parameters()), "lr": 1e-3}])
     teach = TeachSecond(second, predictor, optimizer, draft, target, every=2, window=64, width=BLOCK, compare_every=1)
+    # The whole drafter's final states at a restart, put through the output head, are restart_logits.
+    from nexus.train_restart import restart_logits
+    from nexus.train_second import whole_states
+
+    with torch.no_grad():
+        whole = whole_states(draft, target, features, ids, start, real, 0, BLOCK)
+        assert torch.equal(draft.compute_logits(whole[None], target.lm_head)[0],
+                           restart_logits(draft, target, features, ids, start, real, 0, BLOCK))
     curve = []
     for _ in range(5):
         teach.learn_from(ids, features, length, most=12)
@@ -1252,6 +1260,14 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     assert all(compared["at_most_3_of_them"][name] <= min(compared["tokens_right_inside_the_block"][name], 3) for name in ARMS)
     assert compared["rounds"] > 0 and teach.saved_predictor is not predictor
     assert all(torch.equal(before[name], value) for name, value in teach.saved_predictor.state_dict().items())
+
+    # With the second aim (the whole drafter's final states) and the real states in a share of the steps.
+    aimed = TeachSecond(second, predictor, optimizer, draft, target, every=2, window=64, width=BLOCK, compare_every=1,
+                        distill=1.0, real_share=0.5)
+    aimed.learn_from(ids, features, length, most=12)
+    point = aimed.progress()
+    assert aimed.steps >= 2 and point["loss_by_tokens"] == point["loss_by_tokens"] and point["on_the_same_rounds"]["rounds"] > 0
+    assert all(torch.equal(drafter_before[name], value) for name, value in draft.state_dict().items())
 
     # With nothing learned: no weight changes, the same counts are made.
     snapshot = [adapter.up.clone() for adapter in second.adapters]

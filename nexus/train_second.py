@@ -26,7 +26,7 @@ target check) for:
     old_rest           the first draft's old tokens after the right token (no pass at all)
 
 After training the same is counted on validation answers, every round, with nothing learned. Saved:
-warm-<name>.pt (the low-rank updates, about 7 MB for one layer at rank 64) and, unless the predictor
+warm-<name>.pt (the low-rank updates, about 28 MB for one layer at rank 256) and, unless the predictor
 is frozen, restart-<name>.pt (the predictor as trained with the layers) in --adapter-dir.
 """
 import argparse
@@ -62,17 +62,36 @@ def first_run(drafter, target, features, ids, start, low, width, keep):
     return final, kept["states"][0]
 
 
-def warm_logits(drafter, second, target, features, ids, start, written, entering, low=0):
-    """What the restart layers predict after the token at start + count, going on from the first run:
+def warm_states(drafter, second, features, ids, start, written, entering, low=0):
+    """The restart layers' final states after the token at start + count, going on from the first run:
     `entering` ([places, size]) are the states the places from that token on enter them with, `written`
     ([count, size]) the states of the tokens start .. start + count - 1 as the drafter reads states.
-    Returns [places - 1, vocabulary]. Nothing is cached, so the layers and a predictor can learn through it."""
+    Returns [places - 1, size]. Nothing is cached, so the layers and a predictor can learn through it."""
     anchor = start + written.shape[0]
     positions = torch.cat((torch.arange(low, anchor, device=ids.device),
                            torch.arange(anchor, anchor + entering.shape[0], device=ids.device)))[None]
     hidden = drafter(target_hidden=features[:, low:start], context_states=written[None], noise_embedding=entering[None],
                      position_ids=positions, layers=list(second.layers))
-    return drafter.compute_logits(hidden[:, 1:, :], _output_head(target))[0]
+    return hidden[0, 1:, :]
+
+
+def warm_logits(drafter, second, target, features, ids, start, written, entering, low=0):
+    """What the restart layers predict there: [places - 1, vocabulary]."""
+    return drafter.compute_logits(warm_states(drafter, second, features, ids, start, written, entering, low)[None],
+                                  _output_head(target))[0]
+
+
+def whole_states(drafter, target, features, ids, start, written, low=0, width=16):
+    """The whole drafter's final states when it restarts at start + count with `written` for the tokens
+    before (nexus/train_restart.py: restart_logits, before the output head): [width - 1, size]."""
+    from nexus.train_restart import _block_at
+
+    anchor = start + written.shape[0]
+    positions = torch.cat((torch.arange(low, anchor, device=ids.device),
+                           torch.arange(anchor, anchor + width, device=ids.device)))[None]
+    hidden = drafter(target_hidden=features[:, low:start], context_states=written[None],
+                     noise_embedding=_block_at(drafter, target, ids, anchor, width), position_ids=positions)
+    return hidden[0, 1:, :]
 
 
 def _right(logits, answer):
@@ -84,10 +103,18 @@ class TeachSecond:
     """Trains the restart layers (and the predictor) on the tokens they write (see the top of this file)."""
 
     def __init__(self, second, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8,
-                 width=16, seed=0, compare_every=4, train_predictor=True):
+                 width=16, seed=0, compare_every=4, train_predictor=True, distill=0.0, real_share=0.0):
         self.second, self.predictor, self.optimizer, self.drafter, self.target = second, predictor, optimizer, drafter, target
         self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
         self.compare_every, self.train_predictor = compare_every, train_predictor
+        # distill: the weight of a second aim: the final states of the WHOLE drafter restarting with the target's
+        # real states (the next round's first draft), which the restart layers' final states are pulled towards
+        # (one minus their cosine, the first places counting most). A token says one thing about a place, the
+        # whole drafter's state there says what it knows.
+        # real_share: in this share of the steps the layers are given the target's real states in place of the
+        # predicted ones. Before training they do not look at the states at all; with the real ones there is
+        # something to find, and the way of reading them carries over to the predicted ones.
+        self.distill, self.real_share = distill, real_share
         # The predictor as it was saved: the whole drafter's restart is measured with its states, so that the
         # comparison is with the second run as it is today.
         self.saved_predictor = copy.deepcopy(predictor).eval() if train_predictor else predictor
@@ -141,19 +168,31 @@ class TeachSecond:
             pair = torch.stack((ids[0, start + count], torch.as_tensor(drafter.mask_token_id, dtype=ids.dtype, device=device)))
             token_in, mask_in = _raw_input_embeddings(target, pair[None], scale)[0]
             answer = ids[0, start + count + 1 : start + width].clone()                  # the tokens after the right token, inside the block
+            aim = None
+            if learn and self.distill:
+                aim = whole_states(drafter, target, features, ids, start, real.to(block_states.dtype), low, width)[: places - 1]
+            with_real = learn and self.real_share > 0 and float(torch.rand(1, generator=self.generator)) < self.real_share
         with torch.set_grad_enabled(learn):
             written = self.predictor(*given)
             if not (learn and self.train_predictor):
                 written = written.detach()
             written = as_context(drafter, written)
             entering = self.second.enter(kept[count:], token_in, mask_in)
-            logits = warm_logits(drafter, self.second, target, features, ids, start, written, entering, low).float()
+            states = warm_states(drafter, self.second, features, ids, start, real if with_real else written, entering, low)
+            logits = drafter.compute_logits(states[None], _output_head(target))[0].float()
             each = torch.nn.functional.cross_entropy(logits, answer, reduction="none")
             weights = self.weights[: places - 1].to(device)
             by_tokens = (each * weights).sum() / weights.sum()
             by_vectors = torch.nn.functional.mse_loss(written, real)
+            total = by_tokens + self.vector_weight * by_vectors
+            if aim is not None:
+                apart = 1.0 - torch.nn.functional.cosine_similarity(states.float(), aim.float(), dim=-1)
+                total = total + self.distill * (apart * weights).sum() / weights.sum()
             if learn:
-                ((by_tokens + self.vector_weight * by_vectors) / self.every).backward()
+                (total / self.every).backward()
+        if with_real:           # (the counts below are of the layers as they are used: with the predicted states)
+            with torch.no_grad():
+                logits = warm_logits(drafter, self.second, target, features, ids, start, written, entering, low).float()
         self.rounds += 1
         if learn and self.rounds % self.every == 0:
             torch.nn.utils.clip_grad_norm_(self.second.trained() + list(self.predictor.parameters()), 1.0)
@@ -206,7 +245,7 @@ def main():
     parser.add_argument("--predictor", default="", help="start from the saved predictor restart-<name>.pt (none: a new one)")
     parser.add_argument("--freeze-predictor", action="store_true", help="train the layers only")
     parser.add_argument("--layers", type=int, default=1, help="how many of the drafter's last layers the second drafter has")
-    parser.add_argument("--rank", type=int, default=64, help="of the low-rank updates")
+    parser.add_argument("--rank", type=int, default=256, help="of the low-rank updates")
     parser.add_argument("--part", default="train", help="the answers it learns from")
     parser.add_argument("--vector-weight", type=float, default=0.1)
     parser.add_argument("--window", type=int, default=2048, help="tokens of text the drafter reads in a step")
@@ -214,6 +253,10 @@ def main():
     parser.add_argument("--predictor-rate", type=float, default=1e-4)
     parser.add_argument("--every", type=int, default=8, help="rounds per update of the weights")
     parser.add_argument("--compare-every", type=int, default=4)
+    parser.add_argument("--distill", type=float, default=1.0,
+                        help="weight of the pull towards the whole drafter's final states with the real states (0: off)")
+    parser.add_argument("--real-share", type=float, default=0.3,
+                        help="share of the steps in which the layers are given the target's real states")
     parser.add_argument("--max-hours", type=float, default=3.0, help="of training; the measurement comes after")
     parser.add_argument("--max-answers", type=int, default=0, help="train on at most this many answers")
     parser.add_argument("--passes", type=int, default=1, help="times it goes through the answers (other rounds of them each time)")
@@ -247,7 +290,8 @@ def main():
             groups.append({"params": list(predictor.parameters()), "lr": args.predictor_rate})
         optimizer = torch.optim.AdamW(groups, weight_decay=0.0)
     teach = TeachSecond(second, predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed,
-                        compare_every=args.compare_every, train_predictor=not args.freeze_predictor)
+                        compare_every=args.compare_every, train_predictor=not args.freeze_predictor, distill=args.distill,
+                        real_share=args.real_share)
     curve, started = [], time.time()
 
     def report(done, learned, measured=None):
@@ -256,6 +300,7 @@ def main():
                   "layers": args.layers, "of_the_drafters_layers": len(draft.layers), "rank": args.rank, "rate": args.rate,
                   "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor,
                   "predictor_rate": args.predictor_rate, "every": args.every, "vector_weight": args.vector_weight,
+                  "distill": args.distill, "real_share": args.real_share,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
                   "rounds_without_a_break": teach.unbroken, "rounds_broken_at_the_last_place": teach.at_the_end,
                   "curve": curve, "on_validation_answers": measured}
