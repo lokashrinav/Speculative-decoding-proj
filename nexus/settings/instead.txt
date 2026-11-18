@@ -72,10 +72,12 @@ tree-replay-pub-4: train_restart.py --data-dir ~/specdec-data/long1 --save pub-b
 # states and the real ones at real breaks. This job was queued for the public drafter's restart replay, which is
 # queued again as restart-replay-pub-4. (Results in nexus/results/restart-replay-pub-3: NOT a replay.)
 restart-replay-pub-3: train_restart.py --draft opd --data-dir ~/specdec-data/long1 --save opd-s0 --coming --layers 2 --memory 8 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12
-# (Nov 18, 11:10 UTC) The second run's own speed test moved to the front of the queue, on the better drafter: thrifty
+# (Nov 18, 11:10 UTC) The second run's own speed test moved to the front of the queue, on both drafters: thrifty
 # (3 tokens checked after each restart, no swaps), run only where the first draft is expected to break early (g3, g6),
-# alone and on top of DDTree. The job was queued for the count of shifted drafts on the public drafter, which
-# live-second-opd-0 does in its place. (Results in nexus/results/probe-shift-pub-0: they are the SPEED TEST on
-# Draft-OPD; results in nexus/results/live-second-opd-0: they are the count of shifted drafts on the PUBLIC drafter.)
-probe-shift-pub-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
-live-second-opd-0: restart_probe.py --data-dir ~/specdec-data/long1 --part validation --more --max-answers 40 --max-hours 3
+# alone and on top of DDTree. The two jobs were queued for the count of shifted drafts, which the two live-second
+# jobs do in their place. (Results in nexus/results/probe-shift-opd-0 and -pub-0: they are the SPEED TESTS;
+# results in nexus/results/live-second-opd-0 and -pub-0: they are the counts of shifted drafts.)
+probe-shift-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
+probe-shift-pub-0: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@pub-m0,plain+restart4pxt3g3@pub-m0,plain+restart4pxt3g6@pub-m0,plain+restart4pet3@pub-m0,plain+restart2pxt3g6@pub-m0,plain+tree63,plain+tree63_restart4pxt3@pub-m0,plain+tree63_restart4pxt3g3@pub-m0,plain+tree63_restart4pxt3g6@pub-m0
+live-second-opd-0: restart_probe.py --draft opd --data-dir ~/specdec-data/long1 --part validation --more --max-answers 40 --max-hours 3
+live-second-pub-0: restart_probe.py --data-dir ~/specdec-data/long1 --part validation --more --max-answers 40 --max-hours 3
