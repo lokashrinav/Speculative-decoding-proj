@@ -19,6 +19,7 @@ target check) for:
 
     second             the tiny second drafter with predicted states: what is being trained
     second_real        the same with the target's real states (its limit with a perfect predictor)
+    second_none        the same with no states at all (what it gets from the first run and the token alone)
     whole_predicted    the whole drafter restarting with the predicted states: the second run as it is,
                        at the cost of a whole pass (the states of the predictor as it was saved)
     whole_real         the whole drafter with the real states (the next round's first draft: the limit)
@@ -47,7 +48,7 @@ from nexus.redraft_long import find_drafter
 from nexus.replay_memory import load_answers
 from nexus.train_restart import first_run_states, restart_logits
 
-ARMS = ("second", "second_real", "whole_predicted", "whole_real", "whole_none", "old_rest")
+ARMS = ("second", "second_real", "second_none", "whole_predicted", "whole_real", "whole_none", "old_rest")
 
 
 def first_run(drafter, target, features, ids, start, low, width, keep):
@@ -62,22 +63,23 @@ def first_run(drafter, target, features, ids, start, low, width, keep):
     return final, kept["states"][0]
 
 
-def warm_states(drafter, second, features, ids, start, written, entering, low=0):
+def warm_states(drafter, second, features, ids, start, written, entering, low=0, anchor=None):
     """The restart layers' final states after the token at start + count, going on from the first run:
     `entering` ([places, size]) are the states the places from that token on enter them with, `written`
     ([count, size]) the states of the tokens start .. start + count - 1 as the drafter reads states.
-    Returns [places - 1, size]. Nothing is cached, so the layers and a predictor can learn through it."""
-    anchor = start + written.shape[0]
-    positions = torch.cat((torch.arange(low, anchor, device=ids.device),
+    Returns [places - 1, size]. Nothing is cached, so the layers and a predictor can learn through it.
+    anchor: where the restart starts when `written` covers fewer tokens than are missing (none: [0, size])."""
+    anchor = start + written.shape[0] if anchor is None else anchor
+    positions = torch.cat((torch.arange(low, start + written.shape[0], device=ids.device),
                            torch.arange(anchor, anchor + entering.shape[0], device=ids.device)))[None]
     hidden = drafter(target_hidden=features[:, low:start], context_states=written[None], noise_embedding=entering[None],
                      position_ids=positions, layers=list(second.layers))
     return hidden[0, 1:, :]
 
 
-def warm_logits(drafter, second, target, features, ids, start, written, entering, low=0):
+def warm_logits(drafter, second, target, features, ids, start, written, entering, low=0, anchor=None):
     """What the restart layers predict there: [places - 1, vocabulary]."""
-    return drafter.compute_logits(warm_states(drafter, second, features, ids, start, written, entering, low)[None],
+    return drafter.compute_logits(warm_states(drafter, second, features, ids, start, written, entering, low, anchor)[None],
                                   _output_head(target))[0]
 
 
@@ -223,6 +225,8 @@ class TeachSecond:
                 counts = {"second": right}
                 counts["second_real"] = _right(warm_logits(drafter, self.second, target, features, ids, start,
                                                            real.to(written.dtype), entering, low), answer)
+                counts["second_none"] = _right(warm_logits(drafter, self.second, target, features, ids, start,
+                                                           real[:0].to(written.dtype), entering, low, anchor=start + count), answer)
                 saved = written
                 if self.train_predictor:
                     saved = as_context(drafter, self.saved_predictor(*self.inputs(self.saved_predictor, block_states, ids,
