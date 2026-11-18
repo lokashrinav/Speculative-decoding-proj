@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 19,
+ "answers": 40,
  "answers_to_learn_from": 366,
  "part": "train",
- "hours": 0.085,
+ "hours": 0.173,
  "draft": "opd",
  "save": "opd-s2",
  "layers": 2,
@@ -23,8 +23,8 @@
  "states_written_into_the_block": true,
  "share_of_steps_with_no_states": 0.3,
  "parameters_trained": 28311552,
- "rounds_without_a_break": 397,
- "rounds_broken_at_the_last_place": 113,
+ "rounds_without_a_break": 1563,
+ "rounds_broken_at_the_last_place": 208,
  "curve": [
   {
    "answers": 1,
@@ -823,8 +823,890 @@
      "whole_real": 0.25
     }
    }
+  },
+  {
+   "answers": 20,
+   "rounds": 4364,
+   "steps": 545,
+   "loss_by_tokens": 3.137,
+   "error_of_the_predicted_states": 0.07918,
+   "tokens_right_after_the_restart": 0.705,
+   "on_the_same_rounds": {
+    "rounds": 134,
+    "tokens_right_inside_the_block": {
+     "second": 0.776,
+     "second_real": 0.769,
+     "second_none": 0.769,
+     "whole_predicted": 1.679,
+     "whole_real": 3.299,
+     "whole_none": 0.918,
+     "old_rest": 0.828
+    },
+    "at_most_3_of_them": {
+     "second": 0.619,
+     "second_real": 0.612,
+     "second_none": 0.612,
+     "whole_predicted": 1.194,
+     "whole_real": 2.015,
+     "whole_none": 0.739,
+     "old_rest": 0.575
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 122,
+    "tokens_right_inside_the_block": {
+     "second": 0.41,
+     "whole_predicted": 1.057,
+     "whole_real": 2.328
+    },
+    "at_most_4_of_them": {
+     "second": 0.344,
+     "whole_predicted": 0.811,
+     "whole_real": 1.672
+    }
+   }
+  },
+  {
+   "answers": 21,
+   "rounds": 4507,
+   "steps": 563,
+   "loss_by_tokens": 4.6381,
+   "error_of_the_predicted_states": 0.12314,
+   "tokens_right_after_the_restart": 0.399,
+   "on_the_same_rounds": {
+    "rounds": 35,
+    "tokens_right_inside_the_block": {
+     "second": 0.486,
+     "second_real": 0.486,
+     "second_none": 0.457,
+     "whole_predicted": 1.143,
+     "whole_real": 1.943,
+     "whole_none": 0.657,
+     "old_rest": 0.457
+    },
+    "at_most_3_of_them": {
+     "second": 0.371,
+     "second_real": 0.371,
+     "second_none": 0.343,
+     "whole_predicted": 0.971,
+     "whole_real": 1.486,
+     "whole_none": 0.629,
+     "old_rest": 0.343
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 26,
+    "tokens_right_inside_the_block": {
+     "second": 0.538,
+     "whole_predicted": 0.192,
+     "whole_real": 1.231
+    },
+    "at_most_4_of_them": {
+     "second": 0.423,
+     "whole_predicted": 0.192,
+     "whole_real": 0.962
+    }
+   }
+  },
+  {
+   "answers": 22,
+   "rounds": 4571,
+   "steps": 571,
+   "loss_by_tokens": 5.3574,
+   "error_of_the_predicted_states": 0.13573,
+   "tokens_right_after_the_restart": 0.297,
+   "on_the_same_rounds": {
+    "rounds": 16,
+    "tokens_right_inside_the_block": {
+     "second": 0.062,
+     "second_real": 0.062,
+     "second_none": 0.062,
+     "whole_predicted": 0.688,
+     "whole_real": 1.125,
+     "whole_none": 0.188,
+     "old_rest": 0.125
+    },
+    "at_most_3_of_them": {
+     "second": 0.062,
+     "second_real": 0.062,
+     "second_none": 0.062,
+     "whole_predicted": 0.688,
+     "whole_real": 1.062,
+     "whole_none": 0.188,
+     "old_rest": 0.125
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 9,
+    "tokens_right_inside_the_block": {
+     "second": 0.0,
+     "whole_predicted": 0.222,
+     "whole_real": 0.889
+    },
+    "at_most_4_of_them": {
+     "second": 0.0,
+     "whole_predicted": 0.222,
+     "whole_real": 0.889
+    }
+   }
+  },
+  {
+   "answers": 23,
+   "rounds": 4812,
+   "steps": 601,
+   "loss_by_tokens": 2.5296,
+   "error_of_the_predicted_states": 0.07706,
+   "tokens_right_after_the_restart": 1.183,
+   "on_the_same_rounds": {
+    "rounds": 61,
+    "tokens_right_inside_the_block": {
+     "second": 1.279,
+     "second_real": 1.328,
+     "second_none": 1.328,
+     "whole_predicted": 2.262,
+     "whole_real": 4.082,
+     "whole_none": 0.754,
+     "old_rest": 1.279
+    },
+    "at_most_3_of_them": {
+     "second": 1.0,
+     "second_real": 1.049,
+     "second_none": 1.049,
+     "whole_predicted": 1.492,
+     "whole_real": 2.246,
+     "whole_none": 0.672,
+     "old_rest": 0.902
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 57,
+    "tokens_right_inside_the_block": {
+     "second": 0.579,
+     "whole_predicted": 1.386,
+     "whole_real": 3.561
+    },
+    "at_most_4_of_them": {
+     "second": 0.509,
+     "whole_predicted": 1.053,
+     "whole_real": 2.491
+    }
+   }
+  },
+  {
+   "answers": 24,
+   "rounds": 4902,
+   "steps": 612,
+   "loss_by_tokens": 5.2041,
+   "error_of_the_predicted_states": 0.11996,
+   "tokens_right_after_the_restart": 0.289,
+   "on_the_same_rounds": {
+    "rounds": 22,
+    "tokens_right_inside_the_block": {
+     "second": 0.227,
+     "second_real": 0.227,
+     "second_none": 0.227,
+     "whole_predicted": 1.045,
+     "whole_real": 1.636,
+     "whole_none": 0.455,
+     "old_rest": 0.182
+    },
+    "at_most_3_of_them": {
+     "second": 0.227,
+     "second_real": 0.227,
+     "second_none": 0.227,
+     "whole_predicted": 0.818,
+     "whole_real": 1.364,
+     "whole_none": 0.455,
+     "old_rest": 0.182
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 16,
+    "tokens_right_inside_the_block": {
+     "second": 0.125,
+     "whole_predicted": 0.625,
+     "whole_real": 1.0
+    },
+    "at_most_4_of_them": {
+     "second": 0.125,
+     "whole_predicted": 0.438,
+     "whole_real": 0.938
+    }
+   }
+  },
+  {
+   "answers": 25,
+   "rounds": 5139,
+   "steps": 642,
+   "loss_by_tokens": 2.4903,
+   "error_of_the_predicted_states": 0.0715,
+   "tokens_right_after_the_restart": 0.996,
+   "on_the_same_rounds": {
+    "rounds": 59,
+    "tokens_right_inside_the_block": {
+     "second": 1.017,
+     "second_real": 1.068,
+     "second_none": 1.068,
+     "whole_predicted": 1.898,
+     "whole_real": 4.475,
+     "whole_none": 0.881,
+     "old_rest": 1.034
+    },
+    "at_most_3_of_them": {
+     "second": 0.712,
+     "second_real": 0.763,
+     "second_none": 0.763,
+     "whole_predicted": 1.136,
+     "whole_real": 2.39,
+     "whole_none": 0.508,
+     "old_rest": 0.678
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 58,
+    "tokens_right_inside_the_block": {
+     "second": 0.293,
+     "whole_predicted": 0.983,
+     "whole_real": 3.052
+    },
+    "at_most_4_of_them": {
+     "second": 0.224,
+     "whole_predicted": 0.724,
+     "whole_real": 2.069
+    }
+   }
+  },
+  {
+   "answers": 26,
+   "rounds": 5443,
+   "steps": 680,
+   "loss_by_tokens": 2.7691,
+   "error_of_the_predicted_states": 0.06947,
+   "tokens_right_after_the_restart": 0.684,
+   "on_the_same_rounds": {
+    "rounds": 76,
+    "tokens_right_inside_the_block": {
+     "second": 0.592,
+     "second_real": 0.605,
+     "second_none": 0.605,
+     "whole_predicted": 2.105,
+     "whole_real": 4.184,
+     "whole_none": 1.697,
+     "old_rest": 0.737
+    },
+    "at_most_3_of_them": {
+     "second": 0.461,
+     "second_real": 0.474,
+     "second_none": 0.474,
+     "whole_predicted": 1.395,
+     "whole_real": 2.105,
+     "whole_none": 0.987,
+     "old_rest": 0.461
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 72,
+    "tokens_right_inside_the_block": {
+     "second": 0.458,
+     "whole_predicted": 1.25,
+     "whole_real": 2.819
+    },
+    "at_most_4_of_them": {
+     "second": 0.347,
+     "whole_predicted": 0.917,
+     "whole_real": 1.889
+    }
+   }
+  },
+  {
+   "answers": 27,
+   "rounds": 5528,
+   "steps": 691,
+   "loss_by_tokens": 4.6042,
+   "error_of_the_predicted_states": 0.13471,
+   "tokens_right_after_the_restart": 0.624,
+   "on_the_same_rounds": {
+    "rounds": 22,
+    "tokens_right_inside_the_block": {
+     "second": 0.455,
+     "second_real": 0.455,
+     "second_none": 0.455,
+     "whole_predicted": 0.909,
+     "whole_real": 1.136,
+     "whole_none": 0.591,
+     "old_rest": 0.409
+    },
+    "at_most_3_of_them": {
+     "second": 0.455,
+     "second_real": 0.455,
+     "second_none": 0.455,
+     "whole_predicted": 0.864,
+     "whole_real": 1.0,
+     "whole_none": 0.5,
+     "old_rest": 0.409
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 18,
+    "tokens_right_inside_the_block": {
+     "second": 0.222,
+     "whole_predicted": 0.167,
+     "whole_real": 0.889
+    },
+    "at_most_4_of_them": {
+     "second": 0.222,
+     "whole_predicted": 0.167,
+     "whole_real": 0.889
+    }
+   }
+  },
+  {
+   "answers": 28,
+   "rounds": 5809,
+   "steps": 726,
+   "loss_by_tokens": 2.6963,
+   "error_of_the_predicted_states": 0.07658,
+   "tokens_right_after_the_restart": 0.872,
+   "on_the_same_rounds": {
+    "rounds": 70,
+    "tokens_right_inside_the_block": {
+     "second": 1.271,
+     "second_real": 1.271,
+     "second_none": 1.271,
+     "whole_predicted": 2.371,
+     "whole_real": 4.971,
+     "whole_none": 0.9,
+     "old_rest": 1.171
+    },
+    "at_most_3_of_them": {
+     "second": 0.771,
+     "second_real": 0.771,
+     "second_none": 0.771,
+     "whole_predicted": 1.586,
+     "whole_real": 2.386,
+     "whole_none": 0.7,
+     "old_rest": 0.643
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 65,
+    "tokens_right_inside_the_block": {
+     "second": 0.585,
+     "whole_predicted": 1.754,
+     "whole_real": 3.877
+    },
+    "at_most_4_of_them": {
+     "second": 0.462,
+     "whole_predicted": 1.246,
+     "whole_real": 2.277
+    }
+   }
+  },
+  {
+   "answers": 29,
+   "rounds": 6033,
+   "steps": 754,
+   "loss_by_tokens": 2.5389,
+   "error_of_the_predicted_states": 0.07403,
+   "tokens_right_after_the_restart": 1.076,
+   "on_the_same_rounds": {
+    "rounds": 56,
+    "tokens_right_inside_the_block": {
+     "second": 1.196,
+     "second_real": 1.196,
+     "second_none": 1.179,
+     "whole_predicted": 3.107,
+     "whole_real": 4.375,
+     "whole_none": 1.714,
+     "old_rest": 1.375
+    },
+    "at_most_3_of_them": {
+     "second": 0.804,
+     "second_real": 0.804,
+     "second_none": 0.786,
+     "whole_predicted": 1.696,
+     "whole_real": 2.232,
+     "whole_none": 1.196,
+     "old_rest": 0.732
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 47,
+    "tokens_right_inside_the_block": {
+     "second": 0.468,
+     "whole_predicted": 1.255,
+     "whole_real": 3.0
+    },
+    "at_most_4_of_them": {
+     "second": 0.383,
+     "whole_predicted": 1.021,
+     "whole_real": 2.064
+    }
+   }
+  },
+  {
+   "answers": 30,
+   "rounds": 6188,
+   "steps": 773,
+   "loss_by_tokens": 2.626,
+   "error_of_the_predicted_states": 0.07119,
+   "tokens_right_after_the_restart": 0.929,
+   "on_the_same_rounds": {
+    "rounds": 39,
+    "tokens_right_inside_the_block": {
+     "second": 0.821,
+     "second_real": 0.872,
+     "second_none": 0.872,
+     "whole_predicted": 2.744,
+     "whole_real": 4.923,
+     "whole_none": 0.897,
+     "old_rest": 0.795
+    },
+    "at_most_3_of_them": {
+     "second": 0.564,
+     "second_real": 0.615,
+     "second_none": 0.615,
+     "whole_predicted": 1.359,
+     "whole_real": 2.282,
+     "whole_none": 0.59,
+     "old_rest": 0.487
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 36,
+    "tokens_right_inside_the_block": {
+     "second": 0.194,
+     "whole_predicted": 1.25,
+     "whole_real": 3.972
+    },
+    "at_most_4_of_them": {
+     "second": 0.194,
+     "whole_predicted": 0.806,
+     "whole_real": 2.361
+    }
+   }
+  },
+  {
+   "answers": 31,
+   "rounds": 6282,
+   "steps": 785,
+   "loss_by_tokens": 4.7524,
+   "error_of_the_predicted_states": 0.13651,
+   "tokens_right_after_the_restart": 0.681,
+   "on_the_same_rounds": {
+    "rounds": 23,
+    "tokens_right_inside_the_block": {
+     "second": 0.435,
+     "second_real": 0.391,
+     "second_none": 0.435,
+     "whole_predicted": 0.87,
+     "whole_real": 2.304,
+     "whole_none": 0.739,
+     "old_rest": 0.348
+    },
+    "at_most_3_of_them": {
+     "second": 0.391,
+     "second_real": 0.391,
+     "second_none": 0.391,
+     "whole_predicted": 0.826,
+     "whole_real": 1.609,
+     "whole_none": 0.565,
+     "old_rest": 0.261
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 14,
+    "tokens_right_inside_the_block": {
+     "second": 0.0,
+     "whole_predicted": 0.286,
+     "whole_real": 0.5
+    },
+    "at_most_4_of_them": {
+     "second": 0.0,
+     "whole_predicted": 0.286,
+     "whole_real": 0.429
+    }
+   }
+  },
+  {
+   "answers": 32,
+   "rounds": 6341,
+   "steps": 792,
+   "loss_by_tokens": 4.1714,
+   "error_of_the_predicted_states": 0.12921,
+   "tokens_right_after_the_restart": 0.407,
+   "on_the_same_rounds": {
+    "rounds": 15,
+    "tokens_right_inside_the_block": {
+     "second": 0.4,
+     "second_real": 0.4,
+     "second_none": 0.4,
+     "whole_predicted": 0.4,
+     "whole_real": 2.4,
+     "whole_none": 0.333,
+     "old_rest": 0.533
+    },
+    "at_most_3_of_them": {
+     "second": 0.4,
+     "second_real": 0.4,
+     "second_none": 0.4,
+     "whole_predicted": 0.4,
+     "whole_real": 1.467,
+     "whole_none": 0.333,
+     "old_rest": 0.533
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 13,
+    "tokens_right_inside_the_block": {
+     "second": 0.077,
+     "whole_predicted": 0.385,
+     "whole_real": 1.308
+    },
+    "at_most_4_of_them": {
+     "second": 0.077,
+     "whole_predicted": 0.385,
+     "whole_real": 1.154
+    }
+   }
+  },
+  {
+   "answers": 33,
+   "rounds": 6446,
+   "steps": 805,
+   "loss_by_tokens": 5.5209,
+   "error_of_the_predicted_states": 0.11869,
+   "tokens_right_after_the_restart": 0.448,
+   "on_the_same_rounds": {
+    "rounds": 26,
+    "tokens_right_inside_the_block": {
+     "second": 0.385,
+     "second_real": 0.423,
+     "second_none": 0.423,
+     "whole_predicted": 0.769,
+     "whole_real": 0.923,
+     "whole_none": 0.692,
+     "old_rest": 0.269
+    },
+    "at_most_3_of_them": {
+     "second": 0.385,
+     "second_real": 0.423,
+     "second_none": 0.423,
+     "whole_predicted": 0.769,
+     "whole_real": 0.923,
+     "whole_none": 0.654,
+     "old_rest": 0.269
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 17,
+    "tokens_right_inside_the_block": {
+     "second": 0.176,
+     "whole_predicted": 0.176,
+     "whole_real": 0.235
+    },
+    "at_most_4_of_them": {
+     "second": 0.176,
+     "whole_predicted": 0.176,
+     "whole_real": 0.235
+    }
+   }
+  },
+  {
+   "answers": 34,
+   "rounds": 6513,
+   "steps": 814,
+   "loss_by_tokens": 5.8244,
+   "error_of_the_predicted_states": 0.13133,
+   "tokens_right_after_the_restart": 0.239,
+   "on_the_same_rounds": {
+    "rounds": 17,
+    "tokens_right_inside_the_block": {
+     "second": 0.471,
+     "second_real": 0.471,
+     "second_none": 0.471,
+     "whole_predicted": 0.588,
+     "whole_real": 0.765,
+     "whole_none": 0.294,
+     "old_rest": 0.353
+    },
+    "at_most_3_of_them": {
+     "second": 0.412,
+     "second_real": 0.412,
+     "second_none": 0.412,
+     "whole_predicted": 0.529,
+     "whole_real": 0.706,
+     "whole_none": 0.294,
+     "old_rest": 0.294
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 8,
+    "tokens_right_inside_the_block": {
+     "second": 0.125,
+     "whole_predicted": 0.375,
+     "whole_real": 0.5
+    },
+    "at_most_4_of_them": {
+     "second": 0.125,
+     "whole_predicted": 0.375,
+     "whole_real": 0.5
+    }
+   }
+  },
+  {
+   "answers": 35,
+   "rounds": 6950,
+   "steps": 868,
+   "loss_by_tokens": 2.575,
+   "error_of_the_predicted_states": 0.07932,
+   "tokens_right_after_the_restart": 1.181,
+   "on_the_same_rounds": {
+    "rounds": 109,
+    "tokens_right_inside_the_block": {
+     "second": 1.064,
+     "second_real": 1.128,
+     "second_none": 1.147,
+     "whole_predicted": 2.239,
+     "whole_real": 3.477,
+     "whole_none": 1.147,
+     "old_rest": 0.89
+    },
+    "at_most_3_of_them": {
+     "second": 0.917,
+     "second_real": 0.954,
+     "second_none": 0.963,
+     "whole_predicted": 1.514,
+     "whole_real": 2.138,
+     "whole_none": 0.872,
+     "old_rest": 0.706
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 101,
+    "tokens_right_inside_the_block": {
+     "second": 0.673,
+     "whole_predicted": 1.386,
+     "whole_real": 3.04
+    },
+    "at_most_4_of_them": {
+     "second": 0.594,
+     "whole_predicted": 1.178,
+     "whole_real": 2.287
+    }
+   }
+  },
+  {
+   "answers": 36,
+   "rounds": 7065,
+   "steps": 883,
+   "loss_by_tokens": 5.2914,
+   "error_of_the_predicted_states": 0.12334,
+   "tokens_right_after_the_restart": 0.426,
+   "on_the_same_rounds": {
+    "rounds": 29,
+    "tokens_right_inside_the_block": {
+     "second": 0.414,
+     "second_real": 0.552,
+     "second_none": 0.552,
+     "whole_predicted": 0.448,
+     "whole_real": 1.379,
+     "whole_none": 0.241,
+     "old_rest": 0.31
+    },
+    "at_most_3_of_them": {
+     "second": 0.414,
+     "second_real": 0.552,
+     "second_none": 0.552,
+     "whole_predicted": 0.414,
+     "whole_real": 1.241,
+     "whole_none": 0.241,
+     "old_rest": 0.31
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 19,
+    "tokens_right_inside_the_block": {
+     "second": 0.316,
+     "whole_predicted": 0.684,
+     "whole_real": 1.211
+    },
+    "at_most_4_of_them": {
+     "second": 0.316,
+     "whole_predicted": 0.684,
+     "whole_real": 1.211
+    }
+   }
+  },
+  {
+   "answers": 37,
+   "rounds": 7074,
+   "steps": 884,
+   "loss_by_tokens": 4.8771,
+   "error_of_the_predicted_states": 0.1222,
+   "tokens_right_after_the_restart": 0.556,
+   "on_the_same_rounds": {
+    "rounds": 2,
+    "tokens_right_inside_the_block": {
+     "second": 1.0,
+     "second_real": 1.0,
+     "second_none": 1.0,
+     "whole_predicted": 1.0,
+     "whole_real": 2.5,
+     "whole_none": 0.0,
+     "old_rest": 1.0
+    },
+    "at_most_3_of_them": {
+     "second": 1.0,
+     "second_real": 1.0,
+     "second_none": 1.0,
+     "whole_predicted": 1.0,
+     "whole_real": 2.0,
+     "whole_none": 0.0,
+     "old_rest": 1.0
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 1,
+    "tokens_right_inside_the_block": {
+     "second": 0.0,
+     "whole_predicted": 3.0,
+     "whole_real": 5.0
+    },
+    "at_most_4_of_them": {
+     "second": 0.0,
+     "whole_predicted": 3.0,
+     "whole_real": 4.0
+    }
+   }
+  },
+  {
+   "answers": 38,
+   "rounds": 7165,
+   "steps": 895,
+   "loss_by_tokens": 5.3786,
+   "error_of_the_predicted_states": 0.12862,
+   "tokens_right_after_the_restart": 0.308,
+   "on_the_same_rounds": {
+    "rounds": 23,
+    "tokens_right_inside_the_block": {
+     "second": 0.217,
+     "second_real": 0.217,
+     "second_none": 0.217,
+     "whole_predicted": 0.435,
+     "whole_real": 0.913,
+     "whole_none": 0.261,
+     "old_rest": 0.304
+    },
+    "at_most_3_of_them": {
+     "second": 0.217,
+     "second_real": 0.217,
+     "second_none": 0.217,
+     "whole_predicted": 0.435,
+     "whole_real": 0.87,
+     "whole_none": 0.261,
+     "old_rest": 0.304
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 13,
+    "tokens_right_inside_the_block": {
+     "second": 0.0,
+     "whole_predicted": 0.0,
+     "whole_real": 0.692
+    },
+    "at_most_4_of_them": {
+     "second": 0.0,
+     "whole_predicted": 0.0,
+     "whole_real": 0.692
+    }
+   }
+  },
+  {
+   "answers": 39,
+   "rounds": 7305,
+   "steps": 913,
+   "loss_by_tokens": 2.7077,
+   "error_of_the_predicted_states": 0.08642,
+   "tokens_right_after_the_restart": 1.2,
+   "on_the_same_rounds": {
+    "rounds": 35,
+    "tokens_right_inside_the_block": {
+     "second": 0.914,
+     "second_real": 0.971,
+     "second_none": 0.971,
+     "whole_predicted": 2.057,
+     "whole_real": 3.429,
+     "whole_none": 1.314,
+     "old_rest": 0.543
+    },
+    "at_most_3_of_them": {
+     "second": 0.571,
+     "second_real": 0.629,
+     "second_none": 0.629,
+     "whole_predicted": 1.486,
+     "whole_real": 1.971,
+     "whole_none": 0.857,
+     "old_rest": 0.343
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 33,
+    "tokens_right_inside_the_block": {
+     "second": 0.364,
+     "whole_predicted": 1.212,
+     "whole_real": 2.333
+    },
+    "at_most_4_of_them": {
+     "second": 0.364,
+     "whole_predicted": 1.061,
+     "whole_real": 1.636
+    }
+   }
+  },
+  {
+   "answers": 40,
+   "rounds": 7758,
+   "steps": 969,
+   "loss_by_tokens": 2.6647,
+   "error_of_the_predicted_states": 0.06848,
+   "tokens_right_after_the_restart": 1.044,
+   "on_the_same_rounds": {
+    "rounds": 113,
+    "tokens_right_inside_the_block": {
+     "second": 1.195,
+     "second_real": 1.23,
+     "second_none": 1.186,
+     "whole_predicted": 2.876,
+     "whole_real": 4.319,
+     "whole_none": 1.071,
+     "old_rest": 1.053
+    },
+    "at_most_3_of_them": {
+     "second": 0.841,
+     "second_real": 0.867,
+     "second_none": 0.832,
+     "whole_predicted": 1.655,
+     "whole_real": 2.168,
+     "whole_none": 0.726,
+     "old_rest": 0.637
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 103,
+    "tokens_right_inside_the_block": {
+     "second": 0.592,
+     "whole_predicted": 1.573,
+     "whole_real": 2.981
+    },
+    "at_most_4_of_them": {
+     "second": 0.515,
+     "whole_predicted": 1.214,
+     "whole_real": 2.019
+    }
+   }
   }
  ],
  "on_validation_answers": null,
- "gpu_memory_peak_gb": 12.79
+ "gpu_memory_peak_gb": 12.95
 }
