@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 40,
+ "answers": 48,
  "answers_to_learn_from": 366,
  "part": "train",
- "hours": 0.202,
+ "hours": 0.27,
  "draft": "opd",
  "save": "opd-s3",
  "layers": 3,
@@ -23,8 +23,8 @@
  "states_written_into_the_block": true,
  "share_of_steps_with_no_states": 0.3,
  "parameters_trained": 20578304,
- "rounds_without_a_break": 1563,
- "rounds_broken_at_the_last_place": 208,
+ "rounds_without_a_break": 1894,
+ "rounds_broken_at_the_last_place": 274,
  "curve": [
   {
    "answers": 1,
@@ -1703,6 +1703,342 @@
      "second": 0.456,
      "whole_predicted": 1.214,
      "whole_real": 2.019
+    }
+   }
+  },
+  {
+   "answers": 41,
+   "rounds": 8021,
+   "steps": 1002,
+   "loss_by_tokens": 2.837,
+   "error_of_the_predicted_states": 0.08173,
+   "tokens_right_after_the_restart": 0.848,
+   "on_the_same_rounds": {
+    "rounds": 66,
+    "tokens_right_inside_the_block": {
+     "second": 0.985,
+     "second_real": 0.97,
+     "second_none": 0.955,
+     "whole_predicted": 2.03,
+     "whole_real": 4.227,
+     "whole_none": 1.288,
+     "old_rest": 0.636
+    },
+    "at_most_3_of_them": {
+     "second": 0.697,
+     "second_real": 0.667,
+     "second_none": 0.667,
+     "whole_predicted": 1.379,
+     "whole_real": 2.379,
+     "whole_none": 0.939,
+     "old_rest": 0.545
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 55,
+    "tokens_right_inside_the_block": {
+     "second": 0.636,
+     "whole_predicted": 1.073,
+     "whole_real": 3.491
+    },
+    "at_most_4_of_them": {
+     "second": 0.491,
+     "whole_predicted": 0.855,
+     "whole_real": 2.145
+    }
+   }
+  },
+  {
+   "answers": 42,
+   "rounds": 8516,
+   "steps": 1064,
+   "loss_by_tokens": 2.8325,
+   "error_of_the_predicted_states": 0.07436,
+   "tokens_right_after_the_restart": 0.925,
+   "on_the_same_rounds": {
+    "rounds": 124,
+    "tokens_right_inside_the_block": {
+     "second": 0.766,
+     "second_real": 0.798,
+     "second_none": 0.782,
+     "whole_predicted": 2.056,
+     "whole_real": 3.427,
+     "whole_none": 1.153,
+     "old_rest": 0.815
+    },
+    "at_most_3_of_them": {
+     "second": 0.605,
+     "second_real": 0.629,
+     "second_none": 0.613,
+     "whole_predicted": 1.427,
+     "whole_real": 2.065,
+     "whole_none": 0.839,
+     "old_rest": 0.589
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 114,
+    "tokens_right_inside_the_block": {
+     "second": 0.535,
+     "whole_predicted": 1.123,
+     "whole_real": 2.395
+    },
+    "at_most_4_of_them": {
+     "second": 0.465,
+     "whole_predicted": 0.877,
+     "whole_real": 1.754
+    }
+   }
+  },
+  {
+   "answers": 43,
+   "rounds": 8615,
+   "steps": 1076,
+   "loss_by_tokens": 3.1482,
+   "error_of_the_predicted_states": 0.07694,
+   "tokens_right_after_the_restart": 0.859,
+   "on_the_same_rounds": {
+    "rounds": 24,
+    "tokens_right_inside_the_block": {
+     "second": 0.667,
+     "second_real": 0.708,
+     "second_none": 0.667,
+     "whole_predicted": 1.958,
+     "whole_real": 4.667,
+     "whole_none": 0.917,
+     "old_rest": 0.917
+    },
+    "at_most_3_of_them": {
+     "second": 0.5,
+     "second_real": 0.542,
+     "second_none": 0.5,
+     "whole_predicted": 1.458,
+     "whole_real": 2.417,
+     "whole_none": 0.667,
+     "old_rest": 0.542
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 24,
+    "tokens_right_inside_the_block": {
+     "second": 0.25,
+     "whole_predicted": 1.083,
+     "whole_real": 3.458
+    },
+    "at_most_4_of_them": {
+     "second": 0.25,
+     "whole_predicted": 0.917,
+     "whole_real": 2.25
+    }
+   }
+  },
+  {
+   "answers": 44,
+   "rounds": 8759,
+   "steps": 1094,
+   "loss_by_tokens": 4.648,
+   "error_of_the_predicted_states": 0.11731,
+   "tokens_right_after_the_restart": 0.875,
+   "on_the_same_rounds": {
+    "rounds": 36,
+    "tokens_right_inside_the_block": {
+     "second": 0.472,
+     "second_real": 0.5,
+     "second_none": 0.5,
+     "whole_predicted": 1.194,
+     "whole_real": 1.889,
+     "whole_none": 0.833,
+     "old_rest": 0.472
+    },
+    "at_most_3_of_them": {
+     "second": 0.25,
+     "second_real": 0.278,
+     "second_none": 0.278,
+     "whole_predicted": 0.833,
+     "whole_real": 1.333,
+     "whole_none": 0.5,
+     "old_rest": 0.306
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 28,
+    "tokens_right_inside_the_block": {
+     "second": 0.5,
+     "whole_predicted": 0.607,
+     "whole_real": 1.357
+    },
+    "at_most_4_of_them": {
+     "second": 0.321,
+     "whole_predicted": 0.429,
+     "whole_real": 1.036
+    }
+   }
+  },
+  {
+   "answers": 45,
+   "rounds": 8967,
+   "steps": 1120,
+   "loss_by_tokens": 2.7167,
+   "error_of_the_predicted_states": 0.06915,
+   "tokens_right_after_the_restart": 0.976,
+   "on_the_same_rounds": {
+    "rounds": 52,
+    "tokens_right_inside_the_block": {
+     "second": 0.962,
+     "second_real": 0.981,
+     "second_none": 0.981,
+     "whole_predicted": 1.75,
+     "whole_real": 3.673,
+     "whole_none": 1.154,
+     "old_rest": 0.692
+    },
+    "at_most_3_of_them": {
+     "second": 0.731,
+     "second_real": 0.75,
+     "second_none": 0.75,
+     "whole_predicted": 1.135,
+     "whole_real": 2.135,
+     "whole_none": 0.808,
+     "old_rest": 0.596
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 51,
+    "tokens_right_inside_the_block": {
+     "second": 0.725,
+     "whole_predicted": 1.196,
+     "whole_real": 3.02
+    },
+    "at_most_4_of_them": {
+     "second": 0.686,
+     "whole_predicted": 1.02,
+     "whole_real": 2.078
+    }
+   }
+  },
+  {
+   "answers": 46,
+   "rounds": 9494,
+   "steps": 1186,
+   "loss_by_tokens": 3.0043,
+   "error_of_the_predicted_states": 0.07751,
+   "tokens_right_after_the_restart": 0.748,
+   "on_the_same_rounds": {
+    "rounds": 132,
+    "tokens_right_inside_the_block": {
+     "second": 0.841,
+     "second_real": 0.848,
+     "second_none": 0.848,
+     "whole_predicted": 2.795,
+     "whole_real": 3.947,
+     "whole_none": 1.265,
+     "old_rest": 0.705
+    },
+    "at_most_3_of_them": {
+     "second": 0.712,
+     "second_real": 0.72,
+     "second_none": 0.72,
+     "whole_predicted": 1.667,
+     "whole_real": 2.227,
+     "whole_none": 0.909,
+     "old_rest": 0.508
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 122,
+    "tokens_right_inside_the_block": {
+     "second": 0.393,
+     "whole_predicted": 1.869,
+     "whole_real": 3.09
+    },
+    "at_most_4_of_them": {
+     "second": 0.385,
+     "whole_predicted": 1.311,
+     "whole_real": 2.033
+    }
+   }
+  },
+  {
+   "answers": 47,
+   "rounds": 10037,
+   "steps": 1254,
+   "loss_by_tokens": 2.9567,
+   "error_of_the_predicted_states": 0.07281,
+   "tokens_right_after_the_restart": 0.847,
+   "on_the_same_rounds": {
+    "rounds": 136,
+    "tokens_right_inside_the_block": {
+     "second": 0.831,
+     "second_real": 0.853,
+     "second_none": 0.838,
+     "whole_predicted": 2.184,
+     "whole_real": 3.912,
+     "whole_none": 1.199,
+     "old_rest": 0.728
+    },
+    "at_most_3_of_them": {
+     "second": 0.713,
+     "second_real": 0.706,
+     "second_none": 0.691,
+     "whole_predicted": 1.537,
+     "whole_real": 2.228,
+     "whole_none": 0.875,
+     "old_rest": 0.588
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 120,
+    "tokens_right_inside_the_block": {
+     "second": 0.333,
+     "whole_predicted": 1.125,
+     "whole_real": 2.642
+    },
+    "at_most_4_of_them": {
+     "second": 0.333,
+     "whole_predicted": 0.875,
+     "whole_real": 1.925
+    }
+   }
+  },
+  {
+   "answers": 48,
+   "rounds": 10409,
+   "steps": 1301,
+   "loss_by_tokens": 2.6479,
+   "error_of_the_predicted_states": 0.07265,
+   "tokens_right_after_the_restart": 1.086,
+   "on_the_same_rounds": {
+    "rounds": 93,
+    "tokens_right_inside_the_block": {
+     "second": 1.151,
+     "second_real": 1.172,
+     "second_none": 1.204,
+     "whole_predicted": 2.57,
+     "whole_real": 4.097,
+     "whole_none": 1.462,
+     "old_rest": 1.011
+    },
+    "at_most_3_of_them": {
+     "second": 0.699,
+     "second_real": 0.677,
+     "second_none": 0.699,
+     "whole_predicted": 1.559,
+     "whole_real": 2.29,
+     "whole_none": 0.871,
+     "old_rest": 0.613
+    }
+   },
+   "one_token_earlier_from_the_break_on": {
+    "rounds": 86,
+    "tokens_right_inside_the_block": {
+     "second": 0.453,
+     "whole_predicted": 1.267,
+     "whole_real": 2.977
+    },
+    "at_most_4_of_them": {
+     "second": 0.36,
+     "whole_predicted": 0.907,
+     "whole_real": 2.047
     }
    }
   }
