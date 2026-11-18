@@ -28,18 +28,28 @@ from .adapt import ADAPTED, LowRank
 
 
 class RestartLayers(nn.Module):
-    def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0, reveal: bool = False):
+    def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0, reveal: bool = False,
+                 states_in_block: bool = False):
         super().__init__()
         total = len(drafter.layers)
-        if not 1 <= count < total:
-            raise ValueError("the restart layers stand in for some of the drafter's last layers, not all of them")
+        if not 1 <= count <= total or (count == total and not reveal):
+            raise ValueError("the restart layers stand in for some of the drafter's last layers (all of them only if they read the tokens)")
+        # count = all of the drafter's layers: nothing of the first run is gone on from. The block enters as the
+        # first run's did, as embeddings, with the known tokens in place of their masks: a whole second pass by a
+        # reader trained for it, at a whole pass's cost. It is the measure of what fewer layers give up.
+        if states_in_block and not reveal:
+            raise ValueError("states are written into the block at the places of the tokens they belong to: with reveal")
         # reveal: the restart's block is the round's whole block from its first token on, with the tokens that
         # are known at the restart WRITTEN IN at their places (the draft tokens before the restart and its first
         # token; see enter_block), so the layers read the tokens themselves next to any stand-ins of the target's
         # states. This is the second pass of D-Loop (Chen et al., arXiv 2610.06011: a retrained drafter re-run on
         # the block with a prefix of its draft revealed), at the cost of these layers instead of a whole pass.
-        self.sizes = {"count": count, "rank": rank, "reveal": bool(reveal)}
-        self.reveal = bool(reveal)
+        # states_in_block: the stand-ins of the target's states are not given as context beside the block (where
+        # the drafter's FIRST layers pick them up; its last layer alone hardly looks there, trained or not), but
+        # written into the block itself: the state of a known token is added, through a trained map, at that
+        # token's place, next to the token. The block's places look at each other in every layer.
+        self.sizes = {"count": count, "rank": rank, "reveal": bool(reveal), "states_in_block": bool(states_in_block)}
+        self.reveal, self.states_in_block = bool(reveal), bool(states_in_block)
         self.first = total - count                     # the first of the drafter's layers a copy stands in for
         self.layers = nn.ModuleList(copy.deepcopy(layer) for layer in drafter.layers[self.first :])
         for parameter in self.layers.parameters():
@@ -59,6 +69,10 @@ class RestartLayers(nn.Module):
         self.token_down = nn.Linear(size, rank, bias=False)
         self.token_up = nn.Linear(rank, size, bias=False)
         nn.init.zeros_(self.token_up.weight)           # at the start the token enters as described above, nothing added
+        self.state_down = nn.Linear(size, rank, bias=False) if states_in_block else None
+        self.state_up = nn.Linear(rank, size, bias=False) if states_in_block else None
+        if states_in_block:
+            nn.init.zeros_(self.state_up.weight)
         self.to(drafter.fc.weight.device)
 
     def float_parameters(self):
@@ -106,6 +120,18 @@ class RestartLayers(nn.Module):
         states = states[None].expand(tokens_in.shape[0], -1, -1)
         return torch.where(known[..., None], self._written(states, tokens_in, mask_in), states)
 
+    def with_states(self, entering: torch.Tensor, stand_ins: torch.Tensor, places) -> torch.Tensor:
+        """For layers that take the states in the block: entering [..., places, size] (from enter_block or
+        enter_blocks) with the stand-ins of the target's states ([n, size], as the drafter reads states) added
+        through the trained map at `places`: an index of the block's places ([n]) or, for several restarts, a
+        pair (restart numbers [n], places [n])."""
+        if not stand_ins.shape[0]:
+            return entering
+        added = self.state_up(self.state_down(stand_ins.to(self.state_down.weight.dtype))).to(entering.dtype)
+        if isinstance(places, tuple):
+            return entering.index_put((places[0], places[1]), added, accumulate=True)
+        return entering.index_add(-2, places, added)
+
     @torch.no_grad()
     def merge(self):
         """For use: the low-rank updates are added into the copies' weights, so that a pass through
@@ -128,13 +154,17 @@ def save_restart_layers(path: str, layers: RestartLayers, notes: dict | None = N
     state = {"adapters": [(adapter.down.detach().half().cpu(), adapter.up.detach().half().cpu()) for adapter in layers.adapters],
              "token_down": layers.token_down.weight.detach().half().cpu(),
              "token_up": layers.token_up.weight.detach().half().cpu()}
+    if layers.states_in_block:
+        state.update(state_down=layers.state_down.weight.detach().half().cpu(), state_up=layers.state_up.weight.detach().half().cpu())
     torch.save({"sizes": layers.sizes, "notes": notes or {}, "state": state}, path + ".tmp")
     os.replace(path + ".tmp", path)
 
 
-def load_restart_layers(path: str, drafter: nn.Module) -> tuple[RestartLayers, dict]:
+def load_restart_layers(path: str, drafter: nn.Module, **more) -> tuple[RestartLayers, dict]:
+    """more: options the saved layers did not have yet (states_in_block=True: the layers go on being trained with
+    the states written into the block; the new map starts at nothing)."""
     saved = torch.load(path, map_location="cpu")
-    layers = RestartLayers(drafter, **saved["sizes"])                # (files saved before `reveal` existed: without it)
+    layers = RestartLayers(drafter, **{**saved["sizes"], **more})    # (files saved before an option existed: without it)
     assert len(saved["state"]["adapters"]) == len(layers.adapters), "the saved restart layers belong to another drafter"
     with torch.no_grad():
         for adapter, (down, up) in zip(layers.adapters, saved["state"]["adapters"]):
@@ -142,4 +172,7 @@ def load_restart_layers(path: str, drafter: nn.Module) -> tuple[RestartLayers, d
             adapter.up.copy_(up.to(adapter.up))
         layers.token_down.weight.copy_(saved["state"]["token_down"].to(layers.token_down.weight))
         layers.token_up.weight.copy_(saved["state"]["token_up"].to(layers.token_up.weight))
+        if layers.states_in_block and "state_down" in saved["state"]:
+            layers.state_down.weight.copy_(saved["state"]["state_down"].to(layers.state_down.weight))
+            layers.state_up.weight.copy_(saved["state"]["state_up"].to(layers.state_up.weight))
     return layers.eval(), saved.get("notes", {})

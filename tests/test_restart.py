@@ -1211,6 +1211,8 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
         parameter.requires_grad_(False)
     with pytest.raises(ValueError):
         RestartLayers(draft, count=3)
+    with pytest.raises(ValueError):
+        RestartLayers(draft, count=4, reveal=True)
     second = RestartLayers(draft, count=1, rank=4)
     assert second.first == 2 and len(second.layers) == 1 and len(second.adapters) == 5
     assert second.layers[0].self_attn.layer_idx == 2 and second.layers[0] is not draft.layers[2]
@@ -1345,6 +1347,40 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     assert any(bool(adapter.up.abs().sum() > 0) for adapter in reader.adapters)
     save_restart_layers(str(tmp_path / "warm-reader.pt"), reader)
     assert load_restart_layers(str(tmp_path / "warm-reader.pt"), draft)[0].reveal
+    # Layers that stand in for the WHOLE drafter (a whole second pass by a trained reader): before training, with
+    # the round's first token alone known and the real states, they write the whole drafter's restart from it ...
+    whole = RestartLayers(draft, count=3, rank=4, reveal=True)
+    assert whole.first == 0 and len(whole.layers) == 3
+    with torch.no_grad():
+        _, entered = first_run(draft, target, features, ids, start, 0, BLOCK, keep=-1)
+        assert entered.shape == (BLOCK, 16) and torch.equal(entered[1], mask_in.to(entered.dtype))
+        # ... one token earlier than a restart after one token is the first draft of the round itself
+        first_draft = second_states(draft, whole, target, features, ids, start, 1, real[:0], entered, earlier=False)
+        assert first_draft.shape == (BLOCK - 2, 16)
+    wholly = TeachSecond(whole, predictor, torch.optim.AdamW(whole.trained() + list(predictor.parameters()), lr=3e-3), draft,
+                         target, every=2, window=64, width=BLOCK, compare_every=1)
+    for at in range(length + 2, length + 10):
+        wholly.step(ids, features, at, count=3)
+    point = wholly.progress()
+    assert wholly.steps == 4 and point["on_the_same_rounds"]["rounds"] == 8
+    # ... and layers that take the states inside the block: going on from the saved reader, the new map starts at nothing
+    inside = load_restart_layers(str(tmp_path / "warm-reader.pt"), draft, states_in_block=True)[0].float_parameters().train()
+    assert inside.states_in_block and float(inside.state_up.weight.abs().sum()) == 0.0
+    with torch.no_grad():
+        with_them = second_states(draft, inside, target, features, ids, start, 3, real, kept)
+        without = second_states(draft, inside, target, features, ids, start, 3, real[:0], kept)
+        assert torch.equal(with_them, without)
+    taking = TeachSecond(inside, predictor, torch.optim.AdamW(inside.trained() + list(predictor.parameters()), lr=3e-3), draft,
+                         target, every=2, window=64, width=BLOCK, compare_every=1, real_share=0.3, none_share=0.2)
+    for at in range(length + 2, length + 14):
+        taking.step(ids, features, at, count=3)
+    assert taking.steps == 6 and bool(inside.state_up.weight.abs().sum() > 0)
+    with torch.no_grad():
+        assert not torch.equal(second_states(draft, inside, target, features, ids, start, 3, real, kept),
+                               second_states(draft, inside, target, features, ids, start, 3, real[:0], kept))
+    save_restart_layers(str(tmp_path / "warm-inside.pt"), inside)
+    again_inside = load_restart_layers(str(tmp_path / "warm-inside.pt"), draft)[0]
+    assert again_inside.states_in_block and torch.allclose(again_inside.state_up.weight, inside.state_up.weight, atol=1e-2)
 
     # Saved and read again, and merged for use: the same tokens' scores.
     path = str(tmp_path / "warm-test.pt")
@@ -1715,14 +1751,52 @@ def test_the_second_run_through_layers_that_read_the_tokens():
         assert checked.checked > 30 and sum(result.acceptance_lengths) == sum(chain.acceptance_lengths)
         assert result.rounds <= chain.rounds
 
+    # Layers that take the states inside the block: before training the states add nothing (the rows are the rows
+    # without states); once the map is trained (here: set at random) they change what is written.
+    with pytest.raises(ValueError):
+        RestartLayers(draft, count=1, rank=4, states_in_block=True)
+    inside = RestartLayers(draft, count=1, rank=4, reveal=True, states_in_block=True)
+    assert inside.states_in_block and inside.sizes["states_in_block"] and not reader.states_in_block
+    kept_rows = {}
+    for name, stand_in, noise in (("none", "none", 0.0), ("real, untrained map", "real", 0.0), ("real, a map", "real", 0.5)):
+        if noise:
+            torch.manual_seed(11)
+            with torch.no_grad():
+                inside.state_up.weight.normal_(std=noise)
+        for make in (lambda: Restarts(k=3, stand_in=stand_in), lambda: BranchTree(14, 8, tail=2, stand_in=stand_in)):
+            method = make()
+            method.features, method.second = features, inside
+            seen = Seen(method) if isinstance(method, Restarts) else None
+            result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen or method,
+                                   block_size=BLOCK)
+            method.close()
+            assert sum(result.acceptance_lengths) == sum(chain.acceptance_lengths)
+            if seen is not None:
+                kept_rows[name] = [rows for _, _, _, rows, _ in seen.rounds]
+    assert all(torch.equal(mine, theirs) for mine, theirs in zip(kept_rows["none"], kept_rows["real, untrained map"]))
+    assert any(not torch.equal(mine, theirs) for mine, theirs in zip(kept_rows["none"], kept_rows["real, a map"]))
+
     torch.manual_seed(7)
     with torch.no_grad():
         for adapter in reader.adapters:
             adapter.up.normal_(std=0.3)
         reader.token_up.weight.normal_(std=0.3)
+        for adapter in inside.adapters:
+            adapter.up.normal_(std=0.3)
     predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
     prompt = torch.tensor([[1, 2, 3, 4, 5]])
     methods = []
+    whole = RestartLayers(draft, count=3, rank=4, reveal=True, states_in_block=True)      # a whole second pass by a reader
+    with torch.no_grad():
+        for adapter in whole.adapters:
+            adapter.up.normal_(std=0.3)
+        whole.state_up.weight.normal_(std=0.3)
+    for through in (inside, whole):
+        for make in (lambda: Restarts(k=3, stand_in="predicted", swap=True, tail=2, kind="both", block=4, choices=2),
+                     lambda: BranchTree(14, 8, tail=2, stand_in="predicted")):
+            method = make()
+            method.predictor, method.second = predictor, through
+            methods.append((method, method))
     for kind, block, on_a_tree in (("choice", None, False), ("both", 4, False), ("choice", 4, True)):
         method = Restarts(k=3, stand_in="predicted", swap=not on_a_tree, tail=2, kind=kind, block=block, choices=2)
         method.predictor, method.second = predictor, reader

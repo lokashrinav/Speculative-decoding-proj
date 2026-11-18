@@ -59,7 +59,11 @@ ARMS = ("second", "second_real", "second_none", "whole_predicted", "whole_real",
 
 def first_run(drafter, target, features, ids, start, low, width, keep):
     """The drafter's first run of the round that starts at `start`: its final states of the block
-    ([width, size]) and its states after layer `keep` ([width, size])."""
+    ([width, size]) and its states after layer `keep` ([width, size]; keep = -1: as the block enters)."""
+    if keep < 0:                                   # layers that stand in for the whole drafter go on from the block as it enters
+        from nexus.train_restart import _block_at
+
+        return first_run_states(drafter, target, features, ids, start, low, width), _block_at(drafter, target, ids, start, width)[0]
     kept = {}
     hook = drafter.layers[keep].register_forward_hook(lambda layer, came, output: kept.update(states=output))
     try:
@@ -122,6 +126,9 @@ def second_states(drafter, second, target, features, ids, start, count, written,
         # The whole block, with the tokens known at the restart written in at the places 1 .. at.
         known_in = _raw_input_embeddings(target, ids[:, start + 1 : start + at + 1], scale)[0]
         entering = second.enter_block(kept, known_in, mask_in)
+        if second.states_in_block:       # the states are written into the block too, at the places of their tokens
+            entering = second.with_states(entering, written, torch.arange(written.shape[0], device=ids.device))
+            written = written[:0]
         return warm_states(drafter, second, features, ids, start, written, entering, low, anchor=start)[at:]
     token_in = _raw_input_embeddings(target, ids[:, start + at : start + at + 1], scale)[0, 0]
     return warm_states(drafter, second, features, ids, start, written, second.enter(kept[at:], token_in, mask_in), low,
@@ -325,6 +332,8 @@ def main():
     parser.add_argument("--only-after", action="store_true", help="do not also teach the restart one token earlier")
     parser.add_argument("--reveal", action="store_true",
                         help="the layers read the tokens known at the restart, written in at their places of the block")
+    parser.add_argument("--states-in-block", action="store_true",
+                        help="with --reveal: the states are written into the block at their tokens' places, not given beside it")
     parser.add_argument("--no-states", type=float, default=0.0,
                         help="share of the steps in which the layers are given no states at all")
     parser.add_argument("--real-share", type=float, default=0.3,
@@ -357,13 +366,15 @@ def main():
         if args.start_from:            # go on from saved layers (and from the predictor saved with them, if there is one)
             from dflash.restart_layers import load_restart_layers
 
-            second, before = load_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.start_from}.pt"), draft)
+            second, before = load_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.start_from}.pt"), draft,
+                                                 **({"states_in_block": True} if args.states_in_block else {}))
             second = second.float_parameters().train()
             args.layers, args.rank = second.sizes["count"], second.sizes["rank"]
             if not args.predictor and os.path.exists(os.path.join(args.adapter_dir, f"restart-{args.start_from}.pt")):
                 args.predictor = args.start_from
         else:
-            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed, reveal=args.reveal).train()
+            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed, reveal=args.reveal,
+                                   states_in_block=args.states_in_block).train()
         if args.predictor:
             predictor, _ = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
             predictor = predictor.float()
@@ -385,7 +396,8 @@ def main():
                   "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor, "start_from": args.start_from,
                   "predictor_rate": args.predictor_rate, "every": args.every, "vector_weight": args.vector_weight,
                   "distill": args.distill, "real_share": args.real_share, "one_token_earlier_too": not args.only_after,
-                  "reads_the_tokens": second.reveal, "share_of_steps_with_no_states": args.no_states,
+                  "reads_the_tokens": second.reveal, "states_written_into_the_block": second.states_in_block,
+                  "share_of_steps_with_no_states": args.no_states,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
                   "rounds_without_a_break": teach.unbroken, "rounds_broken_at_the_last_place": teach.at_the_end,
                   "curve": curve, "on_validation_answers": measured}

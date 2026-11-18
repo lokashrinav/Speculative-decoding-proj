@@ -456,6 +456,17 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     return tokens
 
 
+def _gone_on_from(s: SimpleNamespace, second, first_run: torch.Tensor | None, width: int) -> torch.Tensor:
+    """What restart layers go on from: the first run's states of the block after the last layer they leave out
+    ([width, size]), or, for layers that stand in for the whole drafter, the block as it entered the first run."""
+    if second.first > 0:
+        return first_run[0, -width:]
+    drafter = s.first_drafter
+    block = torch.full((1, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=s.block_ids.device)
+    block[0, 0] = s.block_ids[0, 0]
+    return _raw_input_embeddings(s.target, block, float(_draft_value(drafter.config, "input_embedding_scale", 1.0)))[0]
+
+
 def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], context: torch.Tensor | None, counts: list[int],
                   context_places: list[int], width: int, layers=None, entering: torch.Tensor | None = None,
                   lengths: list[int] | None = None, shortlist=None, also: torch.Tensor | None = None,
@@ -644,7 +655,7 @@ class Restarts:
     def start(self, first_drafter: nn.Module) -> None:
         self.kept = []
         self.close()
-        if self.second is not None:
+        if self.second is not None and self.second.first > 0:
             # What the drafter's layer before the second drafter's gave in its last pass: at the time of
             # the second run that pass is the round's first draft.
             self._hook = first_drafter.layers[self.second.first - 1].register_forward_hook(
@@ -799,8 +810,14 @@ class Restarts:
             scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
             given = torch.tensor(written_in + [[mask_token] * pass_width], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)
-            entering = self.second.enter_blocks(self._first_run[0, -width:][:pass_width], embedded[:-1], embedded[-1, 0],
-                                                torch.tensor(known, device=device))
+            entering = self.second.enter_blocks(_gone_on_from(s, self.second, self._first_run, width)[:pass_width], embedded[:-1],
+                                                embedded[-1, 0], torch.tensor(known, device=device))
+            if self.second.states_in_block and context is not None:
+                # The stand-ins go into the block, at the places of their tokens, not beside it.
+                owner = [number for number, many in enumerate(counts) for _ in range(many)]
+                entering = self.second.with_states(entering, context, (torch.tensor(owner, device=device),
+                                                                       torch.tensor([place - s.start for place in places_taken], device=device)))
+                context, counts, places_taken = None, [0] * len(starts), []
             lengths_written = [length - place for length, place in zip(lengths, first_place)]     # as below: its places from its first token on
         elif self.second is not None:
             # Through the tiny second drafter, going on from the first run. A restart's first token is at
@@ -1067,7 +1084,7 @@ class BranchTree:
     def start(self, drafter: nn.Module) -> None:
         self.nodes = 0
         self.close()
-        if self.second is not None:
+        if self.second is not None and self.second.first > 0:
             self._hook = drafter.layers[self.second.first - 1].register_forward_hook(
                 lambda layer, came, output: setattr(self, "_first_run", output))
 
@@ -1129,8 +1146,15 @@ class BranchTree:
             scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
             given = torch.tensor(written_in + [[mask_token] * wide], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)
-            entering = self.second.enter_blocks(self._first_run[0, -width:][:wide], embedded[:-1], embedded[-1, 0],
-                                                torch.tensor(known, device=device))
+            entering = self.second.enter_blocks(_gone_on_from(s, self.second, self._first_run, width)[:wide], embedded[:-1],
+                                                embedded[-1, 0], torch.tensor(known, device=device))
+            if self.second.states_in_block and context is not None:
+                # The stand-ins go into the block, at the places of their tokens, not beside it.
+                owner = [at for at, rows in enumerate(shared) for _ in rows]
+                rows = [row for taken in shared for row in taken]
+                entering = self.second.with_states(entering, context[torch.tensor(rows, device=device)], (
+                    torch.tensor(owner, device=device), torch.tensor([context_places[row] - s.start for row in rows], device=device)))
+                context, context_places, shared = None, [], [[] for _ in nodes]
             room_of = [length - len(ranks) - 1 for length, ranks in zip(lengths, nodes)]
             reach = wide
         elif self.second is not None:
