@@ -80,6 +80,14 @@ REANCHOR = ("reanchor", "reanchor_noisy100")
 #     last missing token. echo_level: the level found for that last token (0: none).
 #   snap (with --predictor): the predicted vector is only used to look up the most similar real state.
 MORE = ("shallow1", "shallow2", "shallow3", "shallow4", "deep1", "deep2", "echo_states", "echo_nearest")
+# Is the rest of the first draft right, only one or two places off? (No drafter pass: tokens are compared.) A
+# drafter that writes all tokens at once can drop or double a token, and then everything after it is right but
+# shifted, which neither a swap nor a tree can use: they change tokens in place.
+#   shift_del1 / shift_del2: the wrong token (and the one after it) left out: the draft's later tokens moved
+#     one / two places EARLIER, counted from the token at the break on. Needs no guess of the right token.
+#   shift_ins1: after the right token, the wrong token and the rest as they were: moved one place LATER (one
+#     token was missing). Counted after the right token, as old_rest is.
+SHIFT = ("shift_del1", "shift_del2", "shift_ins1")
 MOST_ROUNDS_PER_FILE = 12000
 
 
@@ -96,7 +104,7 @@ class Restart:
         self.more = () if not more else MORE + (("snap",) if predictor is not None else ())
         if more:
             self.arms = self.arms + self.more
-            self.columns = self.columns + self.more + ("echo_level",)
+            self.columns = self.columns + self.more + ("echo_level",) + SHIFT
 
     def begin(self, ids, prompt_length, features, repetition_from, answer, seed=0):
         self.ids, self.prompt_length, self.features = ids, prompt_length, features
@@ -146,6 +154,11 @@ class Restart:
         record["old_rest"] = _matches(correct[:, rest], after)
         made, _ = self.inner.redraft_together(s, [broke + 1], correct)
         record["new_rest"] = _matches(made[:, rest], after)
+        if "shift_del1" in record:
+            from_the_break = self.ids[:, restart : restart + full]
+            record["shift_del1"] = _matches(s.block_ids[:, broke + 2 :], from_the_break)
+            record["shift_del2"] = _matches(s.block_ids[:, broke + 3 :], from_the_break)
+            record["shift_ins1"] = _matches(s.block_ids[:, broke + 1 :], from_the_break[:, 1:])
 
         missing = broke + 1                                        # tokens of this round the target has not read
         states = self.features[:, s.start : s.start + missing]
@@ -249,6 +262,24 @@ def summary(table, columns=COLUMNS):
                            **{name: round(float(table[level == value, COLUMNS.index(name)].mean()), 3)
                               for name in ("real", "none", "only_nearest", "echo_nearest", "echo_states") if name in COLUMNS}}
             for value in range(5) if (level == value).any()}
+    if "shift_del1" in COLUMNS:
+        # Tokens accepted from the token at the break on, with no second run of the drafter: the swap (the
+        # second choice, then the old tokens in place), the swap with the old tokens also one place later,
+        # the old tokens one or two places earlier (no guess), and the best of all of these.
+        column = {name: table[:, COLUMNS.index(name)] for name in COLUMNS}
+        for label, mask in groups:
+            if not mask.any():
+                continue
+            right = column["second_choice_right"][mask]
+            swap = right * (1 + column["old_rest"][mask])
+            later = right * (1 + numpy.maximum(column["old_rest"][mask], column["shift_ins1"][mask]))
+            earlier = numpy.maximum(column["shift_del1"][mask], column["shift_del2"][mask])
+            out[label]["shifted_first_draft"] = {
+                "the_swap": round(float(swap.mean()), 3), "the_swap_or_one_place_later": round(float(later.mean()), 3),
+                "one_or_two_places_earlier": round(float(earlier.mean()), 3),
+                "the_best_of_all": round(float(numpy.maximum(later, earlier).mean()), 3),
+                "earlier_gets_two_or_more": round(float((earlier >= 2).mean()), 3),
+                "later_beats_in_place": round(float((column["shift_ins1"][mask] > column["old_rest"][mask]).mean()), 3)}
     if "reanchor" in COLUMNS:
         # Tokens accepted from the token at the break on: a restart from the second choice (nothing
         # unless that choice is right), a block from the last right token, and the better of the two.

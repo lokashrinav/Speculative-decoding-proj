@@ -148,7 +148,9 @@ def test_the_probe_with_real_states_of_other_layers_and_places(tmp_path):
     probe = Restart(k=3, width=BLOCK, predictor=predictor, more=True)
     probe.begin(ids, length, features, None, answer=0)
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
-    assert probe.columns[-len(MORE) - 2 :] == MORE + ("snap", "echo_level") and len(probe.rows) > 20
+    from nexus.restart_probe import SHIFT
+
+    assert probe.columns[-len(MORE) - 2 - len(SHIFT) :] == MORE + ("snap", "echo_level") + SHIFT and len(probe.rows) > 20
     layers = len(draft.target_layer_ids)
     levels = set()
     for row in probe.rows:
@@ -163,6 +165,9 @@ def test_the_probe_with_real_states_of_other_layers_and_places(tmp_path):
     assert level == 4 or place is None or place < probe.indexed
     out = summary(probe.rows, probe.columns)
     assert "echo_level" not in out["all"] and "snap" in out["all"] and out["by_earlier_place"]
+    shifted = out["all"]["shifted_first_draft"]
+    assert shifted["the_best_of_all"] >= max(shifted["the_swap_or_one_place_later"], shifted["one_or_two_places_earlier"]) - 1e-9
+    assert shifted["the_swap_or_one_place_later"] >= shifted["the_swap"] and all(0 <= dict(zip(probe.columns, row))[name] <= BLOCK for row in probe.rows for name in SHIFT)
     assert sum(group["rounds"] for group in out["by_earlier_place"].values()) == out["all"]["rounds"]
 
 
