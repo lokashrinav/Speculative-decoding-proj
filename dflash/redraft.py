@@ -453,11 +453,12 @@ class Restarts:
     no such restart: it would be the first draft again. "both": the two kinds in the same pass.
 
     Returned: rows of [first token, ...] that may be longer than the block (-1 after their end): the
-    restarts from the second choices in the order of .kept, then those from the third choices, ...,
-    then the earlier ones, then the swaps of the choices. Scored in replay only so far."""
+    restarts from the second choices in the order of .kept, then those from the third choices, ...
+    (with `best`: in the order they were picked), then the earlier ones, then the swaps of the choices."""
 
     def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None,
-                 choices: int = 1, kind: str = "choice", gate: float | None = None):
+                 choices: int = 1, kind: str = "choice", gate: float | None = None, block: int | None = None,
+                 best: int | None = None):
         if stand_in not in ("none", "last", "real", "predicted"):
             raise ValueError("stand_in must be 'none', 'last', 'real' or 'predicted'")
         if choices < 1:
@@ -470,6 +471,21 @@ class Restarts:
         # this many tokens accepted (from the drafter's own confidences: the sum over places of the
         # product of the confidences up to there). Where the draft will likely hold, the pass is saved.
         self.gate, self.rounds_seen, self.rounds_run = gate, 0, 0
+        # block: how many tokens a restart's new block has (its first token and the masks after it).
+        # None: a whole block. The target checks only `tail` tokens after a restart's first new token,
+        # so a block of tail + 2 tokens is all that is used, and the second run then reads and writes a
+        # third of the tokens (the drafter was trained on whole blocks: what a short block costs in
+        # accepted tokens is measured, not assumed).
+        # best: the restarts from the drafter's next choices are picked best first, this many in all,
+        # over every place and every one of the next `choices` choices, by the probability that the
+        # text goes that way: the product of the confidences of the draft tokens before the place and
+        # the choice's own probability (DDTree's score of that node). None: every choice at the k
+        # likely breaks. The restarts one token earlier stay at the k likely breaks.
+        if block is not None and block < 2:
+            raise ValueError("block must be at least 2")
+        if best is not None and best < 1:
+            raise ValueError("best must be at least 1")
+        self.block, self.best = block, best
         self.features = None        # the answer's states, for stand_in="real"
         self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
@@ -498,36 +514,46 @@ class Restarts:
             if not self.kept:
                 return None
         choices = min(self.choices, first.shape[-1] - 1)
-        ranked = first.topk(1 + choices, dim=-1).indices              # [place, the first choice and the next ones]
+        top = first.softmax(dim=-1).topk(1 + choices, dim=-1)
+        ranked = top.indices                                          # [place, the first choice and the next ones]
         device = s.block_ids.device
-        begin, stand_ins, given = [], [], []
-        if self.stand_in == "predicted":
-            from .stand_in import predicted_states
-
-            written = predicted_states(self.predictor, s, max(self.kept) + 1)
-        for broke in self.kept:
-            missing = broke + 1
-            places = torch.arange(s.start, s.start + missing, device=device)
-            if self.stand_in == "predicted":
-                given.append((written[:, :missing], places, True))
-            elif self.stand_in == "real":
-                given.append((self.features[:, s.start : s.start + missing], places))
-            elif self.stand_in == "last" and s.context_features.shape[1]:
-                given.append((s.context_features[:, -1:].repeat(1, missing, 1), places))
-            else:
-                given.append(None)
         starts = []                                                   # (the break, which choice; 0: one token earlier)
-        if self.kind != "earlier":
+        if self.kind != "earlier" and self.best is None:
             starts += [(broke, choice) for choice in range(1, 1 + choices) for broke in self.kept]
+        elif self.kind != "earlier":
+            holds = torch.cat((confidence.new_ones(1), confidence.cumprod(dim=0)[:-1]))[: width - 1]
+            worth = holds[:, None] * top.values[: width - 1, 1:]      # [place, choice]: the text goes that way
+            if self.stand_in == "real":                               # (no states past the answer's end)
+                worth[max(self.features.shape[1] - s.start, 0) :] = -1.0
+            for index in worth.flatten().topk(min(self.best, worth.numel())).indices.tolist():
+                if worth[index // choices, index % choices] >= 0:
+                    starts.append((index // choices, 1 + index % choices))
         chosen = len(starts)
         if self.kind != "choice":
             starts += [(broke, 0) for broke in self.kept if broke >= 1]
         if not starts:
             return None
+        begin, stand_ins, given = [], [], {}
+        used = sorted({broke for broke, _ in starts})
+        if self.stand_in == "predicted":
+            from .stand_in import predicted_states
+
+            written = predicted_states(self.predictor, s, used[-1] + 1)
+        for broke in used:
+            missing = broke + 1
+            places = torch.arange(s.start, s.start + missing, device=device)
+            if self.stand_in == "predicted":
+                given[broke] = (written[:, :missing], places, True)
+            elif self.stand_in == "real":
+                given[broke] = (self.features[:, s.start : s.start + missing], places)
+            elif self.stand_in == "last" and s.context_features.shape[1]:
+                given[broke] = (s.context_features[:, -1:].repeat(1, missing, 1), places)
+            else:
+                given[broke] = None
         first_tokens = []
         told = self.stand_in == "predicted" and bool(self.predictor.sizes.get("coming"))
         for broke, choice in starts:
-            entry = given[self.kept.index(broke)]
+            entry = given[broke]
             if choice:
                 first_tokens.append(ranked[broke, choice])
                 begin.append(s.start + broke + 1)
@@ -538,15 +564,16 @@ class Restarts:
                 begin.append(s.start + broke)
                 entry = None if entry is None else (entry[0][:, :-1], entry[1][:-1]) + tuple(entry[2:])
             stand_ins.append(entry)
-        new = restarts(s, first_tokens, begin, stand_ins, width)
+        reach = width if self.block is None else min(self.block, width)
+        new = restarts(s, first_tokens, begin, stand_ins, reach)
         rows = torch.full((len(starts) + (chosen if self.swap else 0), 2 * width), -1, dtype=s.block_ids.dtype, device=device)
         for number, (broke, choice) in enumerate(starts):
             rows[number, : broke + 1] = s.block_ids[0, : broke + 1]
             if not choice:
-                rows[number, broke + 1 : broke + width] = new[number]
+                rows[number, broke + 1 : broke + reach] = new[number]
                 continue
             rows[number, broke + 1] = ranked[broke, choice]
-            rows[number, broke + 2 : broke + 1 + width] = new[number]
+            rows[number, broke + 2 : broke + 1 + reach] = new[number]
             if self.swap:
                 swapped = rows[len(starts) + number]
                 swapped[:width] = s.block_ids[0]

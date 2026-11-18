@@ -1,7 +1,12 @@
-plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
-# (Nov 18) The second run of the drafter made thrifty, in real tokens per second on the same text. As measured before
-# (restart4pxst7: restarts of both kinds from four likely breaks, with the swaps, 7 tokens checked after each) it adds
-# about 38% to the tokens of a round and 20 ms to its time. Here: 3 tokens checked and no swaps (t3), only the restarts
-# one token earlier (pe), two likely breaks (restart2), and the second run only in rounds where the drafter's own
-# confidences expect at most 3 or 6 accepted tokens (g3, g6), so that rounds whose draft will hold save the pass.
-# Then the same thrifty second run on top of DDTree (63 nodes), next to DDTree alone.
+plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3b5@opd-m0,plain+restart4pxst3b5@opd-m0,plain+restart4pxc3r12t3b5@opd-m0,plain+restart4pxc3r12st3b5@opd-m0,plain+restart4pxc3r12t5b7@opd-m0,plain+restart4pxt3b5g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3b5@opd-m0,plain+tree63_restart4pxc3r12t3b5@opd-m0
+# (Nov 18) The second run of the drafter made cheaper and aimed better, in real tokens per second on the same text.
+# As measured before (restart4pxst7: restarts of both kinds from four likely breaks, with the swaps, 7 tokens checked
+# after each) a round gained 38% in tokens and took 20 ms longer: 15 ms for the second run itself (it wrote 8 whole
+# blocks), 4 ms for the 78 more tokens in the check. Here:
+#   t3      only 3 tokens checked after a restart's first new token, no swaps
+#   b5      a restart's new block has 5 tokens, not 16: all that is checked, so the second run is a third the size
+#   c3r12   12 restarts from the drafter's second to fourth choices, picked over the whole block by the probability
+#           that the text goes that way (the second choice is the right token at 46% of breaks, the third at 16%,
+#           the fourth at 8%); s adds the swaps; t5b7 checks 5 tokens after each
+#   g6      the second run only in rounds where the drafter's confidences expect at most 6 accepted tokens
+# Then DDTree (63 nodes) alone and with the short restarts on top.

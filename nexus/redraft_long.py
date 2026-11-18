@@ -35,6 +35,11 @@ Methods (comma-separated):
                          (without the swaps: the tree has them), for example tree63_restart4rxt7
   ...gG                  (after tN) the second run is made only in rounds where the first draft is expected to get
                          at most G tokens accepted (the drafter's own confidences); the other rounds save the pass
+  ...bW                  (after tN, before gG) a restart's new block has only W tokens (its first token and W - 1
+                         after it): with a tail of N, b(N+2) is all that is checked, and the second run is smaller
+  ...cMrR                (before s) the restarts from the next M choices are picked best first, R in all, over every
+                         place of the block: by the confidences before the place times the choice's own probability
+                         (DDTree's score of that node), for example restart4pxc3r12st3b5@NAME
   restartKre, restartKrx e: the restarts start one token EARLIER, at the last token before each likely break, and
                          write the token at the break again with the states (no guess of the right token);
                          x: both kinds in the same pass
@@ -177,13 +182,15 @@ def make_method(name, ckpt_dir, like=None):
         from dflash.redraft import TreeWithRestarts
 
         return TreeWithRestarts(DraftTree(int(found[1])), make_method(found[2], ckpt_dir, like))
-    found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(s?)(?:t(\d+))?(?:g(\d+))?@(.+)", name)
+    found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:g(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
 
-        method = Restarts(int(found[1]), "predicted", swap=bool(found[4]), tail=None if found[5] is None else int(found[5]),
-                          choices=int(found[3] or 1), kind=KINDS[found[2]], gate=None if found[6] is None else float(found[6]))
-        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[7]}.pt"),
+        number = lambda at: None if found[at] is None else int(found[at])
+        method = Restarts(int(found[1]), "predicted", swap=bool(found[5]), tail=number(6), choices=int(found[3] or 1),
+                          kind=KINDS[found[2]], best=number(4), block=number(7),
+                          gate=None if found[8] is None else float(found[8]))
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[9]}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
         return method
     body, _, second = name.partition("@")
@@ -195,11 +202,12 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
-    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(?:c(\d))?(s?)(?:t(\d+))?(?:g(\d+))?", body)
+    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:g(\d+))?", body)
     if found and model is None:
-        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[5]),
-                        tail=None if found[6] is None else int(found[6]), choices=int(found[4] or 1), kind=KINDS[found[3]],
-                        gate=None if found[7] is None else float(found[7]))
+        number = lambda at: None if found[at] is None else int(found[at])
+        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[6]),
+                        tail=number(7), choices=int(found[4] or 1), kind=KINDS[found[3]], best=number(5), block=number(8),
+                        gate=None if found[9] is None else float(found[9]))
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))

@@ -565,6 +565,76 @@ def test_the_second_run_only_where_the_first_draft_will_likely_break():
     assert 0 <= runs[0.5][1] <= runs[0.5][2] and runs[None][0] <= runs[0.5][0] <= plain.rounds
 
 
+def test_short_restarts_picked_best_first():
+    """block: a restart's new block has only that many tokens, so the second run reads and writes fewer.
+    best: the restarts from the drafter's next choices are picked over all places and choices by the
+    probability that the text goes that way (DDTree's score of the node), not only at the k likely breaks."""
+    from dflash.redraft import Restarts, dflash_generate_redraft
+    from dflash.replay import target_features
+    from nexus.redraft_long import make_method
+
+    named = make_method("restart2rxc3r6st3b5g9", "/nowhere")
+    assert (named.k, named.kind, named.choices, named.best, named.swap, named.alternative_tail, named.block, named.gate) == (
+        2, "both", 3, 6, True, 3, 5, 9.0)
+    plain_name = make_method("restart4rxt3", "/nowhere")
+    assert plain_name.best is None and plain_name.block is None
+    with pytest.raises(ValueError):
+        Restarts(block=1)
+    with pytest.raises(ValueError):
+        Restarts(best=0)
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    whole, short = Restarts(k=3, stand_in="real", kind="both"), Restarts(k=3, stand_in="real", kind="both", block=5)
+    picked = Restarts(k=3, stand_in="real", kind="both", choices=3, best=5, block=5, swap=True)
+    whole.features = short.features = picked.features = features
+    seen_whole, seen_short, seen_picked = Seen(whole), Seen(short), Seen(picked)
+    full = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen_whole, block_size=BLOCK)
+    cut = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen_short, block_size=BLOCK)
+    best = replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen_picked, block_size=BLOCK)
+    assert sum(full.acceptance_lengths) == sum(cut.acceptance_lengths) == sum(best.acceptance_lengths)
+    assert max(cut.rounds, best.rounds) <= plain.rounds
+
+    # A short block: the same first tokens of every row as far as the row goes, nothing after it.
+    start, block, logits, rows, kept = seen_short.rounds[0]
+    assert seen_whole.rounds[0][0] == start and rows.shape == seen_whole.rounds[0][3].shape
+    width, chosen = block.shape[0], len(kept)
+    for number, broke in enumerate(kept):
+        row = rows[number]
+        assert int(row[: broke + 6].min()) >= 0 and int(row[broke + 6 :].max()) == -1      # the choice and 4 new tokens
+        assert row[: broke + 2].tolist() == seen_whole.rounds[0][3][number, : broke + 2].tolist()
+    for number, broke in enumerate([broke for broke in kept if broke >= 1]):
+        row = rows[chosen + number]
+        assert int(row[: broke + 5].min()) >= 0 and int(row[broke + 5 :].max()) == -1      # 4 new tokens from the break on
+
+    # Best first: the places and choices with the largest (confidences before the place) x (the choice's probability).
+    for start, block, logits, rows, kept in seen_picked.rounds[:20]:
+        width = block.shape[0]
+        if width < BLOCK:
+            continue
+        top = logits.float().softmax(dim=-1).topk(4, dim=-1)
+        holds = torch.cat((top.values.new_ones(1), top.values[:, 0].cumprod(dim=0)[:-1]))[: width - 1]
+        worth = holds[:, None] * top.values[: width - 1, 1:]
+        order = worth.flatten().topk(5).indices.tolist()
+        earlier = sum(1 for broke in kept if broke >= 1)
+        assert rows.shape[0] == 5 + earlier + 5
+        for number, index in enumerate(order):
+            broke, choice = index // 3, 1 + index % 3
+            row = rows[number]
+            assert row[: broke + 1].tolist() == block[: broke + 1].tolist() and int(row[broke + 1]) == int(top.indices[broke, choice])
+            swapped = block.clone()
+            swapped[broke + 1] = top.indices[broke, choice]
+            assert rows[5 + earlier + number, :width].tolist() == swapped.tolist()
+
+    # In real decoding the text is the plain drafter's whatever the second run adds.
+    prompt = ids[:, :length]
+    for method in (Restarts(k=3, kind="both", tail=3, block=5), Restarts(k=3, kind="both", choices=3, best=6, tail=3, block=5, swap=True)):
+        result = dflash_generate_redraft(draft, target, prompt, 200, None, improver=method, block_size=BLOCK, return_stats=True)
+        assert torch.equal(result.output_ids, plain.output_ids) and result.rounds <= plain.rounds
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 
