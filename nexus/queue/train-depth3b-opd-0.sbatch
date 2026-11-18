@@ -8,7 +8,9 @@
 #SBATCH --time=04:00:00
 # How deep must a trained restart be? (nexus/train_second.py) The drafter's last 3 layers, trained as a reader that
 # goes on from the first run, on the 366 answers of long1: the recipe of two layers (warm-opd-s2.pt). It was queued
-# as train-depth3-opd-0, whose place went to the new text (nexus/gen_text.py). Saved as warm-opd-s3.pt.
+# as train-depth3-opd-0, whose place was to go to the new text (nexus/gen_text.py). Saved as warm-opd-s3.pt.
+# (train-depth3-opd-0 started before that change and trains the three layers itself, so THIS job writes text:
+# nexus/settings/instead.txt.)
 ENV="$HOME/specdec-env"
 CODE="$HOME/specdec-code/$JOB_NAME-$SLURM_JOB_ID"
 export HF_HOME="$HOME/hf-cache" TOKENIZERS_PARALLELISM=false
