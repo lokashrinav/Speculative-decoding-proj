@@ -414,7 +414,9 @@ does not pay yet. A whole second pass costs 12 ms (16% of a round), more than th
 **on a tree no whole second pass can pay, also with perfect states. Only a second run that costs
 under about 3 ms can.**
 
-**Two papers of this month mark the same open place.**
+**Two papers of this month mark the same open place.** (DForkTree's main results were read in the
+afternoon, see above; its appendix, with the second pass it tried, and the Google paper were read
+tonight.)
 
 - *DForkTree* (arXiv 2611.12356, November 9) measures what we measured. After a path leaves the
   drafter's first choices, the first run's top choice is right 18% of the time against 89% on the
