@@ -114,5 +114,22 @@ live-reanchor-pub-0: layer_probe.py --draft opd --predictor opd-m0 --data-dir ~/
 bench-opd-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-r1 --layers 1 --rank 256 --reveal --no-states 0.3 --real-share 0.2 --max-hours 2 --check-answers 12
 bench-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-w1 --layers 1 --rank 256 --max-hours 2 --check-answers 12
 layer-probe-pub-0: train_second.py --draft opd --start-from opd-r1 --states-in-block --data-dir ~/specdec-data/long1 --save opd-s1 --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
-train-second-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s5 --layers 5 --rank 64 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
-tree-ends-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s2 --layers 2 --rank 256 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
+# (Nov 18, 19:40 UTC) The first one-layer restarts are trained (Draft-OPD, counted on 12 validation answers; of the 3
+# tokens the target checks after the restart's first token, how many are right): the layer that reads the tokens
+# (warm-opd-r1.pt) 0.87, where the first draft's old tokens get 0.57, the whole drafter's restart 0.75 with no states,
+# 1.37 with predicted states and 2.09 with real ones. The layer with the restart's first token alone (warm-opd-w1.pt)
+# is as good in training (0.99 at its end against 0.95). Neither uses the states: with real states, predicted ones and
+# none they write the same, also when the states are written into the block (warm-opd-s1.pt, running in
+# layer-probe-pub-0, 1.07 in training and still rising). So one trained layer wins what knowing the TOKEN is worth,
+# at a third of the whole restart's cost and with no predictor, and not what the states are worth.
+# What that is worth ON A TREE is the question now, since a pass costs the same for 4 restarts or for 60:
+# train-second-pub-0 (next in line): replay of the tree in which the second run writes after EVERY node
+# (dflash/redraft.py: BranchTree) through the trained layers, with the same number of nodes as DDTree's (63, of which
+# 40, 48 or 31 from the first run) and with 95, next to DDTree with 63, 95 and 127 nodes; through the whole drafter
+# with predicted and real states as the measure. 8 validation answers.
+# tree-ends-pub-0 (after it): ALL FIVE layers trained as a reader (warm-opd-s5.pt), the measure of what a trained
+# reader gets from the states. Two layers: queued again after these.
+# (Results in nexus/results/train-second-pub-0: THE TREE WITH THE TRAINED SECOND RUN AT EVERY NODE, replay;
+# nexus/results/tree-ends-pub-0: FIVE LAYERS.)
+train-second-pub-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2.5 --settings plain,tree63,tree95,tree127,btree63f40t2n@~opd-r1,btree63f48t2n@~opd-r1,btree63f31t3n@~opd-r1,btree95f63t2n@~opd-r1,btree63f40t2c3n@~opd-r1,btree63f40t2v16n@~opd-r1,btree63f40t2n@~opd-w1,btree63f40t2b8p@opd-m0,btree63f40t2b8r
+tree-ends-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s5 --layers 5 --rank 64 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
