@@ -1,9 +1,9 @@
 {
  "done": false,
- "answers": 624,
+ "answers": 625,
  "answers_to_learn_from": 366,
  "part": "train",
- "hours": 2.995,
+ "hours": 3.076,
  "draft": "opd",
  "fixed": "",
  "sharp": false,
@@ -13132,8 +13132,244 @@
     "predicted": 0.512,
     "real": 3.233
    }
+  },
+  {
+   "answers": 625,
+   "rounds": 146138,
+   "examples": 884149,
+   "steps": 18267,
+   "loss_by_tokens": 2.1952,
+   "loss": 0.22391,
+   "likeness_to_the_real_vector": 0.2533,
+   "tokens_right_after_the_restart": 2.646,
+   "on_the_same_rounds": {
+    "rounds": 122,
+    "predicted": 2.787,
+    "real": 6.393,
+    "none": 1.336
+   },
+   "one_token_earlier": {
+    "rounds": 111,
+    "predicted": 1.144,
+    "real": 5.09
+   }
   }
  ],
- "restart_after_the_break": null,
+ "restart_after_the_break": {
+  "answers": 3,
+  "rounds": 3846,
+  "all": {
+   "rounds": 3846,
+   "old_rest": 0.751,
+   "new_rest": 1.048,
+   "real": 4.521,
+   "none": 1.179,
+   "none_shift": 0.78,
+   "last": 0.778,
+   "stale": 0.787,
+   "mean": 0.713,
+   "only_nearest": 3.978,
+   "all_but_nearest": 3.057,
+   "noisy25": 4.498,
+   "noisy50": 4.371,
+   "noisy100": 3.994,
+   "noisy200": 2.635,
+   "predicted": 2.004,
+   "reanchor": 2.875,
+   "reanchor_noisy100": 2.506,
+   "reanchor_predicted": 0.937,
+   "from_the_break_on": {
+    "real": {
+     "from_the_second_choice": 3.027,
+     "from_the_last_right_token": 2.875,
+     "the_better_of_the_two": 4.329,
+     "the_last_right_token_gets_the_break_right": 0.581
+    },
+    "noisy100": {
+     "from_the_second_choice": 2.756,
+     "from_the_last_right_token": 2.506,
+     "the_better_of_the_two": 3.953,
+     "the_last_right_token_gets_the_break_right": 0.534
+    },
+    "predicted": {
+     "from_the_second_choice": 1.692,
+     "from_the_last_right_token": 0.937,
+     "the_better_of_the_two": 2.124,
+     "the_last_right_token_gets_the_break_right": 0.306
+    }
+   }
+  },
+  "1 missing": {
+   "rounds": 535,
+   "old_rest": 1.2,
+   "new_rest": 1.929,
+   "real": 3.727,
+   "none": 2.131,
+   "none_shift": 1.768,
+   "last": 1.819,
+   "stale": 1.806,
+   "mean": 1.099,
+   "only_nearest": 3.703,
+   "all_but_nearest": 2.129,
+   "noisy25": 3.619,
+   "noisy50": 3.607,
+   "noisy100": 3.391,
+   "noisy200": 2.585,
+   "predicted": 2.305,
+   "reanchor": 0.024,
+   "reanchor_noisy100": 0.034,
+   "reanchor_predicted": 0.021,
+   "from_the_break_on": {
+    "real": {
+     "from_the_second_choice": 3.028,
+     "from_the_last_right_token": 0.024,
+     "the_better_of_the_two": 3.037,
+     "the_last_right_token_gets_the_break_right": 0.017
+    },
+    "noisy100": {
+     "from_the_second_choice": 2.807,
+     "from_the_last_right_token": 0.034,
+     "the_better_of_the_two": 2.815,
+     "the_last_right_token_gets_the_break_right": 0.019
+    },
+    "predicted": {
+     "from_the_second_choice": 2.181,
+     "from_the_last_right_token": 0.021,
+     "the_better_of_the_two": 2.191,
+     "the_last_right_token_gets_the_break_right": 0.015
+    }
+   }
+  },
+  "2 missing": {
+   "rounds": 558,
+   "old_rest": 0.806,
+   "new_rest": 1.349,
+   "real": 3.772,
+   "none": 1.448,
+   "none_shift": 0.885,
+   "last": 0.851,
+   "stale": 0.885,
+   "mean": 0.735,
+   "only_nearest": 3.72,
+   "all_but_nearest": 2.289,
+   "noisy25": 3.814,
+   "noisy50": 3.599,
+   "noisy100": 3.258,
+   "noisy200": 2.428,
+   "predicted": 1.918,
+   "reanchor": 1.867,
+   "reanchor_noisy100": 1.525,
+   "reanchor_predicted": 0.803,
+   "from_the_break_on": {
+    "real": {
+     "from_the_second_choice": 2.699,
+     "from_the_last_right_token": 1.867,
+     "the_better_of_the_two": 3.455,
+     "the_last_right_token_gets_the_break_right": 0.507
+    },
+    "noisy100": {
+     "from_the_second_choice": 2.391,
+     "from_the_last_right_token": 1.525,
+     "the_better_of_the_two": 3.022,
+     "the_last_right_token_gets_the_break_right": 0.444
+    },
+    "predicted": {
+     "from_the_second_choice": 1.686,
+     "from_the_last_right_token": 0.803,
+     "the_better_of_the_two": 2.063,
+     "the_last_right_token_gets_the_break_right": 0.283
+    }
+   }
+  },
+  "3-4 missing": {
+   "rounds": 947,
+   "old_rest": 0.74,
+   "new_rest": 1.096,
+   "real": 3.969,
+   "none": 1.156,
+   "none_shift": 0.656,
+   "last": 0.673,
+   "stale": 0.644,
+   "mean": 0.664,
+   "only_nearest": 3.693,
+   "all_but_nearest": 2.814,
+   "noisy25": 3.958,
+   "noisy50": 3.875,
+   "noisy100": 3.502,
+   "noisy200": 2.458,
+   "predicted": 1.935,
+   "reanchor": 2.444,
+   "reanchor_noisy100": 2.1,
+   "reanchor_predicted": 0.883,
+   "from_the_break_on": {
+    "real": {
+     "from_the_second_choice": 2.845,
+     "from_the_last_right_token": 2.444,
+     "the_better_of_the_two": 3.797,
+     "the_last_right_token_gets_the_break_right": 0.62
+    },
+    "noisy100": {
+     "from_the_second_choice": 2.658,
+     "from_the_last_right_token": 2.1,
+     "the_better_of_the_two": 3.517,
+     "the_last_right_token_gets_the_break_right": 0.549
+    },
+    "predicted": {
+     "from_the_second_choice": 1.654,
+     "from_the_last_right_token": 0.883,
+     "the_better_of_the_two": 2.04,
+     "the_last_right_token_gets_the_break_right": 0.309
+    }
+   }
+  },
+  "5 or more missing": {
+   "rounds": 1806,
+   "old_rest": 0.607,
+   "new_rest": 0.669,
+   "real": 5.277,
+   "none": 0.826,
+   "none_shift": 0.52,
+   "last": 0.503,
+   "stale": 0.529,
+   "mean": 0.618,
+   "only_nearest": 4.29,
+   "all_but_nearest": 3.697,
+   "noisy25": 5.254,
+   "noisy50": 5.095,
+   "noisy100": 4.659,
+   "noisy200": 2.806,
+   "predicted": 1.978,
+   "reanchor": 4.257,
+   "reanchor_noisy100": 3.754,
+   "reanchor_predicted": 1.279,
+   "from_the_break_on": {
+    "real": {
+     "from_the_second_choice": 3.224,
+     "from_the_last_right_token": 4.257,
+     "the_better_of_the_two": 5.26,
+     "the_last_right_token_gets_the_break_right": 0.75
+    },
+    "noisy100": {
+     "from_the_second_choice": 2.904,
+     "from_the_last_right_token": 3.754,
+     "the_better_of_the_two": 4.807,
+     "the_last_right_token_gets_the_break_right": 0.705
+    },
+    "predicted": {
+     "from_the_second_choice": 1.569,
+     "from_the_last_right_token": 1.279,
+     "the_better_of_the_two": 2.167,
+     "the_last_right_token_gets_the_break_right": 0.398
+    }
+   }
+  },
+  "second_choice_right": 0.517,
+  "right_token_is_the_drafters": {
+   "second_choice": 0.536,
+   "third_choice": 0.178,
+   "fourth_choice": 0.081,
+   "fifth_to_tenth": 0.118
+  }
+ },
  "gpu_memory_peak_gb": 12.93
 }
