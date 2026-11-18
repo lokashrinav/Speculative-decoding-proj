@@ -543,6 +543,28 @@ def test_tails_from_what_the_target_already_said():
     assert both.rounds <= tree.rounds
 
 
+def test_the_second_run_only_where_the_first_draft_will_likely_break():
+    """gate: no second run in rounds where the drafter's own confidences say the draft will hold.
+    A gate nothing passes is plain decoding; a gate everything passes is the second run in every round."""
+    from dflash.redraft import Restarts, dflash_generate_redraft
+    from nexus.redraft_long import make_method
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    named = make_method("restart3nxt2g5", "/nowhere")
+    assert named.gate == 5.0 and named.alternative_tail == 2 and named.kind == "both" and make_method("restart3nx", "/nowhere").gate is None
+    runs = {}
+    for gate in (None, 100.0, 0.0, 0.5):
+        method = Restarts(k=3, stand_in="none", kind="both", gate=gate)
+        result = dflash_generate_redraft(draft, target, prompt, 120, None, improver=method, block_size=BLOCK, return_stats=True)
+        assert torch.equal(result.output_ids, plain.output_ids)
+        runs[gate] = (result.rounds, method.rounds_run, method.rounds_seen)
+    assert runs[None][:2] == runs[100.0][:2] and runs[100.0][1] == runs[100.0][2]
+    assert runs[0.0][1] == 0 and runs[0.0][0] == plain.rounds
+    assert 0 <= runs[0.5][1] <= runs[0.5][2] and runs[None][0] <= runs[0.5][0] <= plain.rounds
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 

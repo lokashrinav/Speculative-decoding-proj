@@ -457,7 +457,7 @@ class Restarts:
     then the earlier ones, then the swaps of the choices. Scored in replay only so far."""
 
     def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None,
-                 choices: int = 1, kind: str = "choice"):
+                 choices: int = 1, kind: str = "choice", gate: float | None = None):
         if stand_in not in ("none", "last", "real", "predicted"):
             raise ValueError("stand_in must be 'none', 'last', 'real' or 'predicted'")
         if choices < 1:
@@ -466,6 +466,10 @@ class Restarts:
             raise ValueError("kind must be 'choice', 'earlier' or 'both'")
         self.k, self.stand_in, self.swap, self.alternative_tail, self.choices = k, stand_in, swap, tail, choices
         self.kind = kind
+        # gate: the second run is made only in rounds where the first draft is expected to get at most
+        # this many tokens accepted (from the drafter's own confidences: the sum over places of the
+        # product of the confidences up to there). Where the draft will likely hold, the pass is saved.
+        self.gate, self.rounds_seen, self.rounds_run = gate, 0, 0
         self.features = None        # the answer's states, for stand_in="real"
         self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
@@ -477,7 +481,13 @@ class Restarts:
         s = round_state
         width = s.block_ids.shape[1]
         first = s.draft_logits[0].float()
-        scores = break_scores(first.softmax(dim=-1).amax(dim=-1))[: width - 1]
+        confidence = first.softmax(dim=-1).amax(dim=-1)
+        self.rounds_seen += 1
+        if self.gate is not None and float(confidence.cumprod(dim=0).sum()) > self.gate:
+            self.kept = []
+            return None                                               # the first draft will likely hold: no second run
+        self.rounds_run += 1
+        scores = break_scores(confidence)[: width - 1]
         self.kept = scores.topk(min(self.k, scores.shape[0])).indices.tolist()
         if self.stand_in == "real":
             if self.features is None:

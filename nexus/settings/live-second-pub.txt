@@ -1,0 +1,6 @@
+plain,plain+swap4t3,plain+restart4pxst7@pub-m0,plain+restart4pxt3@pub-m0,plain+restart2pxt3@pub-m0,plain+restart4pxt3g3@pub-m0,plain+restart4pxt3g6@pub-m0,plain+restart4pet3@pub-m0,plain:window=3072+restart4pxt3g6@pub-m0
+# (Nov 18) The second run of the drafter made thrifty, in real tokens per second on the same text. As measured before
+# (restart4pxst7: restarts of both kinds from four likely breaks, with the swaps, 7 tokens checked after each) it adds
+# about 38% to the tokens of a round and 20 ms to its time. Here: 3 tokens checked and no swaps (t3), two likely breaks
+# (restart2), only the restarts one token earlier (pe), and the second run only in rounds where the drafter's own
+# confidences expect at most 3 or 6 accepted tokens (g3, g6), so that rounds whose draft will hold save the pass.

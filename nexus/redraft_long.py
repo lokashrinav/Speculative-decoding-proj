@@ -33,6 +33,8 @@ Methods (comma-separated):
                          table also hears what the target chose on rejected branches. treeB_echoK: with DDTree.
   treeB_restart...       DDTree with budget B and, in the same check, the restarts named after the underscore
                          (without the swaps: the tree has them), for example tree63_restart4rxt7
+  ...gG                  (after tN) the second run is made only in rounds where the first draft is expected to get
+                         at most G tokens accepted (the drafter's own confidences); the other rounds save the pass
   restartKre, restartKrx e: the restarts start one token EARLIER, at the last token before each likely break, and
                          write the token at the break again with the states (no guess of the right token);
                          x: both kinds in the same pass
@@ -175,13 +177,13 @@ def make_method(name, ckpt_dir, like=None):
         from dflash.redraft import TreeWithRestarts
 
         return TreeWithRestarts(DraftTree(int(found[1])), make_method(found[2], ckpt_dir, like))
-    found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(s?)(?:t(\d+))?@(.+)", name)
+    found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(s?)(?:t(\d+))?(?:g(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
 
         method = Restarts(int(found[1]), "predicted", swap=bool(found[4]), tail=None if found[5] is None else int(found[5]),
-                          choices=int(found[3] or 1), kind=KINDS[found[2]])
-        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[6]}.pt"),
+                          choices=int(found[3] or 1), kind=KINDS[found[2]], gate=None if found[6] is None else float(found[6]))
+        method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{found[7]}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
         return method
     body, _, second = name.partition("@")
@@ -193,10 +195,11 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
-    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(?:c(\d))?(s?)(?:t(\d+))?", body)
+    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(?:c(\d))?(s?)(?:t(\d+))?(?:g(\d+))?", body)
     if found and model is None:
         return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[5]),
-                        tail=None if found[6] is None else int(found[6]), choices=int(found[4] or 1), kind=KINDS[found[3]])
+                        tail=None if found[6] is None else int(found[6]), choices=int(found[4] or 1), kind=KINDS[found[3]],
+                        gate=None if found[7] is None else float(found[7]))
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
