@@ -226,7 +226,7 @@ def make_method(name, ckpt_dir, like=None):
         number = lambda at: None if found[at] is None else int(found[at])
         return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
                         whole=bool(found[2]))
-    found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?([nrp])(?:@(.+))?", name)
+    found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?(?:v(\d+))?([nrp])(?:@(.+))?", name)
     if found:
         # btreeBfFtT: a tree of B nodes in which the second run writes after every node of a first tree of F
         # nodes, T places each (dflash/redraft.py: BranchTree); cN: its N best tokens after each node; bN: blocks
@@ -236,9 +236,10 @@ def make_method(name, ckpt_dir, like=None):
 
         method = BranchTree(int(found[1]), int(found[2]), tail=int(found[3]), choices=int(found[4] or 2),
                             block=None if found[5] is None else int(found[5]),
-                            stand_in={"n": "none", "r": "real", "p": "predicted"}[found[6]])
-        predictor, _, second = (found[7] or "").partition("~")
-        if found[6] == "p":
+                            stand_in={"n": "none", "r": "real", "p": "predicted"}[found[7]])
+        method.common = short_list(ckpt_dir, None if found[6] is None else int(found[6]))      # vN: a short list of tokens
+        predictor, _, second = (found[8] or "").partition("~")
+        if found[7] == "p":
             from dflash.stand_in import load_predictor
 
             method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{predictor}.pt"),

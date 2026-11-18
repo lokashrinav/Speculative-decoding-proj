@@ -1456,6 +1456,14 @@ def test_the_output_head_over_a_short_list_of_tokens(tmp_path):
     allowed = torch.tensor([3, 7, 11, 30, 5, 20])
     assert torch.equal(few.best(states, also=also), allowed[scores[..., allowed].argmax(dim=-1)])
     assert torch.equal(few.best(states, also=torch.tensor([3, 30])), few.best(states))
+    # The best few with their log-probabilities among the listed tokens; with every token listed: the whole head's.
+    tokens, likely = whole.best_few(states, 3)
+    all_of_it = scores.float().log_softmax(dim=-1).topk(3, dim=-1)
+    assert torch.equal(tokens, all_of_it.indices) and torch.allclose(likely, all_of_it.values, atol=1e-5)
+    tokens, likely = few.best_few(states, 2, also=also)
+    among = scores[..., allowed].float().log_softmax(dim=-1).topk(2, dim=-1)
+    assert torch.equal(tokens, allowed[among.indices]) and tokens.shape == (3, 5, 2)
+    assert few.best_few(states, 9)[0].shape == (3, 5, 4)
 
     counts = count_tokens([ids[0, length:], ids[0, length:]], 32)
     assert int(counts.sum()) == 2 * (ids.shape[1] - length) and counts.shape == (32,)
@@ -1582,4 +1590,13 @@ def test_a_tree_in_which_the_second_run_writes_after_every_node():
     # By name.
     named = make_method("btree63f40t2c3b8r", "/nowhere")
     assert (named.budget, named.first, named.tail, named.choices, named.block, named.stand_in) == (63, 40, 2, 3, 8, "real")
-    assert make_method("btree31f20t1n", "/nowhere").choices == 2
+    assert make_method("btree31f20t1n", "/nowhere").choices == 2 and named.common is None
+    # With a short list that holds every token the tree is the same tree.
+    listed = BranchTree(14, 8, tail=2, stand_in="none", block=4)
+    listed.common = torch.arange(32)
+    bare = BranchTree(14, 8, tail=2, stand_in="none", block=4)
+    one, two = Kept(listed), Kept(bare)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=one, block_size=BLOCK)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=two, block_size=BLOCK)
+    assert sum(int(sorted(mine.tolist()) == sorted(theirs.tolist())) for (_, mine, _), (_, theirs, _) in zip(one.rounds, two.rounds)) \
+        > 0.9 * len(one.rounds)

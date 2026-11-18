@@ -42,6 +42,29 @@ class Shortlist:
         return self.tokens[scores.argmax(dim=-1)]
 
 
+def _scores(self, states, also):
+    scores, tokens = states @ self.weight.T, self.tokens
+    if also is not None:
+        more = also.flatten()
+        more = torch.unique(more[~self.listed[more]])       # (a token given twice would be offered twice)
+        if more.numel():
+            scores = torch.cat((scores, states @ self.head.weight[more].T), dim=-1)
+            tokens = torch.cat((tokens, more))
+    return scores, tokens
+
+
+def best_few(self, states: torch.Tensor, few: int, also: torch.Tensor | None = None, scale: float = 1.0):
+    """The `few` best tokens of each place among the listed tokens and `also`, with their
+    log-probabilities AMONG THESE TOKENS (the little probability of all other tokens is left out):
+    ([..., few], [..., few]). scale: what the drafter multiplies its scores by before they are probabilities."""
+    scores, tokens = _scores(self, states, also)
+    best = (scores.float() * scale).log_softmax(dim=-1).topk(min(few, scores.shape[-1]), dim=-1)
+    return tokens[best.indices], best.values
+
+
+Shortlist.best_few = best_few
+
+
 def count_tokens(sequences, vocabulary: int) -> torch.Tensor:
     """How often each token occurs in the given token sequences: [vocabulary]."""
     counts = torch.zeros(vocabulary, dtype=torch.long)

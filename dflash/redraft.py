@@ -515,9 +515,11 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
         timers["pass"] = timers.get("pass", 0.0) + now - clock
         clock = now
     states = hidden.reshape(count, width, -1)[:, 1:, :]
-    if top is not None:
-        if shortlist is not None:
-            raise ValueError("the best tokens with their scores are read from the whole output head")
+    if top is not None and shortlist is not None:
+        if _draft_value(drafter.config, "final_logit_softcapping") is not None:
+            raise ValueError("a drafter that caps its scores needs the whole output head for probabilities")
+        written = shortlist.best_few(states, top, also, float(_draft_value(drafter.config, "output_multiplier", 1.0)))
+    elif top is not None:
         best = drafter.compute_logits(states, _output_head(s.target)).float().log_softmax(dim=-1).topk(top, dim=-1)
         written = (best.indices, best.values)
     elif shortlist is None:
@@ -1026,6 +1028,7 @@ class BranchTree:
         self.tree = DraftTree(first)
         self.features, self.predictor, self.second = None, None, None
         self.nodes, self._hook, self._first_run = 0, None, None
+        self.common, self._shortlist = None, None      # the second run's tokens from a short list (see Restarts.common)
         self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0,
                        "second_run_tokens_the_first_tree_had": 0}
 
@@ -1095,9 +1098,17 @@ class BranchTree:
             given = torch.tensor([anchors + [s.first_drafter.mask_token_id]], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)[0]
             entering = self.second.enter(self._first_run[0, -width:][at], embedded[:-1], embedded[-1])
+        also = None
+        if self.common is not None:
+            if self._shortlist is None or self._shortlist.head is not _output_head(s.target):
+                from .shortlist import Shortlist
+
+                self._shortlist = Shortlist(_output_head(s.target), self.common)
+            also = torch.cat((s.accepted_ids.flatten(), best.indices[:, : min(16, best.indices.shape[1])].flatten()))
         wrote, likely = _restart_pass(s, anchors, begin, context, [], context_places, reach,
                                       layers=None if self.second is None else list(self.second.layers), entering=entering,
-                                      lengths=lengths, top=max(self.choices, 1), shared=shared)
+                                      lengths=lengths, top=max(self.choices, 1), shared=shared,
+                                      shortlist=self._shortlist if self.common is not None else None, also=also)
         wrote, likely = wrote.tolist(), likely.tolist()
         # What the pass wrote, most probable first: after node n its `choices` best tokens, and after the
         # best one the best tokens of the next places (a chain: each is offered once the one before is in).

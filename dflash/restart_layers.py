@@ -55,6 +55,12 @@ class RestartLayers(nn.Module):
         nn.init.zeros_(self.token_up.weight)           # at the start the token enters as described above, nothing added
         self.to(drafter.fc.weight.device)
 
+    def float_parameters(self):
+        """The trained parameters in 32-bit numbers (as they are while training), whatever they were read as."""
+        for parameter in self.trained():
+            parameter.data = parameter.data.float()
+        return self
+
     def trained(self):
         """The parameters that are trained (the copies' own weights are frozen)."""
         return [parameter for parameter in self.parameters() if parameter.requires_grad]

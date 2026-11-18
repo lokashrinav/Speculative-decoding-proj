@@ -281,6 +281,7 @@ def main():
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--save", required=True, help="saved as warm-<name>.pt (and restart-<name>.pt) in --adapter-dir")
     parser.add_argument("--predictor", default="", help="start from the saved predictor restart-<name>.pt (none: a new one)")
+    parser.add_argument("--start-from", default="", help="go on from the saved layers warm-<name>.pt (and their predictor)")
     parser.add_argument("--freeze-predictor", action="store_true", help="train the layers only")
     parser.add_argument("--layers", type=int, default=1, help="how many of the drafter's last layers the second drafter has")
     parser.add_argument("--rank", type=int, default=256, help="of the low-rank updates")
@@ -321,7 +322,16 @@ def main():
 
     token_counts(args.adapter_dir, args.data_dir, target.config.vocab_size)       # the count a short list of tokens is made from
     with torch.inference_mode(False):
-        second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed).train()
+        if args.start_from:            # go on from saved layers (and from the predictor saved with them, if there is one)
+            from dflash.restart_layers import load_restart_layers
+
+            second, before = load_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.start_from}.pt"), draft)
+            second = second.float_parameters().train()
+            args.layers, args.rank = second.sizes["count"], second.sizes["rank"]
+            if not args.predictor and os.path.exists(os.path.join(args.adapter_dir, f"restart-{args.start_from}.pt")):
+                args.predictor = args.start_from
+        else:
+            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed).train()
         if args.predictor:
             predictor, _ = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
             predictor = predictor.float()
@@ -340,7 +350,7 @@ def main():
         status = {"done": done, "answers": learned, "answers_to_learn_from": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "save": args.save,
                   "layers": args.layers, "of_the_drafters_layers": len(draft.layers), "rank": args.rank, "rate": args.rate,
-                  "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor,
+                  "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor, "start_from": args.start_from,
                   "predictor_rate": args.predictor_rate, "every": args.every, "vector_weight": args.vector_weight,
                   "distill": args.distill, "real_share": args.real_share, "one_token_earlier_too": not args.only_after,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
