@@ -304,6 +304,47 @@ places (D-Loop's second pass through one layer), with predicted states in half o
 ones in 20% and none in 30%, so that one model shows what the states add; `bench-pub-0`: the layer
 is given the restart's first token and predicted states only.
 
+**The first trained one-layer restarts (November 18, evening).** Draft-OPD, trained for about 100
+minutes on the 366 training answers, counted on 12 validation answers (3,335 rounds with a break).
+Of the 3 tokens the target checks after the restart's first token, how many are right:
+
+| What writes them | Right, of 3 | A pass costs |
+| --- | --- | --- |
+| No second run: the first draft's old tokens | 0.57 | nothing |
+| The whole drafter's restart, no states | 0.75 | 5 layers |
+| ONE trained layer that reads the tokens (`warm-opd-r1.pt`) | 0.87 | 1 layer |
+| The whole drafter's restart, predicted states | 1.37 | 5 layers and the predictor |
+| The whole drafter's restart, the target's real states | 2.09 | (replay only) |
+
+The layer given the restart's first token alone (`warm-opd-w1.pt`) is as good in training (0.99 at
+its end against 0.95), and both were still rising when the answers ran out. Neither uses the
+states: with real states, predicted ones and none they write the same (0.90, 0.87, 0.86), also
+when the states are written into the block at the places of their tokens (`warm-opd-s1.pt`). So
+one trained layer wins what knowing the TOKEN is worth, at a third of the whole restart's cost and
+with no predictor. What the STATES are worth (0.75 to 1.37, and to 2.09 with real ones) it does
+not win: reading them takes the drafter's depth.
+
+By the count of the 16 restarts in real decoding (+10.5% tokens on top of DDTree through the whole
+drafter), one layer at this quality is about even with DDTree, not ahead. Three things follow:
+
+1. *What the cheap layer is worth on a tree.* A pass costs the same for 4 restarts or for 60, so
+   the trained layer restarts at every node of the tree (`BranchTree`), with the same number of
+   nodes as DDTree's. Replay: `tree-ends-pub-0`.
+2. *How deep a trained restart must be.* The same recipe at two, three, four and five layers
+   (`train-depth2-opd-0`, `train-depth3-opd-0`, `train-depth4-opd-0`, `train-second-pub-0`): for each
+   depth, what it gets from the tokens alone, from predicted states and from real ones. Five layers
+   is the measure: a whole second pass by a trained reader.
+3. *Depth without its cost: the second run inside the first run's own pass.* A pass costs by its
+   layers, not by its rows. A restart that goes on from the first run after layer k does not need
+   a pass of its own: its blocks can JOIN the first run's pass for the layers after k, as more
+   rows. What is needed after layer k is an early reading of where the draft may break and which
+   tokens stand there (a small trained head on the states after layer k; more candidates than are
+   needed cost nothing, since rows are free), and low-rank updates that act on the restarts' rows
+   only, so the first draft stays what it is. A restart three or four layers deep would then cost
+   about what the one-layer restart costs now. Multi-Future Drafting (arXiv 2611.13017) also puts
+   more blocks into the one pass, from its start and told apart by learned modes; here the blocks
+   are told the actual tokens. To be built if the depths in 2 show that depth pays.
+
 **Where DDTree's rounds end** (`live-reanchor-opd-0`, Draft-OPD, 30 answers, 29,987 rounds, 63
 nodes, 5.6 draft tokens accepted per round):
 
@@ -343,9 +384,9 @@ right token).
 | The restart second run over whole answers | Accepted tokens with the real states (the limit), with nothing, with crude stand-ins | `dflash/redraft.py` (`Restarts`), `nexus/redraft_long.py` | `nexus/results/restart-replay-pub-0`, `restart-replay-opd-0` (queued) |
 | A predictor of the missing states | Whether a small trained network can stand in for the target's states at a restart | `dflash/stand_in.py`, `nexus/train_restart.py` | `nexus/results/train-restart-pub-0`, `train-restart-opd-0` (queued) |
 | How many layers a restart needs | Restarts through fewer layers, cold and going on from the first run; the time of each part of the second run | `nexus/layer_probe.py` | `nexus/results/live-reanchor-pub-0` (Draft-OPD), `layer-probe-pub-0` |
-| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run with predicted states | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (Draft-OPD, one layer), `train-second-pub-0` |
-| Where DDTree's rounds end | What is left to add on top of a tree | `nexus/tree_ends.py` | `nexus/results/live-reanchor-opd-0`, `tree-ends-pub-0` |
-| The second run at every node of a tree | Accepted tokens at the same number of tokens checked as DDTree | `dflash/redraft.py` (`BranchTree`), `nexus/redraft_long.py` | `nexus/results/bench-pub-0` (Draft-OPD, replay) |
+| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer that reads the tokens), `bench-pub-0` (one layer, first token only), `layer-probe-pub-0` (one layer, states in the block), `train-depth2-opd-0`, `train-depth3-opd-0`, `train-depth4-opd-0`, `train-second-pub-0` (five layers) |
+| Where DDTree's rounds end | What is left to add on top of a tree | `nexus/tree_ends.py` | `nexus/results/live-reanchor-opd-0` |
+| The second run at every node of a tree | Accepted tokens at the same number of tokens checked as DDTree | `dflash/redraft.py` (`BranchTree`), `nexus/redraft_long.py` | `nexus/results/tree-ends-pub-0` (Draft-OPD, replay, through the trained layers) |
 | The second run in real decoding | Tokens per second on the same text, alone and on DDTree | `nexus/live_speed.py` | `nexus/results/probe-shift-opd-0` (list 1), `live-second-opd-0`, `live-second-pub-0` (list 2), `probe-shift-pub-0` (ReAnchor on Draft-OPD) |
 | Trained second drafters (October) | Add-ons that read the first draft | `nexus/train_redraft.py`, `nexus/bench_redraft.py` | `nexus/results/train-prefix`, `train-edit`, `train-control`, `diag-a`, `diag-b` |
 | The 3M editor (September) | A small network that imitates a second run | `editor-experiment/` | `results/SUMMARY.md` |
