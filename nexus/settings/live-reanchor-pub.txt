@@ -1,9 +1,12 @@
-plain,plain+reanchor,plain+reanchort7,plain+reanchort5b7,plain+reanchor6t5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchort3b5,plain+tree63_reanchor6t5b7,plain:window=3072+tree63,plain:window=3072+tree63_reanchort5b7
+plain,plain+reanchor,plain+reanchort5b7,plain+reanchorct5b7,plain+reanchor6ct5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchorwt5b7,plain+tree63_reanchorwct5b7,plain+tree63_reanchorwct3b5,plain:window=3072+tree63,plain:window=3072+tree63_reanchorwct5b7
 # (Nov 18) ReAnchor (arXiv 2610.26531, nothing trained) in our decoder, and what nobody has shown yet: the same on
 # top of DDTree. New blocks of the drafter are started from what the LAST check left behind (the token the target
 # chose after each rejected draft token, with its states of the rejected tokens) and written in the first draft's own
 # pass, so they cost no second drafter pass; a block is attached where the first draft has its first token.
 #   reanchor      the published method: every block, whole, every attached token checked
-#   t7, t5b7      only 7 or 5 of a block's tokens are checked; b7: a block has 7 tokens
-#   reanchor6     the 6 blocks started nearest to the round's first token
-#   tree63_...    DDTree with the blocks' rows on top
+#   t5b7          a block has 7 tokens and 5 of them are checked;  reanchor6: the 6 blocks nearest to the round's start
+#   c             ours: where the first draft has again the token a block's first token was chosen after, at the same
+#                 place, and goes on with another token, the block is attached there with its own first token in the
+#                 draft's place (the target has already said what it wants after that token)
+#   tree63_...    DDTree with the blocks' rows on top;  w: the target also reads the whole first draft (DDTree leaves
+#                 out its late tokens, and then the next round has little to start blocks from)

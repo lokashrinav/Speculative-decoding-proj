@@ -642,6 +642,7 @@ class Reanchor:
     tail: the target checks only this many of a block's tokens. block: the tokens of a new block
     (first token and masks; None: a whole block). fixed: attach a block only at the place it was
     started at (ReAnchor's ablation; False: at the earliest place the first draft has its token).
+    corrections: see __init__ (ours).
     ahead: the blocks are written in the first draft's own pass, as ReAnchor does (they need nothing
     of the first draft); False: in a pass of their own after it, which costs a drafter pass more.
     Returned: rows [first token, ...] with -1 after their end, or None. Real decoding only: a replay
@@ -650,11 +651,23 @@ class Reanchor:
     swap = False
 
     def __init__(self, k: int | None = None, tail: int | None = None, block: int | None = None, fixed: bool = False,
-                 ahead: bool = True):
+                 ahead: bool = True, corrections: bool = False, whole: bool = False):
         self.k, self.alternative_tail, self.block, self.fixed = k, tail, block, fixed
+        # whole: on top of DDTree, the target also reads the whole first draft (TreeWithRestarts adds it
+        # as a row). DDTree leaves out the first draft's late tokens, which are rarely accepted; but
+        # what the target makes of them is what the next round's blocks are started from.
+        self.wants_first_draft = whole
         self.ahead = ahead          # the blocks are written in the first draft's pass (real decoding does that)
+        # corrections (ours, not in ReAnchor): a block's first token is what the target chose after a
+        # draft token of the last round. Where this round's first draft has that same token at that
+        # same place again, the target has in effect been asked already what comes next there (in a
+        # context that differs a few tokens back). If the first draft goes on with another token, the
+        # block is attached at its own place WITH its first token in place of the draft's: a break
+        # foretold, the target's own token for it, and a block written after that token.
+        self.corrections = corrections
         self.kept = []
-        self.counts = {"rounds": 0, "rounds_with_blocks": 0, "blocks": 0, "blocks_attached": 0, "blocks_attached_elsewhere": 0}
+        self.counts = {"rounds": 0, "rounds_with_blocks": 0, "blocks": 0, "blocks_attached": 0, "blocks_attached_elsewhere": 0,
+                       "corrections": 0, "same_token_before_and_the_same_next": 0}
 
     def start(self, drafter: nn.Module) -> None:
         self.kept = []
@@ -676,6 +689,12 @@ class Reanchor:
             stand_ins.append((left["features"][None, skip:count], torch.arange(left["start"] + skip, left["start"] + count, device=device)))
         return (firsts, places, stand_ins) if firsts else None
 
+    @staticmethod
+    def token_before(s: SimpleNamespace, place: int):
+        """The token the last check read right before `place` (the one a block started there was chosen after)."""
+        left = s.leftover
+        return left["tokens"][place - 1 - left["start"]]
+
     def __call__(self, s: SimpleNamespace) -> torch.Tensor | None:
         self.counts["rounds"] += 1
         width = s.block_ids.shape[1]
@@ -691,6 +710,14 @@ class Reanchor:
         rows = []
         for number, token in enumerate(firsts):
             nominal = places[number] - s.start
+            again = (self.corrections and 2 <= nominal < width
+                     and first_draft[nominal - 1] == self.token_before(s, places[number]))
+            if again:                                               # the same token before it as in the last check
+                self.counts["corrections"] += int(first_draft[nominal] != token)
+                self.counts["same_token_before_and_the_same_next"] += int(first_draft[nominal] == token)
+                self.counts["blocks_attached"] += 1
+                rows.append(first_draft[:nominal] + [token] + new[number].tolist())
+                continue
             if self.fixed:
                 at = nominal if nominal < width and first_draft[nominal] == token else None
             else:
@@ -929,6 +956,8 @@ class TreeWithRestarts:
     def __call__(self, s: SimpleNamespace) -> torch.Tensor:
         rows = self.tree(s)
         width = s.block_ids.shape[1]
+        if getattr(self.restarts, "wants_first_draft", False):       # the whole first draft is read too
+            rows = torch.cat((rows, s.block_ids.to(rows.dtype)), dim=0)
         more = self.restarts(s)
         if more is not None:
             tail = getattr(self.restarts, "alternative_tail", None)

@@ -37,6 +37,12 @@ Methods (comma-separated):
                          first token (f: only at the place it was started at). K: at most K blocks; tN: N of a
                          block's tokens are checked; bW: a block has W tokens. Real decoding only.
                          treeB_reanchor...: with DDTree
+  treeB_reanchor[K]w...  on top of DDTree the target also reads the whole first draft: DDTree leaves out its late
+                         tokens, but what the target makes of them is what the next round's blocks are started from
+  reanchor[K]c...        ours on top of it: where the first draft has again the token a block's first token was chosen
+                         after, at the same place, and goes on with ANOTHER token, the block is attached there with
+                         its own first token in the draft's place (the target has said what it wants after that
+                         token; the block is what the drafter writes after it)
   treeB_restart...       DDTree with budget B and, in the same check, the restarts named after the underscore
                          (without the swaps: the tree has them), for example tree63_restart4rxt7
   ...gG                  (after tN) the second run is made only in rounds where the first draft is expected to get
@@ -187,12 +193,13 @@ def make_method(name, ckpt_dir, like=None):
 
         return EchoRows(int(found[1]), choices=int(found[2] or 1), order=int(found[3] or 3), reach=int(found[4] or 12),
                         least=int(found[5] or 2))
-    found = re.fullmatch(r"reanchor(\d+)?(?:t(\d+))?(?:b(\d+))?(f?)", name)
+    found = re.fullmatch(r"reanchor(\d+)?(w?)(c?)(?:t(\d+))?(?:b(\d+))?(f?)", name)
     if found:                                                       # new blocks from what the last check left behind
         from dflash.redraft import Reanchor
 
         number = lambda at: None if found[at] is None else int(found[at])
-        return Reanchor(number(1), tail=number(2), block=number(3), fixed=bool(found[4]))
+        return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
+                        whole=bool(found[2]))
     found = re.fullmatch(r"tree(\d+)_((?:restart|echo|reanchor).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check
         from dflash.redraft import TreeWithRestarts

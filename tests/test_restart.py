@@ -771,6 +771,27 @@ def test_new_blocks_from_what_the_last_check_left():
     assert attached > 20 and seen.method.counts["blocks_attached"] == attached
     assert seen.method.counts["blocks_attached_elsewhere"] == moved and seen.method.counts["blocks"] > attached
 
+    # corrections: the first draft has the same token before a block's place as the last check had, and another
+    # token at the place: the block is attached there with its first token in the draft's place. With the answer
+    # itself as what the last check read, that is the right token after every break past the round's second token.
+    assert make_method("reanchor6ct5b7", "/nowhere").corrections and not make_method("reanchor6t5b7", "/nowhere").corrections
+    with_draft = make_method("tree15_reanchorwct5b7", "/nowhere")
+    assert with_draft.restarts.wants_first_draft and with_draft.restarts.corrections and with_draft.restarts.block == 7
+    assert not make_method("tree15_reanchorct5b7", "/nowhere").restarts.wants_first_draft
+    told = TruthAsLeftover(Reanchor(corrections=True))
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=told, block_size=BLOCK)
+    corrected = 0
+    for start, first_draft, expected, rows in told.rounds:
+        got = [] if rows is None else [[token for token in row if token >= 0] for row in rows]
+        truth = ids[0, start : start + len(first_draft) + 1].tolist()
+        for count in sorted(expected):
+            if 2 <= count < len(first_draft) and first_draft[count - 1] == truth[count - 1]:
+                row = (first_draft[:count] + [truth[count]] + expected[count])[: 2 * len(first_draft)]
+                assert row in got
+                corrected += int(first_draft[count] != truth[count])
+    assert corrected > 0 and told.method.counts["corrections"] == corrected
+    assert told.rounds and len(told.rounds) <= len(seen.rounds)        # the foretold breaks are passed: no more rounds
+
     fixed = TruthAsLeftover(Reanchor(k=4, block=5, fixed=True))
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=fixed, block_size=BLOCK)
     for start, first_draft, expected, rows in fixed.rounds:
@@ -784,7 +805,9 @@ def test_new_blocks_from_what_the_last_check_left():
     prompt = ids[:, :length]
     # The blocks are written in the first draft's pass (ahead) or in one of their own: the same blocks either way.
     for make in (lambda ahead: Reanchor(ahead=ahead), lambda ahead: Reanchor(k=6, tail=3, block=5, ahead=ahead),
-                 lambda ahead: TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5, ahead=ahead))):
+                 lambda ahead: Reanchor(tail=3, block=5, ahead=ahead, corrections=True),
+                 lambda ahead: TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5, ahead=ahead, corrections=True)),
+                 lambda ahead: TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5, ahead=ahead, whole=True))):
         ran = []
         for ahead in (True, False):
             method = make(ahead)
@@ -798,6 +821,12 @@ def test_new_blocks_from_what_the_last_check_left():
             assert counts["rounds_with_blocks"] > 0
             ran.append((result.rounds, dict(counts), timers["rows_one"] if "rows_one" in timers else 0, timers.get("rows_two", 0)))
         assert ran[0] == ran[1]
+    lean = TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5))
+    full = TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5, whole=True))
+    for method in (lean, full):
+        result = dflash_generate_redraft(draft, target, prompt, 200, None, improver=method, block_size=BLOCK, return_stats=True)
+        assert torch.equal(result.output_ids, plain.output_ids)
+    assert full.counts["blocks"] > lean.counts["blocks"]             # the target read more of the first draft
 
 
 def test_restart_methods_by_name():
