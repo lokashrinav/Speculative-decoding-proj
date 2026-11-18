@@ -1962,5 +1962,9 @@ def test_names_of_trees_with_counts():
         both = redraft_long.make_method("cbtree63f40t2n", "/nowhere")
         assert isinstance(both, BranchTree) and isinstance(both.tree, CountTree) and both.tree.budget == 40
         assert not isinstance(redraft_long.make_method("btree63f40t2n", "/nowhere").tree, CountTree)
+        rows_too = redraft_long.make_method("ctree39_echo4r4", "/nowhere")          # the tree with counts and more rows
+        assert isinstance(rows_too.tree, CountTree) and rows_too.tree.budget == 39
+        assert not isinstance(redraft_long.make_method("tree39_echo4r4", "/nowhere").tree, CountTree)
+        assert redraft_long.with_counts("ctree39_echo4r4") and redraft_long.with_counts("plain:window=4096+ctree63_echo4r4")
     finally:
         redraft_long.FOLLOW.clear()

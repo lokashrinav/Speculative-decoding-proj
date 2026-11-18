@@ -290,11 +290,13 @@ def make_method(name, ckpt_dir, like=None):
 
             method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
         return method
-    found = re.fullmatch(r"tree(\d+)_((?:restart|echo|reanchor).+)", name)
+    found = re.fullmatch(r"(c?)tree(\d+)_((?:restart|echo|reanchor).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check
-        from dflash.redraft import TreeWithRestarts
+        from dflash.redraft import CountTree, TreeWithRestarts
 
-        return TreeWithRestarts(DraftTree(int(found[1])), make_method(found[2], ckpt_dir, like))
+        # ctreeB_...: the tree is the tree with counts (the paper's weights)
+        tree = CountTree(int(found[2]), FOLLOW.get("counts")) if found[1] else DraftTree(int(found[2]))
+        return TreeWithRestarts(tree, make_method(found[3], ckpt_dir, like))
     found = re.fullmatch(r"restart(\d+)p([ex]?)(m?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:v(\d+))?(?:g(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
