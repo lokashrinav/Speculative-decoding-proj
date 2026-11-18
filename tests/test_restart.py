@@ -1228,6 +1228,7 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
         entering = second.enter(kept[3:], token_in, mask_in)
         assert torch.equal(entering[1:], kept[4:]) and torch.allclose(entering[0], kept[3] + token_in - mask_in)
         mine = warm_logits(draft, second, target, features, ids, start, real, entering)
+        mine_before_training = mine.clone()
         positions = torch.cat((torch.arange(0, start + 3), torch.arange(start + 3, start + BLOCK)))[None]
         own = draft(target_hidden=features[:, :start], context_states=real[None], noise_embedding=entering[None],
                     position_ids=positions, layers=[2])
@@ -1248,12 +1249,22 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
         whole = whole_states(draft, target, features, ids, start, real, 0, BLOCK)
         assert torch.equal(draft.compute_logits(whole[None], target.lm_head)[0],
                            restart_logits(draft, target, features, ids, start, real, 0, BLOCK))
+    def loss_on_the_same_rounds():
+        for at in range(length + 2, length + 14):
+            teach.step(ids, features, at, learn=False, count=3)
+        return teach.progress()["loss_by_tokens"]
+
+    before_training = loss_on_the_same_rounds()
+    for _ in range(8):                                       # learned from these rounds, the loss on them falls
+        for at in range(length + 2, length + 14):
+            teach.step(ids, features, at, count=3)
+    teach.progress()
+    assert loss_on_the_same_rounds() < before_training
     curve = []
     for _ in range(5):
         teach.learn_from(ids, features, length, most=12)
         curve.append(teach.progress())
     assert teach.steps >= 5 and all(point["loss_by_tokens"] == point["loss_by_tokens"] for point in curve)   # numbers, not NaN
-    assert curve[-1]["loss_by_tokens"] < curve[0]["loss_by_tokens"]
     assert any(bool(adapter.up.abs().sum() > 0) for adapter in second.adapters)
     assert bool(second.token_up.weight.abs().sum() > 0)
     assert any(not torch.equal(before[name], value) for name, value in predictor.state_dict().items())
@@ -1298,6 +1309,43 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     assert all(torch.equal(kept_as[name], value) for name, value in frozen.state_dict().items())
     assert other.first == 1 and len(other.layers) == 2
 
+    # Layers that read the tokens: the whole block enters, with the known tokens written in at their places; before
+    # training that is the drafter's own last layer on those states. Trained with no states in a share of the steps.
+    from nexus.train_second import second_states
+
+    reader = RestartLayers(draft, count=1, rank=4, reveal=True)
+    assert reader.reveal and reader.sizes["reveal"] and not second.reveal
+    with torch.no_grad():
+        known_in = draft_embeddings(target, ids[:, start + 1 : start + 4])[0]
+        block = reader.enter_block(kept, known_in, mask_in)
+        assert block.shape == kept.shape and torch.equal(block[0], kept[0]) and torch.equal(block[4:], kept[4:])
+        assert torch.allclose(block[1:4], kept[1:4] + known_in - mask_in)
+        assert torch.equal(reader.enter_block(kept, known_in[:0], mask_in), kept)
+        mine = second_states(draft, reader, target, features, ids, start, 3, real, kept)
+        positions = torch.cat((torch.arange(0, start + 3), torch.arange(start, start + BLOCK)))[None]
+        own = draft(target_hidden=features[:, :start], context_states=real[None], noise_embedding=block[None],
+                    position_ids=positions, layers=[2])
+        assert mine.shape == (BLOCK - 3 - 1, 16) and torch.equal(mine, own[0, 4:])
+        # ... and one token earlier: two tokens written in, the states of two tokens, written from the break on
+        before = second_states(draft, reader, target, features, ids, start, 3, real[:2], kept, earlier=True)
+        assert before.shape == (BLOCK - 3, 16)
+        # the layers that do not read the tokens, through the same function, as before
+        assert torch.equal(draft.compute_logits(second_states(draft, RestartLayers(draft, count=1, rank=4), target, features, ids,
+                                                              start, 3, real, kept)[None], target.lm_head)[0], mine_before_training)
+    reading = TeachSecond(reader, predictor, torch.optim.AdamW(reader.trained() + list(predictor.parameters()), lr=3e-3), draft,
+                          target, every=2, window=64, width=BLOCK, compare_every=1, distill=1.0, real_share=0.2, none_share=0.4)
+    for _ in range(3):
+        reading.learn_from(ids, features, length, most=12)
+    for at in range(length + 2, length + 8):
+        reading.step(ids, features, at, count=3)
+    point = reading.progress()
+    assert reading.steps >= 4 and point["loss_by_tokens"] == point["loss_by_tokens"]
+    assert "second_none" in point["on_the_same_rounds"]["tokens_right_inside_the_block"]
+    assert point["one_token_earlier_from_the_break_on"]["rounds"] >= 6
+    assert any(bool(adapter.up.abs().sum() > 0) for adapter in reader.adapters)
+    save_restart_layers(str(tmp_path / "warm-reader.pt"), reader)
+    assert load_restart_layers(str(tmp_path / "warm-reader.pt"), draft)[0].reveal
+
     # Saved and read again, and merged for use: the same tokens' scores.
     path = str(tmp_path / "warm-test.pt")
     save_restart_layers(path, second, {"answers": 1})
@@ -1306,7 +1354,7 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     with torch.no_grad():
         entering = second.enter(kept[3:], token_in, mask_in)
         trained_logits = warm_logits(draft, second, target, features, ids, start, real, entering)
-        assert not torch.allclose(trained_logits, mine)
+        assert not torch.allclose(trained_logits, mine_before_training)
         read = warm_logits(draft, again, target, features, ids, start, real, again.enter(kept[3:], token_in, mask_in))
         assert torch.allclose(read, trained_logits, atol=1e-2)                     # (saved in 16-bit numbers)
         merged = again.merge()

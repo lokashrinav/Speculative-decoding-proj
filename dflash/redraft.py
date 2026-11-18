@@ -776,6 +776,8 @@ class Restarts:
             context = pool[torch.tensor(rows_taken, device=device)]
         reach = width if self.block is None else min(self.block, width)
         lengths, entering = None, None
+        if self.second is not None and getattr(self.second, "reveal", False):
+            raise NotImplementedError("restarts through layers that read the tokens are made by BranchTree and Restarts.revealed")
         if self.second is not None:
             # Through the tiny second drafter, going on from the first run. A restart's first token is at
             # the block's place broke + 1 (from a choice) or broke (one token earlier); the first run has
@@ -1091,6 +1093,8 @@ class BranchTree:
         begin = [s.start + len(ranks) for ranks in nodes]
         reach = min(1 + self.tail, width) if self.second is not None else (width if self.block is None else min(self.block, width))
         lengths, entering = None, None
+        if self.second is not None and getattr(self.second, "reveal", False):
+            raise NotImplementedError("a tree through layers that read the tokens: not written yet")
         if self.second is not None:
             lengths = [min(width - len(ranks), reach) for ranks in nodes]
             at = torch.tensor([[min(len(ranks) + slot, width - 1) for slot in range(reach)] for ranks in nodes], device=device)

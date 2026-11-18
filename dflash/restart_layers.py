@@ -28,12 +28,18 @@ from .adapt import ADAPTED, LowRank
 
 
 class RestartLayers(nn.Module):
-    def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0):
+    def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0, reveal: bool = False):
         super().__init__()
         total = len(drafter.layers)
         if not 1 <= count < total:
             raise ValueError("the restart layers stand in for some of the drafter's last layers, not all of them")
-        self.sizes = {"count": count, "rank": rank}
+        # reveal: the restart's block is the round's whole block from its first token on, with the tokens that
+        # are known at the restart WRITTEN IN at their places (the draft tokens before the restart and its first
+        # token; see enter_block), so the layers read the tokens themselves next to any stand-ins of the target's
+        # states. This is the second pass of D-Loop (Chen et al., arXiv 2610.06011: a retrained drafter re-run on
+        # the block with a prefix of its draft revealed), at the cost of these layers instead of a whole pass.
+        self.sizes = {"count": count, "rank": rank, "reveal": bool(reveal)}
+        self.reveal = bool(reveal)
         self.first = total - count                     # the first of the drafter's layers a copy stands in for
         self.layers = nn.ModuleList(copy.deepcopy(layer) for layer in drafter.layers[self.first :])
         for parameter in self.layers.parameters():
@@ -75,6 +81,21 @@ class RestartLayers(nn.Module):
         first = states[..., :1, :] + (token_in - mask_in).to(states.dtype)[..., None, :] + added.to(states.dtype)[..., None, :]
         return torch.cat((first, states[..., 1:, :]), dim=-2)
 
+    def enter_block(self, states: torch.Tensor, known_in: torch.Tensor, mask_in: torch.Tensor) -> torch.Tensor:
+        """For layers that read the tokens (reveal): states: [..., places, size], the first run's states of a
+        block from its first token on, after the last layer left out; known_in: [..., known, size], the
+        embeddings of the tokens known at the places 1 .. known (the draft tokens before the restart and the
+        restart's first token; the block's own first token at place 0 is a real token in the first run already).
+        Each known place keeps the first run's state, the mask's embedding in it replaced by the token's, plus
+        the trained map of the token's embedding. Returns the states the block enters the restart layers with."""
+        known = known_in.shape[-2]
+        if not known:
+            return states
+        unit = known_in.float() * known_in.float().pow(2).mean(dim=-1, keepdim=True).clamp_min(1e-8).rsqrt()
+        added = self.token_up(self.token_down(unit.to(self.token_down.weight.dtype)))
+        written = states[..., 1 : 1 + known, :] + (known_in - mask_in[..., None, :]).to(states.dtype) + added.to(states.dtype)
+        return torch.cat((states[..., :1, :], written, states[..., 1 + known :, :]), dim=-2)
+
     @torch.no_grad()
     def merge(self):
         """For use: the low-rank updates are added into the copies' weights, so that a pass through
@@ -103,7 +124,7 @@ def save_restart_layers(path: str, layers: RestartLayers, notes: dict | None = N
 
 def load_restart_layers(path: str, drafter: nn.Module) -> tuple[RestartLayers, dict]:
     saved = torch.load(path, map_location="cpu")
-    layers = RestartLayers(drafter, **saved["sizes"])
+    layers = RestartLayers(drafter, **saved["sizes"])                # (files saved before `reveal` existed: without it)
     assert len(saved["state"]["adapters"]) == len(layers.adapters), "the saved restart layers belong to another drafter"
     with torch.no_grad():
         for adapter, (down, up) in zip(layers.adapters, saved["state"]["adapters"]):

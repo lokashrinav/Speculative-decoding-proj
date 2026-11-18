@@ -13,6 +13,12 @@ trained on with the layers unless --freeze-predictor). The loss is how unlikely 
 the tokens the answer really has after it (the first ones count most), plus --vector-weight times
 the error of the predicted states. The drafter itself is not changed.
 
+With --reveal the layers read the tokens themselves: the restart's block is the round's whole block,
+with the tokens known at the restart written in at their places (dflash/restart_layers.py:
+enter_block). That is D-Loop's second pass (arXiv 2610.06011) at the cost of one layer. To see what
+the predicted states add next to the tokens, --no-states gives the layers no states at all in that
+share of the steps; the counts below then include the layers with no states (second_none).
+
 On the same rounds, every --compare-every rounds, it counts the tokens that are right from the
 restart on (those inside the first block, and at most 3 of them: what the second run lets the
 target check) for:
@@ -101,11 +107,33 @@ def _right(logits, answer):
     return int((logits.argmax(dim=-1) == answer).long().cumprod(dim=0).sum())
 
 
+def second_states(drafter, second, target, features, ids, start, count, written, kept, low=0, earlier=False):
+    """The restart layers' final states at the places after the restart's first token, to the end of the first
+    block. The restart is after `count` tokens of the round that the target has not read (the round's first
+    token and count - 1 draft tokens), from the answer's token at that place; with earlier=True it is one token
+    earlier, from the last of those tokens, and what it writes begins with the token at the break. written: the
+    stand-ins of the target's states for the tokens before the restart's first token ([count, size] or
+    [count - 1, size] for the earlier restart; fewer or none: those there are). kept: the first run's states of
+    the block after the last layer left out ([width, size])."""
+    at = count - 1 if earlier else count                          # the place of the restart's first token in the block
+    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+    mask_in = _raw_input_embeddings(target, torch.full((1, 1), drafter.mask_token_id, dtype=ids.dtype, device=ids.device), scale)[0, 0]
+    if second.reveal:
+        # The whole block, with the tokens known at the restart written in at the places 1 .. at.
+        known_in = _raw_input_embeddings(target, ids[:, start + 1 : start + at + 1], scale)[0]
+        entering = second.enter_block(kept, known_in, mask_in)
+        return warm_states(drafter, second, features, ids, start, written, entering, low, anchor=start)[at:]
+    token_in = _raw_input_embeddings(target, ids[:, start + at : start + at + 1], scale)[0, 0]
+    return warm_states(drafter, second, features, ids, start, written, second.enter(kept[at:], token_in, mask_in), low,
+                       anchor=start + at)
+
+
 class TeachSecond:
     """Trains the restart layers (and the predictor) on the tokens they write (see the top of this file)."""
 
     def __init__(self, second, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8,
-                 width=16, seed=0, compare_every=4, train_predictor=True, distill=0.0, real_share=0.0, earlier=True):
+                 width=16, seed=0, compare_every=4, train_predictor=True, distill=0.0, real_share=0.0, earlier=True,
+                 none_share=0.0):
         self.second, self.predictor, self.optimizer, self.drafter, self.target = second, predictor, optimizer, drafter, target
         self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
         self.compare_every, self.train_predictor = compare_every, train_predictor
@@ -122,6 +150,9 @@ class TeachSecond:
         # and one state fewer, and writes the token at the break itself. In real decoding half of what the second
         # run wins comes from these restarts.
         self.earlier, self.also = earlier, []
+        # none_share: in this share of the steps the layers are given no states at all (for layers that read the
+        # tokens: what they can do from the tokens alone, and what the states add, is then counted on one model).
+        self.none_share = none_share
         # The predictor as it was saved: the whole drafter's restart is measured with its states, so that the
         # comparison is with the second run as it is today.
         self.saved_predictor = copy.deepcopy(predictor).eval() if train_predictor else predictor
@@ -174,23 +205,25 @@ class TeachSecond:
             given = self.inputs(self.predictor, block_states, ids, features, start, count, low)
             real = project(drafter, features[:, start : start + count])[0].float()
             scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
-            trio = torch.stack((ids[0, start + count], torch.as_tensor(drafter.mask_token_id, dtype=ids.dtype, device=device),
-                                ids[0, start + count - 1]))
-            token_in, mask_in, before_in = _raw_input_embeddings(target, trio[None], scale)[0]
             from_the_break = ids[0, start + count : start + width].clone()             # the tokens from the break on, inside the block
+            head = _output_head(target)
+            run = lambda states, earlier=False: second_states(drafter, self.second, target, features, ids, start, count,
+                                                              states, kept, low, earlier)
             answer = ids[0, start + count + 1 : start + width].clone()                  # the tokens after the right token, inside the block
             aim = None
             if learn and self.distill:
                 aim = whole_states(drafter, target, features, ids, start, real.to(block_states.dtype), low, width)[: places - 1]
-            with_real = learn and self.real_share > 0 and float(torch.rand(1, generator=self.generator)) < self.real_share
+            drawn = float(torch.rand(1, generator=self.generator)) if learn else 1.0
+            with_real = learn and drawn < self.real_share
+            with_none = learn and not with_real and drawn < self.real_share + self.none_share
         with torch.set_grad_enabled(learn):
             written = self.predictor(*given)
             if not (learn and self.train_predictor):
                 written = written.detach()
             written = as_context(drafter, written)
-            entering = self.second.enter(kept[count:], token_in, mask_in)
-            states = warm_states(drafter, self.second, features, ids, start, real if with_real else written, entering, low)
-            logits = drafter.compute_logits(states[None], _output_head(target))[0].float()
+            shown = real if with_real else written[:0] if with_none else written      # what the layers are given in this step
+            states = run(shown)
+            logits = drafter.compute_logits(states[None], head)[0].float()
             each = torch.nn.functional.cross_entropy(logits, answer, reduction="none")
             weights = self.weights[: places - 1].to(device)
             by_tokens = (each * weights).sum() / weights.sum()
@@ -202,16 +235,14 @@ class TeachSecond:
             before = None
             if self.earlier and count >= 2:
                 # One token earlier: from the last right token, with the states of the tokens before it.
-                given_before = (real if with_real else written)[: count - 1]
-                before = warm_logits(drafter, self.second, target, features, ids, start, given_before,
-                                     self.second.enter(kept[count - 1 :], before_in, mask_in), low).float()
+                before = drafter.compute_logits(run(shown[: count - 1], True)[None], head)[0].float()
                 wider = self.weights[: places].to(device)
                 total = total + (torch.nn.functional.cross_entropy(before, from_the_break, reduction="none") * wider).sum() / wider.sum()
             if learn:
                 (total / self.every).backward()
-        if with_real:           # (the counts below are of the layers as they are used: with the predicted states)
+        if with_real or with_none:      # (the counts below are of the layers as they are used: with the predicted states)
             with torch.no_grad():
-                logits = warm_logits(drafter, self.second, target, features, ids, start, written, entering, low).float()
+                logits = drafter.compute_logits(run(written)[None], head)[0].float()
         self.rounds += 1
         if learn and self.rounds % self.every == 0:
             torch.nn.utils.clip_grad_norm_(self.second.trained() + list(self.predictor.parameters()), 1.0)
@@ -223,10 +254,8 @@ class TeachSecond:
             self.recent.append([float(by_tokens.detach()), float(by_vectors.detach()), float(right)])
             if self.compare_every and self.rounds % self.compare_every == 0:
                 counts = {"second": right}
-                counts["second_real"] = _right(warm_logits(drafter, self.second, target, features, ids, start,
-                                                           real.to(written.dtype), entering, low), answer)
-                counts["second_none"] = _right(warm_logits(drafter, self.second, target, features, ids, start,
-                                                           real[:0].to(written.dtype), entering, low, anchor=start + count), answer)
+                counts["second_real"] = _right(drafter.compute_logits(run(real.to(written.dtype))[None], head)[0], answer)
+                counts["second_none"] = _right(drafter.compute_logits(run(written[:0])[None], head)[0], answer)
                 saved = written
                 if self.train_predictor:
                     saved = as_context(drafter, self.saved_predictor(*self.inputs(self.saved_predictor, block_states, ids,
@@ -240,9 +269,8 @@ class TeachSecond:
                 if before is not None:
                     # From the token at the break on: the layers from the last right token (predicted states), and
                     # the whole drafter from there with the saved predictor's states and with the real ones.
-                    if with_real:
-                        before = warm_logits(drafter, self.second, target, features, ids, start, written[: count - 1],
-                                             self.second.enter(kept[count - 1 :], before_in, mask_in), low)
+                    if with_real or with_none:
+                        before = drafter.compute_logits(run(written[: count - 1], True)[None], head)[0]
                     others = [restart_logits(drafter, target, features, ids, start, states[: count - 1].to(written.dtype), low, width)
                               [:places] for states in (saved, real)]
                     self.also.append([_right(before, from_the_break)] + [_right(other, from_the_break) for other in others])
@@ -295,6 +323,10 @@ def main():
     parser.add_argument("--distill", type=float, default=1.0,
                         help="weight of the pull towards the whole drafter's final states with the real states (0: off)")
     parser.add_argument("--only-after", action="store_true", help="do not also teach the restart one token earlier")
+    parser.add_argument("--reveal", action="store_true",
+                        help="the layers read the tokens known at the restart, written in at their places of the block")
+    parser.add_argument("--no-states", type=float, default=0.0,
+                        help="share of the steps in which the layers are given no states at all")
     parser.add_argument("--real-share", type=float, default=0.3,
                         help="share of the steps in which the layers are given the target's real states")
     parser.add_argument("--max-hours", type=float, default=3.0, help="of training; the measurement comes after")
@@ -331,7 +363,7 @@ def main():
             if not args.predictor and os.path.exists(os.path.join(args.adapter_dir, f"restart-{args.start_from}.pt")):
                 args.predictor = args.start_from
         else:
-            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed).train()
+            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed, reveal=args.reveal).train()
         if args.predictor:
             predictor, _ = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
             predictor = predictor.float()
@@ -343,7 +375,7 @@ def main():
         optimizer = torch.optim.AdamW(groups, weight_decay=0.0)
     teach = TeachSecond(second, predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed,
                         compare_every=args.compare_every, train_predictor=not args.freeze_predictor, distill=args.distill,
-                        real_share=args.real_share, earlier=not args.only_after)
+                        real_share=args.real_share, earlier=not args.only_after, none_share=args.no_states)
     curve, started = [], time.time()
 
     def report(done, learned, measured=None):
@@ -353,6 +385,7 @@ def main():
                   "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor, "start_from": args.start_from,
                   "predictor_rate": args.predictor_rate, "every": args.every, "vector_weight": args.vector_weight,
                   "distill": args.distill, "real_share": args.real_share, "one_token_earlier_too": not args.only_after,
+                  "reads_the_tokens": second.reveal, "share_of_steps_with_no_states": args.no_states,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
                   "rounds_without_a_break": teach.unbroken, "rounds_broken_at_the_last_place": teach.at_the_end,
                   "curve": curve, "on_validation_answers": measured}

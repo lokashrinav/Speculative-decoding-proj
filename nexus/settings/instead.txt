@@ -83,43 +83,35 @@ restart-replay-pub-3: train_restart.py --draft opd --data-dir ~/specdec-data/lon
 # count of shifted drafts these two jobs were queued for is dropped: ReAnchor has published it.)
 probe-shift-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
 probe-shift-pub-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+reanchor,plain+reanchort5b7,plain+reanchorct5b7,plain+reanchor6ct5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchorwt5b7,plain+tree63_reanchorwct5b7,plain+tree63_reanchorwct3b5,plain:window=4096+tree63,plain:window=4096+tree63_reanchorwct5b7
-# (Nov 18, 16:10 UTC) What the next free GPUs are used for. The second run of the drafter gives a third more tokens
+# (Nov 18, 17:10 UTC) What the next free GPUs are used for. The second run of the drafter gives a third more tokens
 # per round and costs 14 ms a round; on top of a tree of drafts it must cost about 4 ms to pay. A drafter pass costs
-# by the layers it runs. So:
-# 1. How many of the drafter's layers does a restart need, and where do the 14 ms go? (nexus/layer_probe.py) In
-#    every round with a break of 12 validation answers the drafter restarts from the right token through fewer
-#    layers: its last K, its first K, all but one, and its last K GOING ON FROM THE FIRST RUN (the masks enter with
-#    the states the first run had at those places; nothing trained), each with the target's real states, predicted
-#    ones and none. It also times the parts of the second run on the GPU (predictor, preparing, pass, output head,
-#    the whole call as real decoding makes it). DRAFT-OPD IN live-reanchor-pub-0 (next in line); the public drafter
-#    in the new job layer-probe-pub-0.
-# 2. The tiny second drafter (nexus/train_second.py, dflash/restart_layers.py): trained copies of the drafter's last
-#    layers that restart after a break going on from the first run, with predicted states; the predictor (opd-m0) is
-#    trained on with them. Two hours on the training answers, then counted on 12 validation answers next to the whole
-#    drafter's restart. (The layer probe's first answer: with nothing trained, a restart through fewer layers is
-#    worth little. Left-out layers: half of the tokens are lost with any one of them. The last layer going on from
-#    the first run: 1.1 tokens against 0.9 for the first draft's old tokens and 2.7 for the whole drafter with
-#    predicted states, and it does not look at the states. So the layers are trained, at rank 256, also towards the
-#    whole drafter's final states with real states, and in 30% of the steps with the real states.) Draft-OPD, ONE layer in bench-opd-0 (saved as warm-opd-w1.pt, restart-opd-w1.pt), TWO layers
-#    in bench-pub-0 (warm-opd-w2.pt, restart-opd-w2.pt). The public drafter, one layer: the new job train-second-pub-0.
-# 2b. (16:50 UTC) A tree in which the second run writes after EVERY node (dflash/redraft.py: BranchTree). 71% of
-#    DDTree's rounds end right after an alternative token, where the tree holds what the first run guessed without
-#    knowing that token. A pass costs by its layers, not by its restarts, so the second run can restart at every
-#    node of a first tree at once and the tree grows by what it writes, to the same number of nodes as DDTree's.
-#    Replay, Draft-OPD, 8 validation answers, through the WHOLE drafter (blocks of 8): what such a tree can hold
-#    with real states (the limit), predicted ones and none, at 63 nodes (40 or 31 from the first run) and at 95,
-#    next to DDTree with 63 and 127 nodes and to 12 restarts on top of DDTree-63. In bench-pub-0, which was to
-#    train the two-layer second drafter: that waits for the one-layer one's first numbers.
-#    (Results in nexus/results/bench-pub-0: THE TREE WITH THE SECOND RUN AT EVERY NODE, replay, Draft-OPD.)
-# 3. Where do DDTree's rounds end? (nexus/tree_ends.py) Draft-OPD runs in live-reanchor-opd-0 since 15:53 UTC (it
-#    started with the plan of 14:00), the public drafter in the new job tree-ends-pub-0.
-# (Results in nexus/results/live-reanchor-pub-0: the layers a restart needs and the cost of the second run's parts on
-# DRAFT-OPD; in nexus/results/bench-opd-0: THE TRAINING OF THE TINY SECOND DRAFTER on Draft-OPD, one layer; in
-# nexus/results/live-reanchor-opd-0: the count of where trees end.)
+# by the layers it runs. The layer probe (nexus/results/live-reanchor-pub-0, Draft-OPD) says that nothing untrained
+# works: any layer left out loses half of the tokens, and the last layer going on from the first run does not look
+# at the states. So the layers are trained:
+# 1. The tiny second drafter (nexus/train_second.py, dflash/restart_layers.py): a trained copy of the drafter's last
+#    layer (low-rank updates of rank 256) that restarts after a break going on from the first run. Two hours on the
+#    training answers, then counted on 12 validation answers next to the whole drafter's restart. Draft-OPD:
+#    - bench-opd-0 (next in line): the layer READS THE TOKENS known at the restart, written into the block at their
+#      places (D-Loop's second pass, arXiv 2610.06011, at the cost of one layer), and gets predicted states in half
+#      of the steps, real ones in 20% and none in 30%, so that one model shows what the states add to the tokens.
+#      Saved as warm-opd-r1.pt, restart-opd-r1.pt.
+#    - bench-pub-0 (after it): the layer is given the restart's first token and the predicted states only (real
+#      ones in 30% of the steps). Saved as warm-opd-w1.pt, restart-opd-w1.pt.
+#    The public drafter: the new job train-second-pub-0.
+# 2. A tree in which the second run writes after EVERY node (dflash/redraft.py: BranchTree), replay on Draft-OPD
+#    through the WHOLE drafter (blocks of 8): what such a tree can hold with real states, predicted ones and none,
+#    at 63 nodes (40 or 31 from the first run) and at 95, next to DDTree with 63 and 127 nodes and to 12 restarts on
+#    top of DDTree-63. In layer-probe-pub-0 (third in line); the public drafter's layer probe is queued again later.
+# 3. Where do DDTree's rounds end? Draft-OPD: done (nexus/results/live-reanchor-opd-0). The public drafter: the new
+#    job tree-ends-pub-0.
+# (Results in nexus/results/bench-opd-0: THE TRAINING OF THE LAYER THAT READS THE TOKENS, Draft-OPD; in
+# nexus/results/bench-pub-0: THE TRAINING OF THE LAYER WITH PREDICTED STATES ONLY, Draft-OPD; in
+# nexus/results/layer-probe-pub-0: THE TREE WITH THE SECOND RUN AT EVERY NODE, replay, Draft-OPD.)
 # The standard benchmarks these jobs were queued for wait until there is a second run worth a table: each takes a
 # GPU for eight hours. The public drafter's line, to be queued again then:
 #   live_speed.py --reasoning off --max-new-tokens 1024 --per-bench 30 --bench gsm8k,math500,humaneval,mbpp,mt-bench --rank 16 --max-answers 400 --max-hours 8.5 --settings plain,plain+tree63,plain+reanchor,plain+reanchorct5b7,plain+tree63_reanchorwct5b7,plain+tree63_echo4r4,plain+restart4pxmc3r12st3b5@pub-m0
 live-reanchor-opd-0: tree_ends.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
 live-reanchor-pub-0: layer_probe.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --part validation --max-answers 12 --max-hours 1.5 --time-rounds 300
-bench-opd-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-w1 --layers 1 --rank 256 --max-hours 2 --check-answers 12
-bench-pub-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2 --settings plain,tree63,tree127,btree63f40t2b8r,btree63f40t2b8p@opd-m0,btree63f40t2b8n,btree63f31t3b8p@opd-m0,btree95f63t2b8p@opd-m0,btree95f63t2b8r,tree63_restart4pc3r12t3b8@opd-m0
+bench-opd-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-r1 --layers 1 --rank 256 --reveal --no-states 0.3 --real-share 0.2 --max-hours 2 --check-answers 12
+bench-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-w1 --layers 1 --rank 256 --max-hours 2 --check-answers 12
+layer-probe-pub-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2 --settings plain,tree63,tree127,btree63f40t2b8r,btree63f40t2b8p@opd-m0,btree63f40t2b8n,btree63f31t3b8p@opd-m0,btree95f63t2b8p@opd-m0,btree95f63t2b8r,tree63_restart4pc3r12t3b8@opd-m0
