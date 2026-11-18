@@ -202,6 +202,69 @@ The table of what the target already said (`live-echo-opd-0`, 9 answers) adds 8%
 per round on Draft-OPD and 16% on the public drafter; with tails of 4 tokens it is +2 points of
 speed over DDTree on Draft-OPD (`live-echo2-opd-0`, 4 answers).
 
+### Where the plan stands (November 18, afternoon UTC): the second run has to get cheap
+
+**The second run in real decoding, final numbers** (`probe-shift-opd-0`, 16 long answers, Draft-OPD,
+the same text in every row):
+
+| Setting | Tokens per round | Draft | Second run | Check | Tokens per second |
+| --- | --- | --- | --- | --- | --- |
+| Plain | 4.82 | 10.2 ms | | 57.5 ms | 70.1 |
+| Second run (4 restarts, swaps, 3 tokens checked after each) | 6.24 (+30%) | 10.2 | 14.7 ms | 58.8 | 73.2 (+4%) |
+| DDTree, 63 nodes | 6.59 (+37%) | 10.2 | 1.6 (the tree) | 61.3 | 88.1 (+26%) |
+| DDTree and the second run | 7.14 (+48%) | 10.2 | 17.3 | 62.0 | 78.2 (+12%) |
+
+On top of DDTree the second run adds 8% tokens per round and costs 21% of the round: slower than
+DDTree alone. At 4 ms it would be 2% faster than DDTree with the tokens it adds today, and 6% faster
+if it added 13% (in replay it adds 12% with predicted states and 23% with the target's real ones).
+So two things are needed: a second run of about 4 ms, and better use of the predicted states.
+
+**What else was measured and put aside.** ReAnchor in our decoder gives its published +15% tokens
+per round on Draft-OPD, but its blocks make the first draft's pass 5.7 ms longer: -1% in speed as
+published, +3% with short blocks and our corrections, and slower than DDTree alone on top of DDTree
+(`probe-shift-pub-0`). The table of what the target already said adds 6 points to DDTree on long
+answers that repeat themselves (`live-echo2-opd-0`, 16 answers) and little elsewhere; it is not a
+general method.
+
+**What is published about small second drafters, read on November 18.** Weaver (arXiv 2607.06763):
+a 57M-parameter autoregressive add-on that re-ranks the first run's 512 most likely tokens per
+place given the tokens before; +22% accepted tokens over DDTree at the same tree size, +6 to +15%
+speed. DForkTree (2611.12356): after an alternative token the first run's first choice is right 18%
+of the time (89% on the path of first choices); a table of token pairs made offline wins back +15%
+over DDTree with nothing trained, a small trained head a third of the gap; it measures that a second
+pass with the target's states would win 84 to 89% and says that closing the rest "likely requires
+the target's own representation of the branch". TreeSpark (2610.20175): a trained head that makes
+each place depend on the token before. Both Weaver and DForkTree name re-anchoring the drafter on
+its own tokens in the middle of a draft as open. None gives the second run a state of the target
+for the new path, and all of them choose among the first run's own candidates: up to a fifth of
+the right tokens after an alternative token are not among them (DForkTree).
+
+**The plan (agreed November 18).** Get the second run from 14 ms to about 4 ms and keep what makes
+it ours: it writes NEW tokens after the alternative token, with predicted states of the target.
+
+1. *Remove what is not the pass.* A bare drafter pass is 8 ms; about 5 of the 14 ms went into
+   hundreds of small steps on the GPU that picked the restarts, laid out the pass and put the rows
+   together. They are now made as lists and sent to the GPU once each (`dflash/redraft.py`:
+   `_restart_pass`), and so are DDTree's own rows, which cost it over a millisecond a round.
+2. *Fewer layers.* A pass costs by the layers it runs, hardly by the restarts it holds.
+   `nexus/layer_probe.py` measures restarts through the drafter's last K layers, its first K, all
+   but one, and its last K GOING ON FROM THE FIRST RUN: the places after the restart's first token
+   enter with the states the first run had there before those layers. The first run already read
+   the whole context for these places; what it lacked is the tokens before them. It also times
+   every part of the second run on the GPU.
+3. *The tiny second drafter* (`dflash/restart_layers.py`, `nexus/train_second.py`): trained copies
+   of the drafter's last layer (or two) with low-rank updates, which restart going on from the
+   first run and read the predicted states. They are trained on the tokens the answer has after
+   the break, together with the predictor, so the reader learns to use the predicted states as
+   they are. The drafter itself is not changed. One layer, the predictor, the output head and the
+   lists come to about 4 ms by the count of steps; the layer probe's timing will say.
+
+**Where DDTree's rounds end** (`live-reanchor-opd-0`, Draft-OPD, 24 answers, 63 nodes): 5% at the
+end of the block, 2% at a leaf on the path of first choices, 27% at a leaf after an alternative
+token (nothing was there after an accepted token: the place of a second run), and 66% at a node
+whose children do not include the answer's token (28% where it is the drafter's 2nd to 4th choice
+there, 17% the 5th to 10th, 20% beyond).
+
 ## The experiments and where their results are
 
 | Experiment | What it asks | Code | Results |
@@ -215,6 +278,10 @@ speed over DDTree on Draft-OPD (`live-echo2-opd-0`, 4 answers).
 | The restart | What a second run needs in order to write well after the break | `nexus/restart_probe.py` | `nexus/results/restart-pub-0`, `restart-opd-0` (queued) |
 | The restart second run over whole answers | Accepted tokens with the real states (the limit), with nothing, with crude stand-ins | `dflash/redraft.py` (`Restarts`), `nexus/redraft_long.py` | `nexus/results/restart-replay-pub-0`, `restart-replay-opd-0` (queued) |
 | A predictor of the missing states | Whether a small trained network can stand in for the target's states at a restart | `dflash/stand_in.py`, `nexus/train_restart.py` | `nexus/results/train-restart-pub-0`, `train-restart-opd-0` (queued) |
+| How many layers a restart needs | Restarts through fewer layers, cold and going on from the first run; the time of each part of the second run | `nexus/layer_probe.py` | `nexus/results/live-reanchor-pub-0` (Draft-OPD), `layer-probe-pub-0` |
+| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run with predicted states | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer), `bench-pub-0` (two layers), `train-second-pub-0` |
+| Where DDTree's rounds end | What is left to add on top of a tree | `nexus/tree_ends.py` | `nexus/results/live-reanchor-opd-0`, `tree-ends-pub-0` |
+| The second run in real decoding | Tokens per second on the same text, alone and on DDTree | `nexus/live_speed.py` | `nexus/results/probe-shift-opd-0` (list 1), `live-second-opd-0`, `live-second-pub-0` (list 2), `probe-shift-pub-0` (ReAnchor on Draft-OPD) |
 | Trained second drafters (October) | Add-ons that read the first draft | `nexus/train_redraft.py`, `nexus/bench_redraft.py` | `nexus/results/train-prefix`, `train-edit`, `train-control`, `diag-a`, `diag-b` |
 | The 3M editor (September) | A small network that imitates a second run | `editor-experiment/` | `results/SUMMARY.md` |
 
