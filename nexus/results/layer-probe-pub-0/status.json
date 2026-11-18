@@ -1,9 +1,9 @@
 {
- "done": false,
+ "done": true,
  "answers": 366,
  "answers_to_learn_from": 366,
  "part": "train",
- "hours": 1.56,
+ "hours": 1.64,
  "draft": "opd",
  "save": "opd-s1",
  "layers": 1,
@@ -23,8 +23,8 @@
  "states_written_into_the_block": true,
  "share_of_steps_with_no_states": 0.2,
  "parameters_trained": 15466496,
- "rounds_without_a_break": 17795,
- "rounds_broken_at_the_last_place": 2653,
+ "rounds_without_a_break": 18261,
+ "rounds_broken_at_the_last_place": 2755,
  "curve": [
   {
    "answers": 1,
@@ -15399,6 +15399,47 @@
    }
   }
  ],
- "on_validation_answers": null,
+ "on_validation_answers": {
+  "answers": 12,
+  "rounds": 3335,
+  "steps": 10376,
+  "loss_by_tokens": 2.7239,
+  "error_of_the_predicted_states": 0.08375,
+  "tokens_right_after_the_restart": 1.095,
+  "on_the_same_rounds": {
+   "rounds": 3335,
+   "tokens_right_inside_the_block": {
+    "second": 1.095,
+    "second_real": 1.105,
+    "second_none": 1.085,
+    "whole_predicted": 1.943,
+    "whole_real": 3.8,
+    "whole_none": 1.067,
+    "old_rest": 0.865
+   },
+   "at_most_3_of_them": {
+    "second": 0.924,
+    "second_real": 0.927,
+    "second_none": 0.91,
+    "whole_predicted": 1.23,
+    "whole_real": 2.091,
+    "whole_none": 0.745,
+    "old_rest": 0.566
+   }
+  },
+  "one_token_earlier_from_the_break_on": {
+   "rounds": 2976,
+   "tokens_right_inside_the_block": {
+    "second": 0.565,
+    "whole_predicted": 1.178,
+    "whole_real": 2.765
+   },
+   "at_most_4_of_them": {
+    "second": 0.534,
+    "whole_predicted": 0.861,
+    "whole_real": 1.874
+   }
+  }
+ },
  "gpu_memory_peak_gb": 12.98
 }
