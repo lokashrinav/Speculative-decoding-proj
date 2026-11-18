@@ -146,6 +146,62 @@ cannot be had early, borrowed or guessed. Feeding a second run is set aside; the
 need no second run and no hidden states (see `nexus/settings/live-echo*.txt` and the probe's
 `shift_*` columns).
 
+### Where the plan stands (November 18, midday UTC)
+
+**The states, final numbers** (`probe-more-opd-0`, `probe-more-pub-0`, 30 answers each). Tokens
+accepted after g, Draft-OPD and the public drafter:
+
+| What the restart is given | Draft-OPD | Public drafter |
+| --- | --- | --- |
+| Nothing | 0.97 | 0.60 |
+| The predictor's states | 2.01 | 1.32 |
+| The target's real states | 3.69 | 2.11 |
+| Real states of the last two layers the drafter reads (25 and 33) only | 3.48 | 2.00 |
+| Real states of the first three layers (1, 9, 17) only | 0.79 | 0.53 |
+| The real state of an earlier place with the same tokens | 1.56 | 1.16 |
+| The same, where the tokens before and after both match (37% and 47% of breaks) | 2.38 of 4.66 | 1.59 of 2.38 |
+
+**What the second run costs, in real decoding** (`live-tree-opd-0`, 16 answers). A plain round takes
+68.7 ms: 10.3 ms for the draft and 57.4 ms for the check. The second run with four restarts of both
+kinds took 15.0 ms more for itself and 4.3 ms more in the check (78 more tokens), and the round
+gained 38% in tokens: +6.6% in speed. So the tokens in the check are nearly free and the second
+drafter pass is what costs. A drafter pass of one block takes 8.2 ms at any length of text
+(`long-opd-0/timing.json`), so no second pass can cost less than 12% of a round on this target.
+A gate that skips the second run where the first draft looks safe does not help: the tokens a
+restart wins are spread evenly over early and late breaks (first answer of `probe-shift-opd-0`:
++29% tokens and +5% speed without the gate, +20% and +4% with it).
+
+**What was published meanwhile, read on November 18.** Three papers reuse what the target computed
+on the draft tokens it REJECTED in the last check, and none of them needs a second pass:
+ReTrace (arXiv 2608.29748) feeds the drafter's own states of the rejected tokens into the next
+draft (trained, +5% speed); Carryover (2609.14717) gives the target's states of the rejected
+tokens to the drafter as extra context (trained, +8 to +14%); ReAnchor (2610.26531) starts new
+blocks of the frozen drafter from the token the target chose after each rejected token, with its
+states of the rejected tokens, in the first draft's own pass, and attaches a block where the first
+draft has its first token (nothing trained, +13% on DFlash, +10% on Draft-OPD and others). D3D
+(2611.06425) drafts ahead during the check with a drafter that needs no target states. None of the
+three is measured with DDTree; Carryover names the combination as open.
+
+**What follows for us.** The cheap form of a second run is one that is ready before the first draft:
+its blocks go into the first draft's pass. That is ReAnchor's form. Three things are being measured
+(settings in `nexus/settings/live-second-*.txt` and `live-reanchor-*.txt`):
+
+1. Our second run made as cheap as it can be: short new blocks (5 tokens), restarts picked best
+   first over places and choices, and the target's state from the last check in place of the
+   predicted one wherever the last check read the same token at the same place.
+2. ReAnchor in our decoder, alone and on top of DDTree, which has not been shown. Under DDTree
+   the target reads little of the first draft, so the next round has little to start blocks from;
+   one setting lets it read the whole first draft for that reason.
+3. Ours on top of ReAnchor's blocks: corrections. A block's first token is what the target chose
+   after a draft token of the last round. Where the new first draft has that same token at that
+   same place and goes on with another token, the target has already said what it wants there. The
+   block is attached at that place with its own first token in the draft's place: a break foretold,
+   the right token for it by the target's own word, and a block written after it.
+
+The table of what the target already said (`live-echo-opd-0`, 9 answers) adds 8% to DDTree's tokens
+per round on Draft-OPD and 16% on the public drafter; with tails of 4 tokens it is +2 points of
+speed over DDTree on Draft-OPD (`live-echo2-opd-0`, 4 answers).
+
 ## The experiments and where their results are
 
 | Experiment | What it asks | Code | Results |

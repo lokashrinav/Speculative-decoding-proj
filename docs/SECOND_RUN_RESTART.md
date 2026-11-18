@@ -272,14 +272,42 @@ token; after the last one that is the token the restart starts from (job `train-
 the last 8 real vectors (job `restart-replay-pub-3`, which was waiting for something else). Both
 are taught at real breaks for both kinds of restart.
 
+**Real states from elsewhere (November 18, `probe-more-opd-0` and `-pub-0`, 30 answers each).**
+Could the restart get real states of the target without waiting for the check? Tokens accepted
+after g on Draft-OPD (public drafter in brackets): nothing 0.97 (0.60), the predictor 2.01 (1.32),
+the real states 3.69 (2.11).
+
+- Only the first layers the drafter reads, as a check stopped early could hand over (layers 1, 9
+  and 17 real, the rest repeated from the last real state): 0.79 (0.53), worse than nothing. Layers
+  25 and 33 alone: 3.48 (2.00). All but layer 33: 2.76 (1.51).
+- The real state of an earlier place in the answer where the target read the same tokens: 1.56
+  (1.16). Where the token before and the token after both match (37% of breaks, 47%): 2.38 against
+  4.66 with the real states (1.59 against 2.38).
+- The real state most like the predicted one: 1.88 (1.27), no better than the predictor.
+
+What a restart needs is made in the target's deep layers at that place of the text.
+
+**What the second run costs in real decoding (November 18).** See `docs/DIRECTION.md`, "Where the
+plan stands (November 18, midday UTC)": the second drafter pass is the cost (15 ms of the 20 ms a
+round grew by), the extra tokens in the check are nearly free, and a gate on the first draft's
+confidence does not help. The states the LAST check computed on rejected draft tokens are real
+states too, and they are there before the first draft is made: that is the source ReAnchor
+(arXiv 2610.26531) uses, and the one now tried in our second run (`Restarts(stale=True)`) and on
+top of DDTree (`Reanchor`).
+
 ## What is ours and what is not
 
 Published: second drafts at likely breaks inside the block (D²SD), stand-in states for drafting
 past the end of a block (DLoop, trained), drafting without target states and the loss it causes
 (DPara), trees of drafts from the first run (DDTree, GRAFT), and the measurement that a restart
 with real states works together with the remark that doing it without them is open (DForkTree).
-Not found published: a restart at the break from the alternative token with the missing states
-left out, stood in for, or predicted. We search again before claiming it.
+Published since (read November 18): new blocks of the frozen drafter started from the target's
+states of the tokens it rejected in the last check (ReAnchor), those states as extra context for a
+drafter trained to read them (Carryover), and the drafter's own states of the rejected tokens fed
+into the next draft (ReTrace). Not found published: a restart at the break from the alternative
+token with the missing states left out, stood in for, or predicted; any of these methods on top of
+DDTree; the target's choice after a repeated draft token used as the token at a foretold break.
+We search again before claiming any of it.
 
 ## Dates
 
