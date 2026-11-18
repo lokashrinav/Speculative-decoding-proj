@@ -142,7 +142,7 @@ class Restart:
         }
         stand_ins.update({f"noisy{level}": (noisy(level), places) for level in NOISE})
         if self.predictor is not None:
-            stand_ins["predicted"] = (predicted_states(self.predictor, s, missing), places, True)
+            stand_ins["predicted"] = (predicted_states(self.predictor, s, missing, coming=token), places, True)
         begin = [s.start if name == "none_shift" else restart for name in self.arms]
         anchors, given = [token] * len(self.arms), [stand_ins[name] for name in self.arms]
         if self.reanchor:

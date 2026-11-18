@@ -66,3 +66,9 @@ tree-replay-pub-3: restart_probe.py --data-dir ~/specdec-data/long1 --part valid
 # which are queued again as tree-replay-*-5. (Results in nexus/results/tree-replay-opd-4 and -pub-4: NOT tree replays.)
 tree-replay-opd-4: train_restart.py --draft opd --data-dir ~/specdec-data/long1 --save opd-b0 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12
 tree-replay-pub-4: train_restart.py --data-dir ~/specdec-data/long1 --save pub-b0 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12
+# Third predictor, the larger change (Nov 18, Draft-OPD, saved as opd-s0): told the token after each token (after
+# the last: the token the restart starts from), and with two layers in which the missing tokens look at the ones
+# before them and at the last 8 real vectors. The first two predictors closed about a third of the gap between no
+# states and the real ones at real breaks. This job was queued for the public drafter's restart replay, which is
+# queued again as restart-replay-pub-4. (Results in nexus/results/restart-replay-pub-3: NOT a replay.)
+restart-replay-pub-3: train_restart.py --draft opd --data-dir ~/specdec-data/long1 --save opd-s0 --coming --layers 2 --memory 8 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12

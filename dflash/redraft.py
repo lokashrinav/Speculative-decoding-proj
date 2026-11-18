@@ -515,11 +515,14 @@ class Restarts:
         if not starts:
             return None
         first_tokens = []
+        told = self.stand_in == "predicted" and bool(self.predictor.sizes.get("coming"))
         for broke, choice in starts:
             entry = given[self.kept.index(broke)]
             if choice:
                 first_tokens.append(ranked[broke, choice])
                 begin.append(s.start + broke + 1)
+                if told:        # the predictor is told which token this restart starts from
+                    entry = (predicted_states(self.predictor, s, broke + 1, coming=ranked[broke, choice]), entry[1], True)
             else:                                                     # from the last token before the break: one state fewer
                 first_tokens.append(s.block_ids[0, broke])
                 begin.append(s.start + broke)

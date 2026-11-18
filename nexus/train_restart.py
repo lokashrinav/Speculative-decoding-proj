@@ -67,11 +67,12 @@ class Teach:
         if width != self.width or truth.shape[1] != width - 1:
             return None
         count = _matches(s.block_ids[:, 1:], truth) + 1           # the block's first token and the accepted draft tokens
-        inputs = predictor_inputs(s, count)
+        coming = self.ids[0, s.start + count] if self.ids.shape[1] > s.start + count else None   # the right token at the break
+        inputs = predictor_inputs(s, count, coming, int(self.predictor.sizes.get("memory", 0)))
         real = project(s.first_drafter, self.features[:, s.start : s.start + count])[0].float()
         with torch.inference_mode(False), torch.enable_grad():
             # (copies: what the replay computes cannot be used for learning as it is)
-            inputs, real = [value.clone() for value in inputs], real.clone()
+            inputs, real = [None if value is None else value.clone() for value in inputs], real.clone()
             last = inputs[3]
             written = as_context(s.first_drafter, self.predictor(*inputs))
             loss = torch.nn.functional.mse_loss(written, real)
@@ -183,12 +184,19 @@ class TeachByTokens:
                     self.unbroken += 1          # the first draft is right to its end: nothing to restart
                     return
                 count = int(wrong[0]) + 1
-            tokens = _raw_input_embeddings(self.target, ids[:, start : start + count],
-                                           float(_draft_value(self.drafter.config, "input_embedding_scale", 1.0)))[0].float()
+            scale = float(_draft_value(self.drafter.config, "input_embedding_scale", 1.0))
+            tokens = _raw_input_embeddings(self.target, ids[:, start : start + count], scale)[0].float()
+            # The token after each of them; after the last one it is the token the restart starts from.
+            coming = _raw_input_embeddings(self.target, ids[:, start + 1 : start + count + 1], scale)[0].float()
             last = project(self.drafter, features[:, start - 1 : start])[0].float()
             real = project(self.drafter, features[:, start : start + count])[0].float()
+            most = int(self.predictor.sizes.get("memory", 0))
+            recalled = None
+            if most:        # in use it is the context that is new in the round: as many vectors as the round before gave
+                held = int(torch.randint(1, most + 1, (1,), generator=self.generator))
+                recalled = project(self.drafter, features[:, max(start - held, low) : start])[0].float()
         written = as_context(self.drafter, self.predictor(*state_inputs(block_states, count), tokens, last,
-                                                          torch.arange(count, device=device)))
+                                                          torch.arange(count, device=device), coming, recalled))
         logits = restart_logits(self.drafter, self.target, features, ids, start, written, low, self.width).float()
         answer = ids[0, start + count + 1 : start + count + self.width].clone()
         each = torch.nn.functional.cross_entropy(logits, answer, reduction="none")
@@ -273,6 +281,11 @@ def main():
     parser.add_argument("--only-after", action="store_true",
                         help="with --loss tokens: do not also teach the restart one token earlier")
     parser.add_argument("--start-from", default="", help="continue from the saved predictor restart-<name>.pt")
+    parser.add_argument("--coming", action="store_true",
+                        help="the predictor is told the token after each token (after the last: the restart's first token)")
+    parser.add_argument("--layers", type=int, default=0,
+                        help="layers in which the missing tokens look at the ones before them and at the last real vectors")
+    parser.add_argument("--memory", type=int, default=8, help="with --layers: how many of the last real vectors it may look at")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens")
     parser.add_argument("--check-answers", type=int, default=12, help="validation answers the restart is measured on afterwards")
     parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"))
@@ -305,7 +318,8 @@ def main():
             predictor, _ = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.start_from}.pt"), device)
             predictor = predictor.float().train()
         else:
-            predictor = StatePredictor(draft.config.hidden_size, args.inner, args.hidden, block=16).to(device)
+            predictor = StatePredictor(draft.config.hidden_size, args.inner, args.hidden, block=16, coming=args.coming,
+                                       layers=args.layers, memory=args.memory if args.layers else 0).to(device)
         optimizer = torch.optim.AdamW(predictor.parameters(), lr=args.rate, weight_decay=0.0)
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(False)
@@ -320,7 +334,7 @@ def main():
                   "sharp": args.sharp, "saved_adapters_used": notes, "save": args.save, "rate": args.rate, "loss": args.loss,
                   "every": args.every, "parameters": sum(value.numel() for value in predictor.parameters()),
                   "vector_weight": args.vector_weight, "where": args.where, "one_token_earlier_too": not args.only_after,
-                  "passes": args.passes, "start_from": args.start_from,
+                  "passes": args.passes, "start_from": args.start_from, "predictor": dict(predictor.sizes),
                   "curve": curve, "restart_after_the_break": measured}
         if torch.cuda.is_available():
             status["gpu_memory_peak_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)

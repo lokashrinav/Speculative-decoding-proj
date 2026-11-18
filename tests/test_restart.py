@@ -431,6 +431,78 @@ def test_the_predictor_of_the_missing_states(tmp_path):
     assert "predicted" in summary(probe.rows, probe.columns)["all"]
 
 
+def test_a_predictor_that_is_told_the_coming_token_and_looks_back(tmp_path):
+    """coming / layers / memory: a vector depends on the tokens before it and on the token right
+    after it, not on anything later, so the vectors of the first tokens are the same however far the
+    draft went on and whichever token the restart starts from. It trains both ways, is saved and
+    loaded, and runs in the replay and in the probe."""
+    from dflash.redraft import Restarts
+    from dflash.replay import target_features
+    from dflash.stand_in import StatePredictor, load_predictor, predicted_states, save_predictor
+    from nexus.redraft_long import make_method
+    from nexus.train_restart import Teach, TeachByTokens
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    size = draft.config.hidden_size
+    torch.manual_seed(0)
+    predictor = StatePredictor(size, inner=32, hidden=64, block=BLOCK, coming=True, layers=2, heads=4, memory=4).eval()
+    assert StatePredictor(size, inner=32, hidden=64, block=BLOCK).sizes["coming"] is False
+
+    class Look:
+        seen = 0
+
+        def start(self, drafter):
+            pass
+
+        def __call__(self, s):
+            if s.block_ids.shape[1] == BLOCK and s.context_features.shape[1]:
+                whole = predicted_states(predictor, s, 6)
+                assert whole.shape == (1, 6, size)
+                assert torch.allclose(predicted_states(predictor, s, 4)[:, :3], whole[:, :3], atol=1e-5)
+                other = int(s.block_ids[0, 6]) + 1
+                told = predicted_states(predictor, s, 6, coming=other)
+                assert torch.allclose(told[:, :5], whole[:, :5], atol=1e-5) and not torch.allclose(told[:, 5], whole[:, 5], atol=1e-5)
+                same = predicted_states(predictor, s, 6, coming=s.block_ids[0, 6])
+                assert torch.allclose(same, whole, atol=1e-6)
+                Look.seen += 1
+            return None
+
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=Look(), block_size=BLOCK)
+    assert Look.seen > 10
+
+    predictor.train()
+    before = {name: value.clone() for name, value in predictor.state_dict().items()}
+    by_tokens = TeachByTokens(predictor, torch.optim.AdamW(predictor.parameters(), lr=1e-3), draft, target, every=2, window=64,
+                              width=BLOCK, compare_every=1)
+    by_tokens.learn_from(ids, features.clone(), length, most=12)
+    assert by_tokens.steps >= 2 and by_tokens.progress()["loss_by_tokens"] > 0
+    by_vectors = Teach(predictor, torch.optim.AdamW(predictor.parameters(), lr=1e-3), every=2, width=BLOCK)
+    by_vectors.begin(ids, features)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=by_vectors, block_size=BLOCK)
+    assert by_vectors.steps > 5
+    changed = [name for name, value in predictor.state_dict().items() if not torch.equal(before[name], value)]
+    assert any(name.startswith("mix.") for name in changed) and any(name.startswith("from_coming") for name in changed)
+    assert any(name.startswith("remember") for name in changed)
+
+    path = tmp_path / "restart-told.pt"
+    save_predictor(str(path), predictor, {})
+    loaded, _ = load_predictor(str(path), "cpu")
+    assert loaded.sizes == predictor.sizes and len(loaded.mix) == 2
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, block_size=BLOCK)
+    for name in ("restart3pxc2s@told", "restart3pe@told"):
+        method = make_method(name, str(tmp_path))
+        assert isinstance(method, Restarts) and method.predictor.sizes["coming"]
+        result = replay_decode(draft, target, ids, length, ended=True, features=features, improver=method, block_size=BLOCK)
+        assert sum(result.acceptance_lengths) >= sum(chain.acceptance_lengths) and result.rounds <= chain.rounds + 1
+    probe = Restart(k=3, width=BLOCK, predictor=loaded, reanchor=True)
+    probe.begin(ids, length, features, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
+    assert "reanchor_predicted" in probe.columns and "predicted" in summary(probe.rows, probe.columns)["all"]
+
+
 def test_training_the_predictor_on_the_tokens_the_drafter_writes():
     """The pass used for training (nothing cached) is the pass of real decoding: with the real
     vectors it writes plain decoding's next first draft. Training on tokens runs and changes the
