@@ -454,6 +454,55 @@ def test_a_tree_of_drafts_in_real_decoding(tmp_path):
         dflash_generate_redraft(draft, target, prompt, 40, None, improver=DraftTree(24), block_size=BLOCK, recheck=True)
 
 
+def test_tails_from_what_the_target_already_said():
+    """EchoRows: a table from the last tokens to the target's next token, filled from the accepted
+    text and, in real decoding, from every token the target read; its tails go into the check as
+    rows, alone or with DDTree. The answer is plain decoding's, in no more rounds."""
+    from dflash.redraft import DraftTree, EchoRows, TreeWithRestarts, dflash_generate_redraft
+    from nexus.live_speed import swap_of
+    from nexus.redraft_long import make_method
+
+    echo = EchoRows(k=2, order=3, reach=5)
+    for at, token in enumerate([1, 2, 3, 4, 1, 2, 3]):
+        echo.learn([1, 2, 3, 4, 1, 2, 3][:at], token)
+    assert echo.follow([9, 2, 3], 5) == [4, 1, 2, 3, 4]              # ..2 3 -> 4, 3 4 -> 1, and round again
+    assert echo.follow([9, 9], 5) == [] and echo.follow([4, 1], 2) == [2, 3]
+    # What the target chose after every node of a tree: node 2 (tokens 7 8 5 after ..3) and node 3 (7 6).
+    echo.heard([1, 2, 3], [7, 8, 5, 6], [-1, 0, 1, 0], [10, 11, 12, 13])
+    assert echo.table[(3, 7)] == 10 and echo.table[(2, 3, 7)] == 10 and echo.table[(7, 8, 5)] == 12 and echo.table[(3, 7, 6)] == 13
+    assert echo.follow([3, 7, 6], 1) == [13] and echo.entries_heard == 4
+    with pytest.raises(ValueError):
+        EchoRows(least=4, order=3)
+
+    named = make_method("tree12_echo3c2n4r9", "/nowhere")
+    assert isinstance(named, TreeWithRestarts) and isinstance(named.restarts, EchoRows)
+    assert (named.restarts.k, named.restarts.choices, named.restarts.order, named.restarts.reach) == (3, 2, 4, 9)
+    assert isinstance(make_method("echo4", "/nowhere"), EchoRows) and isinstance(swap_of("plain+tree63_echo4")[1], TreeWithRestarts)
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=160)
+    ids = plain.output_ids
+    prompt = ids[:, :length]
+    chain = replay_decode(draft, target, ids, length, ended=False, block_size=BLOCK)
+    for name in ("echo3", "echo3c2r20l1", "tree12_echo3"):
+        replayed = replay_decode(draft, target, ids, length, ended=True, improver=make_method(name, "/nowhere"), block_size=BLOCK)
+        assert sum(replayed.acceptance_lengths) >= ids.shape[1] - length - 1 and replayed.rounds <= chain.rounds, name
+        method = make_method(name, "/nowhere")
+        real = dflash_generate_redraft(draft, target, prompt, 160, None, improver=method, block_size=BLOCK, return_stats=True)
+        assert torch.equal(real.output_ids, ids) and real.rounds <= plain.rounds, name
+        inner = method.restarts if name.startswith("tree") else method
+        assert inner.rows > 0 and inner.entries_heard > 0 and length + 20 < len(inner.text) <= ids.shape[1], name
+        followed = dflash_generate_redraft(draft, target, prompt, 160, None, improver=make_method(name, "/nowhere"),
+                                           block_size=BLOCK, return_stats=True, follow=ids, context_window=12)
+        # (a pass of another shape rounds differently, and a nearly tied choice may then fall the other way)
+        assert followed.followed_against <= 2 and torch.equal(followed.output_ids, ids), name
+    # The tiny models repeat themselves, so the table's tails are accepted: fewer rounds than the tree alone.
+    tree = dflash_generate_redraft(draft, target, prompt, 160, None, improver=DraftTree(12), block_size=BLOCK, return_stats=True)
+    both = dflash_generate_redraft(draft, target, prompt, 160, None, improver=make_method("tree12_echo3", "/nowhere"),
+                                   block_size=BLOCK, return_stats=True)
+    assert both.rounds <= tree.rounds
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 

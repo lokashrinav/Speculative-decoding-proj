@@ -26,6 +26,11 @@ Methods (comma-separated):
   restartKr              ... with the target's real states: the limit of any stand-in (replay only)
   restartKrcM            ... with a restart from each of the drafter's next M choices at every break (c2: the
                          second and the third), all in the same one drafter pass
+  echoK[cM][nN][rR][lL]  no second run: tails from what the target already said in this answer. A table maps the last
+                         N tokens (3; a hit needs L, 2) to the target's next token; it is followed for up to R tokens
+                         (12) from the block's first token, the last token before each of the K likely breaks, the
+                         drafter's next M choices there (1), and the end of the first draft. In real decoding the
+                         table also hears what the target chose on rejected branches. treeB_echoK: with DDTree.
   treeB_restart...       DDTree with budget B and, in the same check, the restarts named after the underscore
                          (without the swaps: the tree has them), for example tree63_restart4rxt7
   restartKre, restartKrx e: the restarts start one token EARLIER, at the last token before each likely break, and
@@ -159,7 +164,13 @@ def make_method(name, ckpt_dir, like=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
-    found = re.fullmatch(r"tree(\d+)_(restart.+)", name)
+    found = re.fullmatch(r"echo(\d+)(?:c(\d))?(?:n(\d))?(?:r(\d+))?(?:l(\d))?", name)
+    if found:                                                       # tails from what the target already said
+        from dflash.redraft import EchoRows
+
+        return EchoRows(int(found[1]), choices=int(found[2] or 1), order=int(found[3] or 3), reach=int(found[4] or 12),
+                        least=int(found[5] or 2))
+    found = re.fullmatch(r"tree(\d+)_((?:restart|echo).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check
         from dflash.redraft import TreeWithRestarts
 

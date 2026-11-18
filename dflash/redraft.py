@@ -603,6 +603,110 @@ class DraftTree:
         return rows
 
 
+class EchoRows:
+    """Tails written from what the target has already said in this answer. No second run of the
+    drafter, no predicted states, nothing trained.
+
+    A table maps the last few tokens (up to `order`) to the token the target chose after them, the
+    most recent choice winning. It is filled from the accepted text and, in real decoding, from
+    every token the target read in its checks, also those on branches it then rejected: the target
+    said what it would write after each of them (heard()). In replay only the accepted text is
+    known, so replay shows less than real decoding can give.
+
+    Each round, the table is followed for up to `reach` tokens (a hit needs at least `least` tokens
+    of the key to match) from: the block's first token; the last token before each of the k likely
+    breaks (which needs no guess of the right token); the drafter's next `choices` choices at each
+    likely break; and the end of the first draft (past the block). Rows that add nothing to the first
+    draft are left out. Returned: rows [first token, ...] with -1 after their end, or None."""
+
+    swap = False
+    alternative_tail = None
+
+    def __init__(self, k: int = 4, choices: int = 1, order: int = 3, reach: int = 12, least: int = 2):
+        if not 1 <= least <= order:
+            raise ValueError("least must be between 1 and order")
+        self.k, self.choices, self.order, self.reach, self.least = k, choices, order, reach, least
+        self.table, self.text, self.kept = {}, [], []
+        self.rows = self.tokens = self.entries_heard = 0
+
+    def start(self, drafter: nn.Module) -> None:
+        self.table, self.text, self.kept = {}, [], []
+        self.rows = self.tokens = self.entries_heard = 0
+
+    def learn(self, before: list[int], said: int) -> None:
+        for count in range(self.least, min(self.order, len(before)) + 1):
+            self.table[tuple(before[-count:])] = said
+
+    def follow(self, before: list[int], most: int) -> list[int]:
+        """The table's tokens after `before`, the longest matching key first."""
+        tail, recent = [], list(before[-self.order :])
+        while len(tail) < most:
+            said = None
+            for count in range(min(self.order, len(recent)), self.least - 1, -1):
+                said = self.table.get(tuple(recent[-count:]))
+                if said is not None:
+                    break
+            if said is None:
+                break
+            tail.append(said)
+            recent = (recent + [said])[-self.order :]
+        return tail
+
+    def heard(self, before_block: list[int], tokens: list[int], parents: list[int], said: list[int]) -> None:
+        """After a check in real decoding: for every token the target read (a tree of drafts: node 0
+        is the block's first token, parents[node] its parent), what the target chose after it."""
+        for node, choice in enumerate(said):
+            recent, at = [], node
+            while at >= 0 and len(recent) < self.order:
+                recent.append(tokens[at])
+                at = parents[at]
+            if at < 0 and len(recent) < self.order:
+                recent.extend(reversed(before_block[-(self.order - len(recent)) :]))
+            self.learn(recent[::-1], choice)
+        self.entries_heard += len(said)
+
+    def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
+        s = round_state
+        width = s.block_ids.shape[1]
+        new = s.accepted_ids[0, len(self.text) :].tolist() + s.block_ids[0, :1].tolist()   # ... and the block's first token
+        for token in new:                                             # the accepted text, as far as it is new
+            self.learn(self.text, token)
+            self.text.append(token)
+        draft = s.block_ids[0].tolist()
+        first = s.draft_logits[0].float()
+        scores = break_scores(first.softmax(dim=-1).amax(dim=-1))[: width - 1]
+        self.kept = scores.topk(min(self.k, scores.shape[0])).indices.tolist()
+        ranked = first.topk(1 + min(self.choices, first.shape[-1] - 1), dim=-1).indices.tolist()
+        made, seen = [], set()
+
+        def add(kept_draft: int, then: list[int]) -> None:
+            """A row: the first draft's first `kept_draft` tokens after the block's first, `then`, the table's tail."""
+            head = draft[: kept_draft + 1] + then
+            row = head + self.follow(self.text + head[1:], self.reach)
+            same = row[:width] == draft[: len(row[:width])]
+            if (same and len(row) <= width) or len(row) == len(head) == 1 or tuple(row) in seen:
+                return                                                # nothing the first draft does not have
+            if then and len(row) == len(head):
+                return                                                # a switched token with no tail: the tree has it
+            seen.add(tuple(row))
+            made.append(row)
+
+        add(0, [])                                                    # from the block's first token
+        for broke in self.kept:
+            add(broke, [])                                            # from the last token before a likely break
+            for choice in range(1, len(ranked[broke])):
+                add(broke, [ranked[broke][choice]])                   # from the drafter's next choice at the break
+        add(width - 1, [])                                            # past the end of the first draft
+        if not made:
+            return None
+        rows = torch.full((len(made), width + self.reach + 1), -1, dtype=s.block_ids.dtype, device=s.block_ids.device)
+        for number, row in enumerate(made):
+            rows[number, : len(row)] = torch.tensor(row, dtype=rows.dtype, device=rows.device)
+        self.rows += len(made)
+        self.tokens += sum(len(row) for row in made)
+        return rows
+
+
 class TreeWithRestarts:
     """DDTree for the block and, in the same check, restarts after the likely breaks of the path of
     first choices: the tree covers other tokens at a break (its tokens after one are the first
@@ -615,14 +719,14 @@ class TreeWithRestarts:
 
     replace = True
 
-    def __init__(self, tree: DraftTree, restarts: "Restarts"):
-        if restarts.swap:
+    def __init__(self, tree: DraftTree, restarts):
+        if getattr(restarts, "swap", False):
             raise ValueError("the tree has the swaps: use the restarts without them")
-        self.tree, self.restarts, self.nodes = tree, restarts, 0
+        self.tree, self.restarts, self.nodes = tree, restarts, 0      # restarts: Restarts, EchoRows, any maker of rows
 
     @property
     def features(self):
-        return self.restarts.features
+        return self.restarts.features                                 # (no such thing for rows that need no states)
 
     @features.setter
     def features(self, value):
@@ -630,7 +734,11 @@ class TreeWithRestarts:
 
     @property
     def kept(self):
-        return self.restarts.kept
+        return getattr(self.restarts, "kept", [])
+
+    def heard(self, before_block, tokens, parents, said) -> None:
+        if hasattr(self.restarts, "heard"):
+            self.restarts.heard(before_block, tokens, parents, said)
 
     def start(self, drafter: nn.Module) -> None:
         self.tree.start(drafter)
@@ -642,15 +750,17 @@ class TreeWithRestarts:
         width = s.block_ids.shape[1]
         more = self.restarts(s)
         if more is not None:
-            tail = self.restarts.alternative_tail
+            tail = getattr(self.restarts, "alternative_tail", None)
             if tail is not None:
                 for row in more:
                     differs = (row[:width] != s.block_ids[0]).nonzero()
                     split = int(differs[0]) if differs.numel() else width
                     row[split + 1 + tail :] = -1
-            wide = torch.full((rows.shape[0], more.shape[1]), -1, dtype=rows.dtype, device=rows.device)
-            wide[:, : rows.shape[1]] = rows
-            rows = torch.cat((wide, more), dim=0)
+            across = max(rows.shape[1], more.shape[1])
+            wide = torch.full((rows.shape[0] + more.shape[0], across), -1, dtype=rows.dtype, device=rows.device)
+            wide[: rows.shape[0], : rows.shape[1]] = rows
+            wide[rows.shape[0] :, : more.shape[1]] = more
+            rows = wide
         seen = set()
         for row in rows.tolist():
             for end in range(2, len(row) + 1):
@@ -1017,6 +1127,9 @@ def dflash_generate_redraft(
                 timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock
                 timers["rounds_" + kind] = timers.get("rounds_" + kind, 0) + 1
                 timers["rows_" + kind] = timers.get("rows_" + kind, 0) + num_pending + nodes
+            if hasattr(improver, "heard"):                        # what the target chose after every token it read
+                improver.heard(output_ids[0, max(start - 8, 0) : start].tolist(), tokens, parents,
+                               own_choice[0, num_pending:].tolist())
             # The target follows its own choices through the tree as far as they are in it.
             said = verified[0, num_pending:].tolist()
             path = [0]
