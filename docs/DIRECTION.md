@@ -122,9 +122,11 @@ with its numbers: what a restart needs (the hidden state of f), how rough it may
 predictor fails, and what the extra pass costs. A second run could pay where a drafter pass is
 cheap next to the target's pass, which means a much larger target.
 
-Real decoding now takes DDTree and the restarts, and two jobs measure real tokens per second for
-the swap, DDTree, DDTree with the window, and the second run with predicted states. Those are the
-numbers the write-up will stand on.
+Real decoding now takes DDTree and the restarts. Measured in real tokens per second on the same
+text (7 answers on the public drafter, 10 on Draft-OPD, still running): the swap +13% and +10%,
+DDTree +35% and +24%, DDTree with the window +60% and +33%, DDTree with the add-on weights +78%
+(public). The second run with predicted hidden states: +6% and +8% alone, and +20% and +16% on
+top of DDTree, which is less than DDTree alone. The replay's estimates held.
 
 ## The experiments and where their results are
 

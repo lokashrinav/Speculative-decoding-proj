@@ -23,6 +23,18 @@ Real tokens per second on long thinking answers, Qwen3-4B on an RTX A5000, every
 | Small add-on weights taught ahead of time | 59.6 (+35%) | 73.6 (+7%) |
 | Those weights and the swap | 67.2 (+52%) | 81.6 (+19%) |
 
+With DDTree (a published tree of drafts, arXiv 2604.12989) in the target's check, measured the same way on other long answers (7 answers on the public drafter, 10 on Draft-OPD, still running):
+
+| Setting | Public drafter | Draft-OPD |
+|---|---|---|
+| Plain DFlash | 47.6 | 78.2 |
+| The swap | 53.9 (+13%) | 86.4 (+10%) |
+| DDTree, 31 nodes | 62.9 (+32%) | 96.3 (+23%) |
+| DDTree, 63 nodes, and the drafter sees only the last 3,072 tokens (4,096 for Draft-OPD) | 76.2 (+60%) | 104.0 (+33%) |
+| DDTree, 63 nodes, with the add-on weights | 84.5 (+78%) | |
+| A second run of the drafter with predicted hidden states | 50.7 (+6%) | 84.7 (+8%) |
+| DDTree, 63 nodes, and that second run | 57.3 (+20%) | 90.4 (+16%) |
+
 The window and trees of drafts are published ideas; see the direction document for what is and is not ours.
 
 ## What's here

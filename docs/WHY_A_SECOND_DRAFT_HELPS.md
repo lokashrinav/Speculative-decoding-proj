@@ -271,11 +271,30 @@ measured cost of the extra tokens the target reads:
 | DDTree, 127 nodes | 112 | +42.4% | +28.2% |
 
 DDTree beats the swap clearly at the same number of tokens read (31 nodes against the swap's 15 +
-16: +27.5% against +14.9%), and even a tree of only 15 nodes, which costs nothing, beats it. On an
-A5000 the best budget is about 63 nodes. Beyond 8,000 tokens of text the extra tokens cost more
-and 31 to 63 nodes are equal (+25% to +26%). So the swap is the baseline with no tree search, and
-DDTree is the method to beat. (This is a replay with measured costs, not real decoding: DDTree is
-not yet built into this repository's real decoding. The public drafter's run is still to do.)
+16: +27.5% against +14.9%), and even a tree of only 15 nodes, which costs nothing, beats it. The
+public drafter's replay (`tree-replay-pub-6`, 50 answers) says the same: the swap +18.0% tokens per
+round, DDTree with 31 nodes +37.9%, with 63 nodes +48.2%.
+
+**Measured in real decoding (November 18; `live-tree-opd-0`, 10 of 16 answers, and
+`live-tree-pub-0`, 7 of 16; every setting wrote plain decoding's tokens in every answer).**
+`dflash_generate_redraft` now takes a tree of drafts in the target's check. Real tokens per second,
+and the gain over the plain drafter:
+
+| Setting | Public drafter | beyond 8,000 tokens | Draft-OPD | beyond 8,000 tokens |
+| --- | --- | --- | --- | --- |
+| Plain | 47.6 | 29.3 | 78.2 | 55.7 |
+| The swap | 53.9 (+13.2%) | +13.7% | 86.4 (+10.4%) | +10.8% |
+| DDTree, 31 nodes | 62.9 (+32.1%) | +35.0% | 96.3 (+23.0%) | +26.0% |
+| DDTree, 63 nodes | 64.2 (+34.9%) | +33.6% | 96.6 (+23.5%) | +21.8% |
+| DDTree 63, and the drafter sees only the last 3,072 tokens (4,096 for Draft-OPD) | 76.2 (+60.2%) | +96.9% | 104.0 (+33.0%) | +40.5% |
+| DDTree 63 with the add-on weights taught ahead of time | 84.5 (+77.5%) | +119.4% | | |
+
+The replay's estimates hold for 31 nodes (+24.7% estimated on Draft-OPD, +23.0% measured). For 63
+nodes the extra tokens cost more than estimated (a round takes 77 ms against 71 ms), so 31 and 63
+nodes are equal in real speed on an A5000. DDTree adds to the window and to the add-on weights,
+as the swap did. So the swap is the baseline with no tree search, and DDTree with the window is
+the fastest setting that needs no training: +33% on Draft-OPD and +60% on the public drafter on
+long answers.
 
 ## What the first draft's mistakes look like
 
