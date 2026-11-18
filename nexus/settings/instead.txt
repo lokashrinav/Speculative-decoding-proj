@@ -87,31 +87,32 @@ probe-shift-pub-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --p
 # on top of a tree of drafts it must cost about 4 ms to pay, and a pass costs by the layers it runs. Nothing untrained
 # works through fewer layers (nexus/results/live-reanchor-pub-0), so layers are trained (nexus/train_second.py,
 # dflash/restart_layers.py: trained copies of the drafter's last layers that restart going on from the first run).
-# Running since 17:10 in bench-opd-0: ONE layer that reads the tokens known at the restart (written into the block)
-# and is given the states beside the block (saved as warm-opd-r1.pt). After 45 minutes it gets 0.75 of the 3 checked
-# tokens right where the first draft's old tokens get 0.6 and the whole drafter's restart 1.4 with predicted states,
-# and it writes the same with real states, predicted ones and none: one layer does not pick the states up beside the
-# block (the drafter's first layers do that). Next, all on Draft-OPD, two hours each, counted on 12 validation answers:
-# 1. bench-pub-0 (next in line): the same ONE layer, going on from warm-opd-r1.pt, with the states WRITTEN INTO THE
+# Running, both on Draft-OPD, one layer, two hours:
+# - bench-opd-0 (since 17:10): the layer reads the tokens known at the restart (written into the block) and is given
+#   the states beside the block (saved as warm-opd-r1.pt). After 50 minutes it gets 0.8 of the 3 checked tokens right
+#   where the first draft's old tokens get 0.6 and the whole drafter's restart 1.4 with predicted states, and it
+#   writes the same with real states, predicted ones and none: one layer does not pick the states up beside the
+#   block (the drafter's first layers do that).
+# - bench-pub-0 (since 18:02; it started with the plan of 17:10): the layer is given the restart's first token and
+#   the states beside the block only (warm-opd-w1.pt).
+# Next, all on Draft-OPD, two hours each, counted on 12 validation answers:
+# 1. layer-probe-pub-0 (next in line): ONE layer, going on from warm-opd-r1.pt, with the states WRITTEN INTO THE
 #    BLOCK at the places of their tokens through a trained map (--states-in-block). Saved as warm-opd-s1.pt.
-# 2. layer-probe-pub-0 (after it): ALL FIVE layers trained as a reader (tokens and states in the block): a whole
+# 2. train-second-pub-0 (after it): ALL FIVE layers trained as a reader (tokens and states in the block): a whole
 #    second pass, at a whole pass's cost. It is the measure of what a trained reader can get from predicted states,
 #    and so of what fewer layers give up. Saved as warm-opd-s5.pt.
-# 3. train-second-pub-0: TWO layers, tokens and states in the block. Saved as warm-opd-s2.pt.
-# 4. tree-ends-pub-0: a tree in which the second run writes after EVERY node (dflash/redraft.py: BranchTree), replay
-#    through the WHOLE untrained drafter (blocks of 8): what such a tree can hold with real states, predicted ones and
-#    none, at 63 nodes and at 95, next to DDTree with 63 and 127 nodes and to 12 restarts on top of DDTree-63.
-# (Results in nexus/results/bench-opd-0: one layer, states beside the block; bench-pub-0: ONE LAYER, STATES IN THE
-# BLOCK; layer-probe-pub-0: FIVE LAYERS (the measure); train-second-pub-0: TWO LAYERS; tree-ends-pub-0: THE TREE WITH
-# THE SECOND RUN AT EVERY NODE, replay. The public drafter's layer probe, tree count and training are queued again
-# once Draft-OPD has an answer.)
+# 3. tree-ends-pub-0: TWO layers, tokens and states in the block. Saved as warm-opd-s2.pt.
+# (Results in nexus/results/bench-opd-0: one layer that reads the tokens, states beside the block; bench-pub-0: one
+# layer, the restart's first token and states beside the block; layer-probe-pub-0: ONE LAYER, STATES IN THE BLOCK;
+# train-second-pub-0: FIVE LAYERS (the measure); tree-ends-pub-0: TWO LAYERS. The replay of the tree with the second
+# run at every node, and the public drafter's layer probe, tree count and training, are queued again after these.)
 # The standard benchmarks wait until there is a second run worth a table: each takes a GPU for eight hours. The public
 # drafter's line, to be queued again then:
 #   live_speed.py --reasoning off --max-new-tokens 1024 --per-bench 30 --bench gsm8k,math500,humaneval,mbpp,mt-bench --rank 16 --max-answers 400 --max-hours 8.5 --settings plain,plain+tree63,plain+reanchor,plain+reanchorct5b7,plain+tree63_reanchorwct5b7,plain+tree63_echo4r4,plain+restart4pxmc3r12st3b5@pub-m0
 live-reanchor-opd-0: tree_ends.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
 live-reanchor-pub-0: layer_probe.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --part validation --max-answers 12 --max-hours 1.5 --time-rounds 300
 bench-opd-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-r1 --layers 1 --rank 256 --reveal --no-states 0.3 --real-share 0.2 --max-hours 2 --check-answers 12
-bench-pub-0: train_second.py --draft opd --start-from opd-r1 --states-in-block --data-dir ~/specdec-data/long1 --save opd-s1 --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
-layer-probe-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s5 --layers 5 --rank 64 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
-train-second-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s2 --layers 2 --rank 256 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
-tree-ends-pub-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2 --settings plain,tree63,tree127,btree63f40t2b8r,btree63f40t2b8p@opd-m0,btree63f40t2b8n,btree63f31t3b8p@opd-m0,btree95f63t2b8p@opd-m0,btree95f63t2b8r,tree63_restart4pc3r12t3b8@opd-m0
+bench-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-w1 --layers 1 --rank 256 --max-hours 2 --check-answers 12
+layer-probe-pub-0: train_second.py --draft opd --start-from opd-r1 --states-in-block --data-dir ~/specdec-data/long1 --save opd-s1 --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
+train-second-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s5 --layers 5 --rank 64 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
+tree-ends-pub-0: train_second.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --save opd-s2 --layers 2 --rank 256 --reveal --states-in-block --no-states 0.2 --real-share 0.3 --max-hours 2 --check-answers 12
