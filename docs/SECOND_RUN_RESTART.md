@@ -187,6 +187,38 @@ two passes over the answers. Two more runs (`train-restart-opd-1`, `-pub-1`) tea
 alone; after 8,000 steps their vectors point 0.7 of the way along the real ones (cosine), where
 the first predictor's reached 0.08.
 
+**All predictors so far, at real breaks (November 18, 00:40 UTC).** Tokens accepted after the right
+token at the break, on 12 validation answers:
+
+| Predictor | Nothing | Predicted | Real | Share of the gap closed |
+| --- | --- | --- | --- | --- |
+| Draft-OPD, taught on tokens at any place (`opd-v0`) | 1.02 | 1.67 | 4.09 | 21% |
+| Draft-OPD, taught the vectors alone (`opd-m0`, cosine 0.77 to the real ones) | 1.02 | 2.20 | 4.09 | 38% |
+| Public drafter, taught on tokens at any place (`pub-v0`) | 0.60 | 1.20 | 2.14 | 39% |
+
+For the restart one token earlier, the predicted states give 1.15 tokens from the break on where the
+real ones give 2.69 (Draft-OPD, `opd-m0`), and 0.57 against 1.17 (public, `pub-v0`). The second
+predictor is still training; on its own training rounds, which are real breaks, it stands at about
+30% (Draft-OPD) and 45% (public) of the gap.
+
+So a small network that looks at one token at a time closes about a third of the gap, however it is
+taught. Vectors that point 0.77 of the way along the real ones do far worse than real ones with
+noise of the same size (87% kept): the predictor is wrong in exactly the directions that matter.
+Two things it could not know:
+
+1. Which token the restart starts from. The state of the last right token is the state the target
+   chooses the next token from. The predictor built it from the drafter's own state there, which
+   points at the wrong token, so the predicted state contradicted the restart's first token.
+2. The tokens together. A break happens because the drafter fills its slots without knowing what
+   the other slots chose. The restart knows the tokens, but a predictor that looks at one token at a
+   time cannot put them together.
+
+**The third predictor (queued for Draft-OPD on November 18).** `opd-c0` is told the token after each
+token; after the last one that is the token the restart starts from (job `train-restart-opd-3`).
+`opd-s0` has that and two layers in which the missing tokens look at the ones before them and at
+the last 8 real vectors (job `restart-replay-pub-3`, which was waiting for something else). Both
+are taught at real breaks for both kinds of restart.
+
 ## What is ours and what is not
 
 Published: second drafts at likely breaks inside the block (D²SD), stand-in states for drafting
