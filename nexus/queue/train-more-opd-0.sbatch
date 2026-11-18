@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb
 #SBATCH --time=10:00:00
-# The one-layer restart on eight times the text (nexus/train_second.py). The layer that is given the restart's first
+# The one-layer restart on about eight times as many answers (nexus/train_second.py). The layer that is given the restart's first
 # token (warm-opd-w1.pt) was still improving when the 366 training answers of long1 ran out. It goes on here from
 # those weights, on long1's training answers mixed with the new thinking-mode text (~/specdec-data/think1, read again
 # whenever the answers run out, so text still being written is used too). The predictor stays as it is. Draft-OPD.

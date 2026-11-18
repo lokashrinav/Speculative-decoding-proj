@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb
 #SBATCH --time=10:00:00
-# The two-layer restart on eight times the text (nexus/train_second.py): on from warm-opd-s2.pt (two layers that read
+# The two-layer restart on about eight times as many answers (nexus/train_second.py): on from warm-opd-s2.pt (two layers that read
 # the tokens, states written into the block), on long1's training answers mixed with the new thinking-mode text
 # (~/specdec-data/think1). The predictor stays as it is. Draft-OPD. Saved as warm-opd-s2x.pt.
 ENV="$HOME/specdec-env"
