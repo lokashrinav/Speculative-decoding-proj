@@ -217,8 +217,6 @@ def test_the_restart_second_run_in_the_replay():
     checked_short.features = features
     short = replay_decode(draft, target, ids, length, ended=False, features=features, improver=checked_short, block_size=BLOCK)
     assert chain.rounds >= short.rounds >= result.rounds
-    with pytest.raises(NotImplementedError):
-        dflash_generate_redraft(draft, target, ids[:, :length], 40, None, improver=Restarts(k=3), block_size=BLOCK)
 
 
 def test_restarts_from_the_third_choice_too():
@@ -398,6 +396,62 @@ def test_a_tree_with_restarts_on_top():
     assert Check.counted > 10
     with pytest.raises(ValueError):
         TreeWithRestarts(DraftTree(12), Restarts(k=3, swap=True))
+
+
+def test_a_tree_of_drafts_in_real_decoding(tmp_path):
+    """Real decoding with a tree in place of the first draft (DDTree), with restarts that reach
+    past the block, and with both: the answer is plain decoding's, in fewer rounds or as many, the
+    same when it follows plain decoding's text, and with a window for the drafter."""
+    from dflash.redraft import DraftTree, Restarts, TreeWithRestarts, _tree_of_drafts, dflash_generate_redraft
+    from dflash.stand_in import StatePredictor
+
+    tokens, depths, parents, children, on_trunk = _tree_of_drafts([7, 1, 2, 3], [[7, 1, 2, 3, 4, -1], [7, 1, 5, 6, -1, -1], [7, 9, -1, -1, 8, 8]], 4)
+    assert tokens == [7, 1, 2, 3, 4, 5, 6, 9] and depths == [0, 1, 2, 3, 4, 2, 3, 1] and parents == [-1, 0, 1, 2, 3, 1, 5, 0]
+    assert on_trunk == 4 and children[1] == {2: 2, 5: 5} and children[0] == {1: 1, 9: 7}
+    assert _tree_of_drafts([7, 1, 2, 3], [[7, 1, 2, 3, 4, -1]], 3)[0] == [7, 1, 2, 3]            # nothing deeper than 3
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=120)
+    prompt = plain.output_ids[:, :length]
+    torch.manual_seed(0)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK, coming=True, layers=1, heads=4, memory=4).eval()
+
+    def restarts(**how):
+        method = Restarts(k=3, stand_in="predicted", **how)
+        method.predictor = predictor
+        return method
+
+    methods = {
+        "tree": lambda: DraftTree(24),
+        "small tree": lambda: DraftTree(3),
+        "restarts": lambda: restarts(kind="both", swap=True),
+        "restarts, short check": lambda: restarts(kind="both", tail=2, choices=2),
+        "no states": lambda: Restarts(k=3, stand_in="none", kind="earlier"),
+        "tree and restarts": lambda: TreeWithRestarts(DraftTree(24), restarts(kind="both", tail=3)),
+    }
+    for name, make in methods.items():
+        result = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True)
+        assert torch.equal(result.output_ids, plain.output_ids), name
+        assert result.rounds <= plain.rounds and sum(result.acceptance_lengths) == sum(plain.acceptance_lengths), name
+        followed = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                           follow=plain.output_ids)
+        assert torch.equal(followed.output_ids, plain.output_ids) and followed.rounds == result.rounds, name
+        assert followed.followed_rows >= plain.output_ids.shape[1] - length - 1 and followed.followed_against == 0, name
+        clock, log = [], []
+        windowed = dflash_generate_redraft(draft, target, prompt, 120, None, improver=make(), block_size=BLOCK, return_stats=True,
+                                           context_window=12, round_clock=clock, round_log=log, timers={})
+        chain = dflash_generate_redraft(draft, target, prompt, 120, None, block_size=BLOCK, return_stats=True, context_window=12)
+        assert torch.equal(windowed.output_ids, chain.output_ids) and windowed.rounds <= chain.rounds, name
+        assert len(clock) == windowed.rounds and sum(entry[1] for entry in clock) == sum(windowed.acceptance_lengths)
+    wide = dflash_generate_redraft(draft, target, prompt, 120, None, improver=DraftTree(24), block_size=BLOCK, return_stats=True)
+    assert wide.alternative_wins > 0 and wide.rounds < plain.rounds          # the tree is used, not only its first path
+    stops = [int(plain.output_ids[0, length + 30])]
+    ended = dflash_generate_redraft(draft, target, prompt, 120, stops, block_size=BLOCK, return_stats=True)
+    for make in (methods["tree"], methods["tree and restarts"]):
+        early = dflash_generate_redraft(draft, target, prompt, 120, stops, improver=make(), block_size=BLOCK, return_stats=True)
+        assert torch.equal(early.output_ids, ended.output_ids)
+    with pytest.raises(NotImplementedError):
+        dflash_generate_redraft(draft, target, prompt, 40, None, improver=DraftTree(24), block_size=BLOCK, recheck=True)
 
 
 def test_restart_methods_by_name():

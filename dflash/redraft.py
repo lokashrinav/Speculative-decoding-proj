@@ -722,6 +722,38 @@ def _leading_matches(proposed: torch.Tensor, verified: torch.Tensor) -> int:
     return int((proposed == verified).cumprod(dim=1).sum(dim=1)[0].item())
 
 
+def _tree_of_drafts(trunk: list[int], rows: list[list[int]], deepest: int):
+    """All drafts of a round as one tree. trunk: the tokens of the draft whose entries the target's
+    cache keeps in order (the block's first token first); rows: other drafts, each from the block's
+    first token on, -1 after their end. No token lies deeper than `deepest` places after the first.
+
+    Returns tokens, depths, parents, children (a dict token -> node for every node) and how many
+    nodes the trunk has. Node 0 is the block's first token; the trunk's nodes come first, in order;
+    every other node comes after its parent. Drafts that begin alike share those nodes."""
+    tokens, depths, parents, children = [trunk[0]], [0], [-1], [{}]
+
+    def walk(row):
+        at = 0
+        for depth, token in enumerate(row[1:], start=1):
+            if token < 0 or depth > deepest:
+                break
+            following = children[at].get(token)
+            if following is None:
+                following = len(tokens)
+                tokens.append(token)
+                depths.append(depth)
+                parents.append(at)
+                children.append({})
+                children[at][token] = following
+            at = following
+
+    walk(trunk)
+    on_trunk = len(tokens)
+    for row in rows:
+        walk(row)
+    return tokens, depths, parents, children, on_trunk
+
+
 @torch.inference_mode()
 def dflash_generate_redraft(
     model: nn.Module,
@@ -748,6 +780,14 @@ def dflash_generate_redraft(
     themselves. The draft the target accepts furthest counts. If the improver has
     ``alternative_tail = N``, only the token at the split and the N tokens after it are checked
     (a shorter pass: most of what an alternative wins is in those tokens).
+
+    A tree of drafts. A plug-in with ``replace = True`` that returns several rows, or rows that end
+    in -1 (dflash.redraft.DraftTree, TreeWithRestarts), gives a tree in place of the first draft, and
+    alternatives may reach past the block (Restarts). Then all drafts of the round are put together
+    as one tree: tokens that drafts share are read once, every token sees the text and the tokens
+    on its own path only, and the target follows its own choices through the tree as far as they are
+    in it. The cache keeps the entries of the path it followed as far as they were stored in order
+    (the tree's first path); the other accepted tokens are read again at the front of the next pass.
 
     Which tokens come out. In 16-bit arithmetic the target's numbers for a token depend a little on
     the shape of the pass that computes them: a pass with more rows (alternatives, or tokens read
@@ -913,19 +953,110 @@ def dflash_generate_redraft(
                 timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
 
         # An improver that replaces the draft: the edited draft is the only one checked.
+        tree = None
         if alternative is not None and getattr(improver, "replace", False):
             if alternative.shape[0] > 1 or bool((alternative < 0).any()):
-                raise NotImplementedError("a tree of drafts in place of the first draft is scored in replay only")
-            if alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
+                # A tree in place of the first draft. Its first path (kept in order in the cache) is
+                # the row that follows the drafter's first choices furthest.
+                rows = alternative.tolist()
+                chain = block_ids[0].tolist()
+
+                def along(row):
+                    count = 0
+                    while count < min(len(row), len(chain)) and row[count] == chain[count]:
+                        count += 1
+                    return count
+
+                first_path = max(rows, key=along)
+                tree = ([token for token in first_path if token >= 0], rows)
+            elif alternative.shape == block_ids.shape and bool((alternative[:, :1] == block_ids[:, :1]).all()):
                 rounds_edited += int(bool((alternative != block_ids).any()))
                 block_ids = alternative
             alternative = None
+        if alternative is not None and alternative.shape[1] != block_len:
+            # Alternatives that reach past the block (restarts): the first draft and they, as a tree.
+            tail = getattr(improver, "alternative_tail", None)
+            rows, chain = [], block_ids[0].tolist()
+            for row in alternative.tolist():
+                split = next((at for at in range(block_len) if row[at] != chain[at]), block_len)
+                if split >= 1:
+                    rows.append(row if tail is None else row[: split + 1 + tail])
+            tree = (chain, rows)
+            alternative = None
+        if tree is not None:
+            if recheck or canvas_top or learner is not None:
+                raise NotImplementedError("a tree of drafts goes without recheck, canvas and a learning drafter")
+            tokens, depths, parents, children, on_trunk = _tree_of_drafts(tree[0], tree[1], max_length - start - 1)
+            nodes, num_pending = len(tokens), pending.shape[1]
+            cached = start - num_pending
+            verify_ids = torch.cat((pending, torch.tensor([tokens], dtype=torch.long, device=device)), dim=1)
+            verify_positions = torch.cat((position_ids[:, cached:start], start + torch.tensor([depths], device=device)), dim=1)
+            attention_mask = None
+            if nodes > on_trunk:                               # not a single path: who sees whom
+                import numpy
+
+                sees = numpy.zeros((num_pending + nodes, cached + num_pending + nodes), dtype=bool)
+                sees[:, :cached] = True
+                sees[:num_pending, cached : cached + num_pending] = numpy.tri(num_pending, dtype=bool)
+                sees[num_pending:, cached : cached + num_pending] = True
+                own = sees[num_pending:, cached + num_pending :]
+                for node in range(nodes):                      # itself and what its parent sees
+                    if node:
+                        own[node] = own[parents[node]]
+                    own[node, node] = True
+                attention_mask = torch.from_numpy(sees).to(device)[None, None]
+                rounds_with_alternative += 1
+            clock = _cuda_time() if timers is not None else None
+            output = target(verify_ids, position_ids=verify_positions, past_key_values=target_cache, use_cache=True,
+                            output_hidden_states=True, attention_mask=attention_mask)
+            verified = own_choice = output.logits.argmax(dim=-1)
+            if follow is not None:
+                verified = follow.to(device)[:, (verify_positions + 1).clamp(max=follow.shape[1] - 1)[0]]
+            if timers is not None:
+                kind = "two" if attention_mask is not None else "one"
+                timers["verify_" + kind] = timers.get("verify_" + kind, 0.0) + _cuda_time() - clock
+                timers["rounds_" + kind] = timers.get("rounds_" + kind, 0) + 1
+                timers["rows_" + kind] = timers.get("rows_" + kind, 0) + num_pending + nodes
+            # The target follows its own choices through the tree as far as they are in it.
+            said = verified[0, num_pending:].tolist()
+            path = [0]
+            while said[path[-1]] in children[path[-1]]:
+                path.append(children[path[-1]][said[path[-1]]])
+            accepted = len(path) - 1
+            in_order = next((at for at, node in enumerate(path) if node != at or node >= on_trunk), len(path))
+            if in_order < len(path):
+                alternative_wins += 1
+                alternative_extra_tokens += len(path) - in_order
+            if round_log is not None and block_len == block_size:
+                confidence = draft_logits.float().softmax(dim=-1).amax(dim=-1)[0]
+                round_log.append([block_len, in_order if in_order < len(path) else 0, in_order - 1,
+                                  accepted if in_order < len(path) else -1, [round(c, 3) for c in confidence.tolist()]])
+            path_rows = torch.tensor([num_pending + node for node in path], device=device)
+            if follow is not None:
+                followed_rows += accepted + 1
+                followed_against += int((own_choice[0, path_rows] != verified[0, path_rows]).sum())
+            output_ids[0, start : start + accepted + 1] = torch.tensor([tokens[node] for node in path], device=device)
+            output_ids[0, start + accepted + 1] = said[path[-1]]
+            produced = min(accepted + 1, max_length - start - 1)
+            if stop_tokens is not None:
+                stop_indices = torch.isin(output_ids[0, start + 1 : start + produced + 1], stop_tokens).nonzero(as_tuple=True)[0]
+                if stop_indices.numel() > 0:
+                    produced = stop_indices[0].item() + 1
+                    stopped = True
+            kept_in_cache = min(produced, in_order)            # the path's entries that were stored in order
+            _crop_to(target_cache, start + kept_in_cache)
+            pending = output_ids[:, start + kept_in_cache : start + produced].clone()
+            features = extract_context_feature(output.hidden_states, model.target_layer_ids)
+            context_features = features[:, path_rows[:produced], :]
+            if round_clock is not None:
+                round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
+            start += produced
+            acceptance_lengths.append(produced)
+            continue
 
         # An alternative draft shares everything before its `split` with the first draft; only its
         # tokens from `split` up to `end` are added to the verification pass. [(draft, split, end)]
         branches = []
-        if alternative is not None and alternative.shape[1] != block_len:
-            raise NotImplementedError("drafts that reach past the block (restarts) are scored in replay only")
         if alternative is not None:
             tail = getattr(improver, "alternative_tail", None)
             for row in alternative.unbind(0):

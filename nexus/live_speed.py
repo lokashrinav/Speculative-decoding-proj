@@ -13,6 +13,9 @@ at each of its K most likely breaks (dflash/redraft.py: Branches, "switch"). The
 run again. With tN only the switched token and the N tokens after it are checked.
 +redraftK is the comparison that does run the drafter again: the same second choices at the same
 breaks, and one more drafter pass that rewrites what follows each of them (Branches, "early").
++treeB is DDTree with B nodes in place of the first draft; +restart4pxst7@NAME runs the drafter again
+from its likely breaks with the states of the saved predictor NAME; +tree63_restart4pxt7@NAME is both
+(dflash/redraft.py: DraftTree, Restarts, TreeWithRestarts).
 A setting with :window=N (plain:window=3072, frozen:window=3072@off-a+swap4t3) lets the drafter see
 only the last N tokens of the text.
 
@@ -47,14 +50,21 @@ from nexus.redraft_long import find_drafter
 from nexus.replay_memory import load_answers
 
 
-def swap_of(setting):
+def swap_of(setting, ckpt_dir=None, like=None):
     """'frozen@off-a+swap4t3' -> ('frozen@off-a', the plug-in of the swap); (setting, None) without one.
-    '+redraft4' gives the plug-in that runs the drafter again from the same switched tokens."""
+    '+redraft4' gives the plug-in that runs the drafter again from the same switched tokens.
+    '+tree63', '+tree63_restart4pxt7@NAME', '+restart4pxst7@NAME': DDTree, restarts with the states of
+    the saved predictor NAME, or both in one check (the method names of nexus/redraft_long.py)."""
     found = re.fullmatch(r"(.+)\+(swap|redraft)(\d+)(?:t(\d+))?", setting)
-    if not found:
-        return setting, None
-    return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
-                              tail=None if found[4] is None else int(found[4]))
+    if found:
+        return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
+                                  tail=None if found[4] is None else int(found[4]))
+    found = re.fullmatch(r"(.+?)\+((?:tree|restart)\d+.*)", setting)
+    if found:
+        from nexus.redraft_long import make_method
+
+        return found[1], make_method(found[2], ckpt_dir, like)
+    return setting, None
 
 
 def by_position(round_clock):
@@ -129,7 +139,7 @@ def main():
         adapter.fast = True                 # the cheaper way to apply the extra weights when nothing is learned
     settings, settings_from = settings_for(args.results_dir, args.settings)
     names = settings.split(",")
-    swaps = {name: swap_of(name) for name in names}
+    swaps = {name: swap_of(name, args.adapter_dir, draft) for name in names}
     trainers, started_from = build_trainers(",".join(dict.fromkeys(base for base, _ in swaps.values())), draft, adapters,
                                             args.adapter_dir)
     assert names[0] == "plain", "the first setting must be plain: the others are compared with it"

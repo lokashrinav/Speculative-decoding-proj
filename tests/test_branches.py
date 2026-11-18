@@ -548,11 +548,9 @@ def test_the_replay_follows_the_targets_choices_through_a_draft_tree():
             best = max(best, count)
         assert produced == min(best + 1, ids.shape[1] - start - 1)
         at += produced
-    # More nodes, fewer rounds; and real decoding does not take a tree yet.
+    # More nodes, fewer rounds.
     more = replay_decode(draft, target, ids, length, ended=False, improver=DraftTree(200), block_size=BLOCK)
     assert more.rounds <= tree.rounds
-    with pytest.raises(NotImplementedError):
-        dflash_generate_redraft(draft, target, ids[:, :length], 40, None, improver=DraftTree(24), block_size=BLOCK)
 
 
 def test_times_between_the_measured_lengths_and_the_cost_of_an_answers_rounds():
