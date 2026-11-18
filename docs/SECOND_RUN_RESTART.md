@@ -245,6 +245,27 @@ adds there are worth more than its pass. That is measured next (`tree-restart-op
 DDTree with restarts in the same check with the real states (the ceiling of the combination), and
 with the states of the predictor `opd-m0`.
 
+**Do restarts add to DDTree? (November 18, `tree-restart-opd-0`, Draft-OPD, 50 answers, replay with
+the measured costs.)**
+
+| Method | Tokens per round | Estimated real speed |
+| --- | --- | --- |
+| DDTree, 31 nodes | +27.5% | +24.7% |
+| DDTree, 63 nodes | +35.7% | +29.1% |
+| DDTree 31 and restarts of both kinds with the real states, 7 tokens checked | +63.6% | +29.7% |
+| DDTree 63 and the same restarts | +67.4% | +29.8% |
+| DDTree 63 and restarts also from the third choice | +71.3% | +25.6% |
+| DDTree 63 and only the restarts one token earlier | +59.0% | +27.3% |
+| DDTree 63 and restarts with the predicted states (`opd-m0`) | +52.2% | +17.7% |
+| Restarts with the predicted states and the swaps, no tree | +36.2% | +9.0% |
+
+With the target's real states the restarts nearly double what the tree adds to a round (+67%
+against +36%), and the time of their drafter pass (15 ms of a 62 ms round) takes all of it back:
++29.8% against +29.1%. With predicted states the tree is slower with the restarts than without
+them. So on this target a second run of the drafter does not pay in real speed, whatever fills
+in the hidden states. It would pay where a drafter pass is cheap next to the target's pass (a much
+larger target), and then only with hidden states far better than a small predictor gives.
+
 **The third predictor (queued for Draft-OPD on November 18).** `opd-c0` is told the token after each
 token; after the last one that is the token the restart starts from (job `train-restart-opd-3`).
 `opd-s0` has that and two layers in which the missing tokens look at the ones before them and at
@@ -267,3 +288,17 @@ left out, stood in for, or predicted. We search again before claiming it.
 - By December 1: E5 and E6.
 - December 6: checkpoint. Is the restart faster than the swap and DDTree in real tokens per second
   on at least one drafter? If not, we write up the study, the limit, and how far the restart got.
+
+**The third predictor's result (November 18, 05:10 UTC).** `opd-s0` (told the coming token, two
+layers that look back, the last 8 real vectors; 41 million weights, two passes over the answers)
+closes 22% of the gap: 1.71 tokens against 1.02 with nothing and 4.09 with the real states. That is
+no better than the simpler predictors (21% to 38% on Draft-OPD). `opd-c0` looks the same during
+training. Three versions and two ways of teaching give the same answer: a small network gets
+about a third of what the target's states give.
+
+**In real decoding (November 18).** `dflash_generate_redraft` now takes a tree of drafts in the
+target's check: DDTree in place of the first draft, restarts that reach past the block, and both.
+On the tiny test models every method writes plain decoding's tokens. The jobs `live-tree-opd-0` and
+`live-tree-pub-0` measure real tokens per second on the same text: the swap, DDTree with 31 and 63
+nodes, DDTree with the context window, and the second run with predicted states, alone and on top
+of DDTree.

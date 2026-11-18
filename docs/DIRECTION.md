@@ -105,6 +105,27 @@ The first predictor closed only 21% of the gap between no states and the real on
 taught restarts at any place in a round and not where the drafter really breaks. The second one,
 taught at real breaks and for both kinds of restart, is the next result.
 
+### Where the plan stands (November 18, morning UTC)
+
+Three versions of the predictor and two ways of teaching it give the same result: about a third of
+what the target's real hidden states give on Draft-OPD (21% to 38%), under a half on the public
+drafter (39% to 49%).
+
+DDTree, a published method that needs no second run, is the one to beat: +29% in estimated real
+speed on Draft-OPD against the swap's +13%. A second run with the real hidden states gets many more
+tokens out of a round than DDTree (+60% against +36%), but its extra drafter pass costs 15 ms of a
+62 ms round. On top of DDTree it nearly doubles the tokens gained (+67%) and the estimated real
+speed stays the same (+29.8% against +29.1%). With predicted hidden states it makes DDTree slower.
+
+So on this 4B target a second run does not pay in real speed. It is a result worth writing down
+with its numbers: what a restart needs (the hidden state of f), how rough it may be, why a small
+predictor fails, and what the extra pass costs. A second run could pay where a drafter pass is
+cheap next to the target's pass, which means a much larger target.
+
+Real decoding now takes DDTree and the restarts, and two jobs measure real tokens per second for
+the swap, DDTree, DDTree with the window, and the second run with predicted states. Those are the
+numbers the write-up will stand on.
+
 ## The experiments and where their results are
 
 | Experiment | What it asks | Code | Results |
