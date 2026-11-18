@@ -347,6 +347,59 @@ def test_an_alternative_that_only_adds_to_the_block_is_checked_from_its_end():
     assert _checked_matches(same, block, truth, 1) == 3
 
 
+def test_a_tree_with_restarts_on_top():
+    """DDTree and restarts in the same check: the rows are the tree's and the restarts' (cut to
+    their tail), the count of what the target reads has shared beginnings once, and the answer
+    takes no more rounds than with the tree alone or the restarts alone."""
+    from dflash.redraft import DraftTree, Restarts, TreeWithRestarts
+    from dflash.replay import target_features
+    from nexus.redraft_long import make_method
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    both = make_method("tree12_restart3rxt2", "/nowhere")
+    assert isinstance(both, TreeWithRestarts) and both.replace and both.tree.budget == 12 and both.restarts.kind == "both"
+    both.features = features
+    assert both.restarts.features is features
+    alone = Restarts(k=3, stand_in="real", kind="both")
+    alone.features = features
+    rounds = {}
+    for name, method in (("tree", DraftTree(12)), ("restarts", alone), ("both", both)):
+        seen = Seen(method) if name != "tree" else method
+        done = replay_decode(draft, target, ids, length, ended=True, features=features, improver=seen, block_size=BLOCK)
+        assert sum(done.acceptance_lengths) >= ids.shape[1] - length - 1
+        rounds[name] = done.rounds
+    assert rounds["both"] <= min(rounds["tree"], rounds["restarts"])
+
+    class Check:
+        replace = True
+        counted = 0
+
+        def start(self, drafter):
+            both.start(drafter)
+
+        def __call__(self, s):
+            rows = both(s)
+            width = s.block_ids.shape[1]
+            tree_rows = DraftTree(12)(s)
+            assert torch.equal(rows[: tree_rows.shape[0], :width], tree_rows) and int(rows[: tree_rows.shape[0], width:].max()) == -1
+            for row in rows[tree_rows.shape[0] :]:
+                differs = (row[:width] != s.block_ids[0]).nonzero()
+                split = int(differs[0]) if differs.numel() else width
+                assert int((row >= 0).sum()) <= split + 1 + 2                 # the tail of 2
+            prefixes = {tuple(row[:end]) for row in rows.tolist() for end in range(2, len(row) + 1) if min(row[:end]) >= 0}
+            assert both.nodes == len(prefixes) and both.nodes >= both.tree.nodes
+            Check.counted += 1
+            return rows
+
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=Check(), block_size=BLOCK)
+    assert Check.counted > 10
+    with pytest.raises(ValueError):
+        TreeWithRestarts(DraftTree(12), Restarts(k=3, swap=True))
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 

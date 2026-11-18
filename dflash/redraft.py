@@ -603,6 +603,64 @@ class DraftTree:
         return rows
 
 
+class TreeWithRestarts:
+    """DDTree for the block and, in the same check, restarts after the likely breaks of the path of
+    first choices: the tree covers other tokens at a break (its tokens after one are the first
+    pass's, written without knowing of the change), a restart writes a new block there.
+
+    The swaps of the restarts are left out: the tree has them where they are likely. A restart's
+    tail (the target checks only that many tokens after the restart's first new token) is cut here,
+    so the rows hold exactly what the target reads. nodes: the tokens the target reads besides the
+    block's first token, counted once where rows share their beginning. Scored in replay only."""
+
+    replace = True
+
+    def __init__(self, tree: DraftTree, restarts: "Restarts"):
+        if restarts.swap:
+            raise ValueError("the tree has the swaps: use the restarts without them")
+        self.tree, self.restarts, self.nodes = tree, restarts, 0
+
+    @property
+    def features(self):
+        return self.restarts.features
+
+    @features.setter
+    def features(self, value):
+        self.restarts.features = value
+
+    @property
+    def kept(self):
+        return self.restarts.kept
+
+    def start(self, drafter: nn.Module) -> None:
+        self.tree.start(drafter)
+        self.restarts.start(drafter)
+        self.nodes = 0
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor:
+        rows = self.tree(s)
+        width = s.block_ids.shape[1]
+        more = self.restarts(s)
+        if more is not None:
+            tail = self.restarts.alternative_tail
+            if tail is not None:
+                for row in more:
+                    differs = (row[:width] != s.block_ids[0]).nonzero()
+                    split = int(differs[0]) if differs.numel() else width
+                    row[split + 1 + tail :] = -1
+            wide = torch.full((rows.shape[0], more.shape[1]), -1, dtype=rows.dtype, device=rows.device)
+            wide[:, : rows.shape[1]] = rows
+            rows = torch.cat((wide, more), dim=0)
+        seen = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                seen.add(tuple(row[:end]))
+        self.nodes = len(seen)
+        return rows
+
+
 class Resample:
     """A second draft with no second pass: keep slot 1, sample the other slots
     from the probabilities the first pass already produced."""

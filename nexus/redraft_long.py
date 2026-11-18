@@ -26,6 +26,8 @@ Methods (comma-separated):
   restartKr              ... with the target's real states: the limit of any stand-in (replay only)
   restartKrcM            ... with a restart from each of the drafter's next M choices at every break (c2: the
                          second and the third), all in the same one drafter pass
+  treeB_restart...       DDTree with budget B and, in the same check, the restarts named after the underscore
+                         (without the swaps: the tree has them), for example tree63_restart4rxt7
   restartKre, restartKrx e: the restarts start one token EARLIER, at the last token before each likely break, and
                          write the token at the break again with the states (no guess of the right token);
                          x: both kinds in the same pass
@@ -157,6 +159,11 @@ def make_method(name, ckpt_dir, like=None):
         if mode == "edit":
             return SelfRedraft(model=model, keep=1, show_rest=True)
         return SelfRedraft(model=model, keep=int(mode.removeprefix("keep")))
+    found = re.fullmatch(r"tree(\d+)_(restart.+)", name)
+    if found:                                                       # DDTree with restarts on top, in the same check
+        from dflash.redraft import TreeWithRestarts
+
+        return TreeWithRestarts(DraftTree(int(found[1])), make_method(found[2], ckpt_dir, like))
     found = re.fullmatch(r"restart(\d+)p([ex]?)(?:c(\d))?(s?)(?:t(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor

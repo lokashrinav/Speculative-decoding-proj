@@ -185,7 +185,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
         truth = ids[:, start + 1 : start + block_len]
         accepted = _matches(block_ids[:, 1:], truth)
         if tree is not None:             # the target follows its own choices through the tree: the best path counts
-            through = max(_matches(tree[row : row + 1, 1:], truth) for row in range(tree.shape[0]))
+            reach = ids[:, start + 1 : start + tree.shape[1]]            # a row may reach past the block (a restart)
+            through = max(_matches(tree[row : row + 1, 1:], reach) for row in range(tree.shape[0]))
             rounds_with_alternative += 1
             alternative_wins += int(through > accepted)
             accepted = through
