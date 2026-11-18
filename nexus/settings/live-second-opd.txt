@@ -1,4 +1,4 @@
-plain,plain+restart4pxt3b5@opd-m0,plain+restart4pxmt3b5@opd-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@opd-m0,plain+restart4pxmc3r12t3b5@opd-m0,plain+restart4pxmc3r12st3b5@opd-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@opd-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@opd-m0
+plain,plain+restart4pxt3b5@opd-m0,plain+restart4pxmt3b5@opd-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@opd-m0,plain+restart4pxmc3r12t3b5@opd-m0,plain+restart4pxmc3r12st3b5@opd-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@opd-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@opd-m0,plain+restart4pxmc3r12st5b7@opd-m0,plain:window=4096+restart4pxmc3r12st3b5@opd-m0
 # (Nov 18) The second run of the drafter made cheaper, aimed better, and given real states where there are some.
 # As measured (restart4pxst7): a round gained 38% in tokens and took 20 ms longer, 15 ms of it the second run itself
 # (8 whole blocks) and 4 ms the 78 more tokens in the check. With 3 tokens checked after each restart and no swaps
@@ -11,3 +11,5 @@ plain,plain+restart4pxt3b5@opd-m0,plain+restart4pxmt3b5@opd-m0,plain+restart4nxm
 #           that the text goes that way; s adds the swaps
 #   g6      the second run only in rounds where the drafter's confidences expect at most 6 accepted tokens
 # Then DDTree (63 nodes) alone and with the short restarts on top.
+# (Draft-OPD only: the same with 5 tokens checked after each restart, and with the drafter reading only the last 4,096
+# tokens of text, which by itself is worth 6% on long answers.)
