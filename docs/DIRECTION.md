@@ -277,7 +277,8 @@ from the first run does not look at the states at all. So the layers are trained
 Times on the GPU (299 samples): a pass of 5 layers 7.6 ms (9.1 ms on texts over 4,000 tokens), of
 1 layer 2.0 ms (1.4 ms a layer and 0.7 ms that every pass has); the output head 1.3 ms however few
 places it is asked for (it reads the weights of all 152,000 tokens); the predictor 1.3 ms; the
-first draft's own pass 8.1 ms. With the lists the whole second run is 11.2 ms where it was 14.7. A
+first draft's own pass 8.1 ms. With the lists the whole second run is 12.2 ms where it was 14.7
+(11.2 ms on texts under 4,000 tokens, 13.0 ms over). A
 second run through one trained layer comes to 2.0 + 1.3 + 1.3 ms and its own steps; with the
 output head over a short list of tokens (`dflash/shortlist.py`: the most common tokens, the tokens
 of the text so far and the first run's choices) about 1 ms less. The probe now times exactly that.
