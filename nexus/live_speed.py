@@ -104,11 +104,49 @@ def summarize(records, names):
     return out
 
 
+def bench_prompts(tokenizer, names, count, reasoning, load=None):
+    """The first turn of `count` prompts of each standard benchmark, in the chat template, as the
+    saved answers are listed: (benchmark, number, tokens, prompt length, benchmark). The prompts
+    are the ones dflash/benchmark.py picks (a fixed shuffle), taken in turn from the benchmarks so
+    that a run that stops early has read all of them alike."""
+    from dflash.benchmark import _select_dataset, apply_chat_template, load_and_process_dataset
+
+    picked = []
+    for name in names:
+        rows = _select_dataset((load or load_and_process_dataset)(name), count)
+        for number, row in enumerate(rows):
+            text = apply_chat_template(tokenizer, [{"role": "user", "content": row["turns"][0]}], reasoning)
+            tokens = tokenizer(text, return_tensors="pt", add_special_tokens=False).input_ids[0]
+            picked.append((number, name, tokens))
+    picked.sort(key=lambda entry: entry[0])                      # the benchmarks in turn (the sort keeps their order)
+    return [(name, number, tokens, tokens.shape[0], name) for number, name, tokens in picked]
+
+
+def by_source(records, names):
+    """Tokens per round and per second of every setting for each source of prompts, with the gain over plain."""
+    out = {}
+    for source in dict.fromkeys(record["source"] for record in records):
+        mine = [record for record in records if record["source"] == source]
+        out[source] = {"prompts": len(mine)}
+        totals = {name: [sum(record["settings"][name][key] for record in mine if name in record["settings"])
+                         for key in ("tokens", "rounds", "seconds")] for name in names}
+        for name, (tokens, rounds, seconds) in totals.items():
+            if not rounds or not seconds:
+                continue
+            row = {"tokens_per_round": tokens / rounds, "tokens_per_second": tokens / seconds}
+            base_tokens, base_rounds, base_seconds = totals.get("plain", (0, 0, 0))
+            if base_rounds and base_seconds and all(name in record["settings"] for record in mine):
+                row["more_tokens_per_round_than_plain"] = row["tokens_per_round"] / (base_tokens / base_rounds) - 1
+                row["more_tokens_per_second_than_plain"] = row["tokens_per_second"] / (base_tokens / base_seconds) - 1
+            out[source][name] = row
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
     parser.add_argument("--draft", default="z-lab/Qwen3-4B-DFlash-b16", help='a drafter, or "opd" for Draft-OPD')
-    parser.add_argument("--data-dir", required=True)
+    parser.add_argument("--data-dir", default="")
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--settings", default="plain,immediate:3e-4:onepass")
     parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"))
@@ -121,18 +159,25 @@ def main():
     parser.add_argument("--max-answers", type=int, default=12)
     parser.add_argument("--max-hours", type=float, default=3.0)
     parser.add_argument("--free", action="store_true", help="settings with alternatives do not follow the saved answer")
+    parser.add_argument("--bench", default="", help="prompts of the standard benchmarks instead of the saved answers': "
+                        "a comma-separated list of gsm8k, math500, humaneval, mbpp, mt-bench (dflash/benchmark.py)")
+    parser.add_argument("--per-bench", type=int, default=40, help="prompts of each benchmark (the same ones every time)")
+    parser.add_argument("--reasoning", default="off", help="with --bench: the chat template's thinking, on or off")
     args = parser.parse_args()
     if stepped_aside(args.results_dir):
         return
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    answers = [answer for answer in load_answers(args.data_dir)
-               if (args.part == "all" or split_of([answer[0], answer[1]]) == args.part)
-               and answer[2].shape[0] - answer[3] >= max(args.min_tokens, 2)]
-    answers = answers[args.shard :: args.num_shards]
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0}, indent=1)
     target, draft, tokenizer = load_transformers_models(args.model, find_drafter(args.draft), device)
+    if args.bench:
+        answers = bench_prompts(tokenizer, args.bench.split(","), args.per_bench, args.reasoning)
+    else:
+        answers = [answer for answer in load_answers(args.data_dir)
+                   if (args.part == "all" or split_of([answer[0], answer[1]]) == args.part)
+                   and answer[2].shape[0] - answer[3] >= max(args.min_tokens, 2)]
+    answers = answers[args.shard :: args.num_shards]
     stops = stop_token_ids(target, tokenizer)
     adapters = attach_adapters(draft, rank=args.rank)
     for adapter in adapters:
@@ -167,7 +212,8 @@ def main():
     def report(done):
         status = {"done": done, "answers": len(records), "hours": round((time.time() - started) / 3600, 3),
                   "settings": settings, "settings_from": settings_from, "saved_adapters_used": started_from,
-                  "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names), "updates": {}}
+                  "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names),
+                  "by_source": by_source(records, names), "updates": {}}
         for name, trainer in trainers.items():
             rounds = max(trainer.totals["rounds"], 1)
             status["updates"][name] = {"updates_per_round": trainer.totals["updates"] / rounds,

@@ -893,3 +893,42 @@ def test_learning_in_a_window_of_the_answer_and_keeping_it_afterwards(one_pass):
     replayed = replay_decode(draft, target, live.output_ids, prompt.shape[1], ended=False, improver=trainer)
     assert replayed.acceptance_lengths == live.acceptance_lengths
     detach_adapters(draft)
+
+
+def test_prompts_of_the_standard_benchmarks_and_the_gain_by_benchmark():
+    """--bench: the same prompts of each benchmark every time, taken in turn; by_source: each benchmark's own gain."""
+    from types import SimpleNamespace
+
+    from nexus.live_speed import bench_prompts, by_source
+
+    class Tokens:
+        chat_template = "{{ enable_thinking }}"
+
+        def apply_chat_template(self, messages, tokenize, add_generation_prompt, **kwargs):
+            assert not tokenize and add_generation_prompt and kwargs == {"enable_thinking": False}
+            return "<user>" + messages[0]["content"] + "<assistant>"
+
+        def __call__(self, text, return_tensors, add_special_tokens):
+            assert not add_special_tokens
+            return SimpleNamespace(input_ids=torch.tensor([[ord(letter) for letter in text]]))
+
+    sets = {"a": [{"turns": [f"a{number}"]} for number in range(30)], "b": [{"turns": [f"b{number}", "second turn"]} for number in range(5)]}
+    prompts = bench_prompts(Tokens(), ["a", "b"], 3, "off", load=sets.__getitem__)
+    assert [(name, number) for name, number, _, _, _ in prompts] == [("a", 0), ("b", 0), ("a", 1), ("b", 1), ("a", 2), ("b", 2)]
+    assert all(tokens.shape[0] == length and source == name for name, _, tokens, length, source in prompts)
+    again = bench_prompts(Tokens(), ["a", "b"], 3, "off", load=sets.__getitem__)
+    assert all(torch.equal(one[2], two[2]) for one, two in zip(prompts, again))
+    text = "".join(chr(token) for token in prompts[1][2].tolist())
+    assert text.startswith("<user>b") and text.endswith("<assistant>") and "second turn" not in text
+
+    def record(source, plain, other):
+        return {"source": source, "settings": {"plain": dict(zip(("tokens", "rounds", "seconds"), plain)),
+                                               "other": dict(zip(("tokens", "rounds", "seconds"), other))}}
+
+    table = by_source([record("a", (100, 50, 10.0), (100, 25, 8.0)), record("a", (100, 50, 10.0), (100, 25, 8.0)),
+                       record("b", (60, 20, 3.0), (60, 20, 4.0))], ["plain", "other"])
+    assert table["a"]["prompts"] == 2 and table["b"]["prompts"] == 1
+    assert abs(table["a"]["other"]["more_tokens_per_round_than_plain"] - 1.0) < 1e-9
+    assert abs(table["a"]["other"]["more_tokens_per_second_than_plain"] - 0.25) < 1e-9
+    assert abs(table["b"]["other"]["more_tokens_per_second_than_plain"] + 0.25) < 1e-9
+    assert table["a"]["plain"]["more_tokens_per_second_than_plain"] == 0.0
