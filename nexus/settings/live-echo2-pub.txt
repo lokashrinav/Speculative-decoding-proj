@@ -1,0 +1,5 @@
+plain,plain+tree63,plain+tree63_echo4r4,plain+tree63_echo4r6l3,plain+tree63_echo2r4l3,plain+tree31_echo4r6,plain:window=3072+tree63_echo4r4
+# (Nov 18) The table of what the target already said, made thrifty: on long answers every extra token the target
+# reads costs 0.1 to 0.2 ms, and tails of 12 tokens from ten places cost more time than their tokens were worth
+# (live-echo-opd-0: 9% more tokens a round, 13 ms more per round). Shorter tails (r4, r6), only when the last three
+# tokens match (l3), from two likely breaks instead of four (echo2), and with a smaller tree (tree31).
