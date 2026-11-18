@@ -50,7 +50,7 @@ from dflash.benchmark import load_transformers_models, stop_token_ids
 from dflash.hindsight import loop_start
 from dflash.redraft import SelfRedraft, break_scores, restarts
 from dflash.replay import _matches, replay_decode, target_features
-from dflash.stand_in import load_predictor, predicted_states
+from dflash.stand_in import load_predictor, predicted_states, project
 from dflash.sharp import QueryScale
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
@@ -69,25 +69,51 @@ COLUMNS = ("answer", "where", "broke_after", "second_choice_right", "covered", "
 # second_choice_right * (1 + real), what a restart from the second choice gets. "rank" is the place of
 # the right token among the drafter's choices at the break (1: its second choice, 2: its third, ...).
 REANCHOR = ("reanchor", "reanchor_noisy100")
+# --more: stand-ins that are REAL states of the target, only not the ones of these tokens (the predictors
+# failed where noise did not: the states must be real more than they must be exact).
+#   shallowN / deepN: the real states of the missing tokens in the drafter's first N / last N target
+#     layers only, the other layers from the last state the target really has. shallow: what a check that
+#     is stopped after a few layers could hand over ("split the check").
+#   echo_states: for every missing token, the real state of an EARLIER place in the answer where the
+#     target read the same token: before the same next token and after the same token (level 4), before
+#     the same next token (3), after the same token (2), or anywhere (1). echo_nearest: only for the
+#     last missing token. echo_level: the level found for that last token (0: none).
+#   snap (with --predictor): the predicted vector is only used to look up the most similar real state.
+MORE = ("shallow1", "shallow2", "shallow3", "shallow4", "deep1", "deep2", "echo_states", "echo_nearest")
 MOST_ROUNDS_PER_FILE = 12000
 
 
 class Restart:
     """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
 
-    def __init__(self, k=4, width=WIDTH, predictor=None, reanchor=False):
+    def __init__(self, k=4, width=WIDTH, predictor=None, reanchor=False, more=False):
         self.inner, self.k, self.rows, self.width, self.predictor = SelfRedraft(), k, [], width, predictor
         self.arms = ARMS + (("predicted",) if predictor is not None else ())
         self.columns = COLUMNS + (("predicted",) if predictor is not None else ())
         self.reanchor = () if not reanchor else REANCHOR + (("reanchor_predicted",) if predictor is not None else ())
         if reanchor:
             self.columns = self.columns + self.reanchor + ("rank",)
+        self.more = () if not more else MORE + (("snap",) if predictor is not None else ())
+        if more:
+            self.arms = self.arms + self.more
+            self.columns = self.columns + self.more + ("echo_level",)
 
     def begin(self, ids, prompt_length, features, repetition_from, answer, seed=0):
         self.ids, self.prompt_length, self.features = ids, prompt_length, features
         self.repetition_from, self.answer = repetition_from, answer
         self.generator = torch.Generator().manual_seed(1000 * seed + answer)
         self.spread = features[0, prompt_length:].float().std(dim=0)
+        self.tokens, self.index, self.indexed, self.projected = ids[0].tolist(), {}, 1, None
+
+    def earlier_place(self, place):
+        """(an earlier place where the target read the token of `place`, how alike its surroundings are)"""
+        before, token, following = self.tokens[place - 1], self.tokens[place], self.tokens[place + 1]
+        for level, key in ((4, (before, token, following)), (3, ("then", token, following)), (2, ("after", before, token)),
+                           (1, ("alone", token))):
+            found = self.index.get(key)
+            if found is not None:
+                return found, level
+        return None, 0
 
     def start(self, first_drafter):
         self.inner.start(first_drafter)
@@ -143,6 +169,36 @@ class Restart:
         stand_ins.update({f"noisy{level}": (noisy(level), places) for level in NOISE})
         if self.predictor is not None:
             stand_ins["predicted"] = (predicted_states(self.predictor, s, missing, coming=token), places, True)
+        if self.more:
+            size = states.shape[-1] // len(s.first_drafter.target_layer_ids)      # one target layer's part of a state
+            old = before[:, -1:].repeat(1, missing, 1)
+            for count in (1, 2, 3, 4):
+                mixed = old.clone()
+                mixed[..., : count * size] = states[..., : count * size]
+                stand_ins[f"shallow{count}"] = (mixed, places)
+            for count in (1, 2):
+                mixed = old.clone()
+                mixed[..., -count * size :] = states[..., -count * size :]
+                stand_ins[f"deep{count}"] = (mixed, places)
+            while self.indexed < s.start:                           # places the target has read, with the token after each
+                at = self.indexed
+                before_it, it, after_it = self.tokens[at - 1], self.tokens[at], self.tokens[at + 1]
+                for key in ((before_it, it, after_it), ("then", it, after_it), ("after", before_it, it), ("alone", it)):
+                    self.index[key] = at
+                self.indexed += 1
+            found = [self.earlier_place(place) for place in range(s.start, s.start + missing)]
+            hits = [(number, place) for number, (place, _) in enumerate(found) if place is not None]
+            stand_ins["echo_states"] = None
+            if hits:
+                stand_ins["echo_states"] = (self.features[:, [place for _, place in hits]], places[[number for number, _ in hits]])
+            stand_ins["echo_nearest"] = (self.features[:, [found[-1][0]]], places[-1:]) if found[-1][0] is not None else None
+            record["echo_level"] = found[-1][1]
+            if "snap" in self.more:
+                if self.projected is None:
+                    self.projected = torch.nn.functional.normalize(project(s.first_drafter, self.features)[0].float(), dim=-1)
+                asked = torch.nn.functional.normalize(stand_ins["predicted"][0][0].float(), dim=-1)
+                nearest = (asked @ self.projected[: s.start].T).argmax(dim=-1)
+                stand_ins["snap"] = (self.features[:, nearest], places)
         begin = [s.start if name == "none_shift" else restart for name in self.arms]
         anchors, given = [token] * len(self.arms), [stand_ins[name] for name in self.arms]
         if self.reanchor:
@@ -170,7 +226,7 @@ def summary(table, columns=COLUMNS):
     """Tokens accepted after the right token at the break, for each way of restarting: over all
     rounds with a break and by how many of the target's states were missing."""
     COLUMNS = tuple(columns)
-    ARMS = tuple(name for name in COLUMNS[COLUMNS.index("new_rest") + 1 :] if name != "rank")
+    ARMS = tuple(name for name in COLUMNS[COLUMNS.index("new_rest") + 1 :] if name not in ("rank", "echo_level"))
     table = numpy.asarray(table).reshape(-1, len(COLUMNS))
     out = {"rounds": int(len(table))}
     if not len(table):
@@ -183,6 +239,16 @@ def summary(table, columns=COLUMNS):
             out[label] = {"rounds": int(mask.sum()),
                           **{name: round(float(table[mask, COLUMNS.index(name)].mean()), 3) for name in ("old_rest", "new_rest") + ARMS}}
     out["second_choice_right"] = round(float(table[:, COLUMNS.index("second_choice_right")].mean()), 3)
+    if "echo_level" in COLUMNS:
+        # By how alike the earlier place is whose state stands in for the last missing token's.
+        level = table[:, COLUMNS.index("echo_level")]
+        names = {0: "no earlier place", 1: "the same token", 2: "after the same token", 3: "before the same next token",
+                 4: "both"}
+        out["by_earlier_place"] = {
+            names[value]: {"rounds": int((level == value).sum()),
+                           **{name: round(float(table[level == value, COLUMNS.index(name)].mean()), 3)
+                              for name in ("real", "none", "only_nearest", "echo_nearest", "echo_states") if name in COLUMNS}}
+            for value in range(5) if (level == value).any()}
     if "reanchor" in COLUMNS:
         # Tokens accepted from the token at the break on: a restart from the second choice (nothing
         # unless that choice is right), a block from the last right token, and the better of the two.
@@ -218,6 +284,7 @@ def main():
     parser.add_argument("--sharp", action="store_true", help="sharper attention on long texts (SharpDraft)")
     parser.add_argument("--predictor", default="", help="a saved predictor of the missing states: restart-<name>.pt in --adapter-dir")
     parser.add_argument("--reanchor", action="store_true", help="also restart from the last right token (see REANCHOR above)")
+    parser.add_argument("--more", action="store_true", help="also stand-ins that are real states of other places or layers (see MORE above)")
     parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
@@ -248,7 +315,7 @@ def main():
     predictor, predictor_notes = None, {}
     if args.predictor:
         predictor, predictor_notes = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
-    probe = Restart(predictor=predictor, reanchor=args.reanchor)
+    probe = Restart(predictor=predictor, reanchor=args.reanchor, more=args.more)
     records, written, started = [], [0, 0], time.time()          # written: files, rounds in them
 
     def report(done):
@@ -260,7 +327,8 @@ def main():
             written[1] += len(fresh)
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
-                  "sharp": args.sharp, "saved_adapters_used": notes, "columns": probe.columns, "files": written[0],
+                  "sharp": args.sharp, "saved_adapters_used": notes, "columns": probe.columns,
+                  "target_layers_the_drafter_reads": list(draft.target_layer_ids), "files": written[0],
                   "predictor": args.predictor, "predictor_notes": predictor_notes,
                   "answers_read": records, "summary": summary(probe.rows, probe.columns)}
         if torch.cuda.is_available():

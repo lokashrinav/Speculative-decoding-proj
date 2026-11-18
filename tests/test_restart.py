@@ -131,6 +131,41 @@ def test_the_probe_restarts_from_the_last_right_token_too():
     assert "from_the_break_on" not in summary(probe.rows[:0], probe.columns)
 
 
+def test_the_probe_with_real_states_of_other_layers_and_places(tmp_path):
+    """--more: restarts with the real states in only some of the layers the drafter reads, with the
+    real states of earlier places in the answer where the same token was read, and (with a predictor)
+    with the real state most like the predicted one. All layers real is the real state."""
+    from dflash.replay import target_features
+    from dflash.stand_in import StatePredictor
+    from nexus.restart_probe import MORE
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    torch.manual_seed(0)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK).eval()
+    probe = Restart(k=3, width=BLOCK, predictor=predictor, more=True)
+    probe.begin(ids, length, features, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
+    assert probe.columns[-len(MORE) - 2 :] == MORE + ("snap", "echo_level") and len(probe.rows) > 20
+    layers = len(draft.target_layer_ids)
+    levels = set()
+    for row in probe.rows:
+        record = dict(zip(probe.columns, row))
+        assert record[f"shallow{layers}"] == record["real"] if layers <= 4 else True     # every layer real
+        assert all(0 <= record[name] <= BLOCK - 1 for name in MORE + ("snap",)) and 0 <= record["echo_level"] <= 4
+        if record["echo_level"] == 0:
+            assert record["echo_nearest"] == record["none"]          # no earlier place: nothing is given
+        levels.add(record["echo_level"])
+    assert len(levels) > 1 and probe.index and probe.indexed > length
+    place, level = probe.earlier_place(probe.indexed - 1)
+    assert level == 4 or place is None or place < probe.indexed
+    out = summary(probe.rows, probe.columns)
+    assert "echo_level" not in out["all"] and "snap" in out["all"] and out["by_earlier_place"]
+    assert sum(group["rounds"] for group in out["by_earlier_place"].values()) == out["all"]["rounds"]
+
+
 class Seen:
     """Keeps what a plug-in returned in every round, with the round's first draft."""
 
