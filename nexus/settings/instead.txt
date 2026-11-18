@@ -93,3 +93,12 @@ live-second-opd-0: live_speed.py --draft opd --reasoning on --max-new-tokens 204
 live-second-pub-0: live_speed.py --reasoning off --max-new-tokens 1024 --per-bench 30 --bench gsm8k,math500,humaneval,mbpp,mt-bench --rank 16 --max-answers 400 --max-hours 8.5 --settings plain,plain+tree63,plain+reanchor,plain+reanchorct5b7,plain+tree63_reanchorwct5b7,plain+tree63_echo4r4,plain+restart4pxmc3r12st3b5@pub-m0
 bench-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 8.5 --settings plain,plain+restart4pxt3b5@opd-m0,plain+restart4pxmt3b5@opd-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@opd-m0,plain+restart4pxmc3r12t3b5@opd-m0,plain+restart4pxmc3r12st3b5@opd-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@opd-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@opd-m0,plain+restart4pxmc3r12st5b7@opd-m0,plain:window=4096+restart4pxmc3r12st3b5@opd-m0
 bench-pub-0: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 12 --max-hours 8.5 --settings plain,plain+restart4pxt3b5@pub-m0,plain+restart4pxmt3b5@pub-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@pub-m0,plain+restart4pxmc3r12t3b5@pub-m0,plain+restart4pxmc3r12st3b5@pub-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@pub-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@pub-m0
+# (Nov 18, 14:00 UTC) Where do DDTree's rounds end, and what would have carried them further? (nexus/tree_ends.py)
+# Everything tried on top of DDTree adds few tokens to its rounds; this counts what there is to add: rounds that end
+# at a node with nothing after it (on the path of first choices or after an alternative token), rounds where the
+# answer's token is not among a node's children (by its rank among the drafter's choices), and what the first pass
+# would give after the missing token. 30 validation answers, trees of 63, 31 and 127 nodes, replay (about half an
+# hour). The two jobs first in line were set aside anyway (skip.txt) and are used for it.
+# (Results in nexus/results/live-echo2-opd-1 and -pub-1: they are this count, NOT speed tests of the table.)
+live-echo2-opd-1: tree_ends.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
+live-echo2-pub-1: tree_ends.py --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2

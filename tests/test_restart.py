@@ -1043,3 +1043,37 @@ def test_training_the_predictor_on_the_tokens_the_drafter_writes():
     assert "one_token_earlier" not in only_after.progress()
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(True)
+
+
+def test_where_the_trees_rounds_end():
+    """nexus/tree_ends.py: the answer's walk through DDTree, the node where it ends, and why."""
+    from dflash.redraft import DraftTree
+    from nexus.tree_ends import COLUMNS, WAYS, Ends, summary, way
+
+    assert way(15, 1, -1, -1) == WAYS[0] and way(3, 1, 0, 1) == WAYS[1] and way(3, 1, 0, 7) == WAYS[2]
+    assert way(3, 0, 0, 1) == WAYS[3] and way(3, 0, 0, 2) == WAYS[4]
+    assert way(0, 1, 3, 4) == WAYS[5] and way(0, 1, 3, 5) == WAYS[6] and way(2, 0, 1, 11) == WAYS[7]
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    probe = Ends(15, width=BLOCK)
+    probe.begin(ids, length, None, 0)
+    with_tree = replay_decode(draft, target, ids, length, ended=False, improver=probe, block_size=BLOCK)
+    alone = replay_decode(draft, target, ids, length, ended=False, improver=DraftTree(15), block_size=BLOCK)
+    assert with_tree.rounds == alone.rounds and with_tree.acceptance_lengths == alone.acceptance_lengths
+    table = [dict(zip(COLUMNS, row)) for row in probe.rows]
+    assert len(table) > 20
+    # A recorded round accepted exactly the draft tokens the walk counted (and then the target's own token).
+    by_start, at = {}, length
+    for produced in with_tree.acceptance_lengths:
+        by_start[at - length] = produced
+        at += produced
+    for row in table:
+        assert by_start[row["where"]] == row["depth"] + 1 and 1 <= row["nodes"] <= 15 and 1 <= row["trunk_nodes"] <= row["nodes"]
+        if row["depth"] < BLOCK - 1:
+            assert row["children"] >= 0 and row["rank"] >= 1 and row["after_it"] >= 0
+            assert not (row["children"] > 0 and row["rank"] == 1)      # a node with children has its first choice among them
+    report = summary(probe.rows, width=BLOCK)
+    assert report["rounds"] == len(table) and abs(sum(entry["share"] for entry in report["ways"].values()) - 1) < 1e-3
+    assert set(report["ways"]) <= set(WAYS)
