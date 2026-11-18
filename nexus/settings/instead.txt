@@ -149,3 +149,12 @@ tree-ends-pub-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --p
 # ~/specdec-data/think1.)
 train-depth4-opd-0: gen_text.py --out-dir ~/specdec-data/think1 --known ~/specdec-data/long1 --total 8000 --seed 7 --shard 1 --num-shards 4 --max-new-tokens 3072 --max-hours 3.55
 train-depth3b-opd-0: gen_text.py --out-dir ~/specdec-data/think1 --known ~/specdec-data/long1 --total 8000 --seed 7 --shard 0 --num-shards 4 --max-new-tokens 3072 --max-hours 3.55
+# (Nov 18, 22:30 UTC) The first text job runs as planned (train-depth4-opd-0: 211 tokens a second, about 18 answers at a
+# time). DForkTree's scores are built (dflash/follow.py: counts of which token the target writes after which two;
+# dflash/redraft.py: CountTree) and their replay is wanted before the speed test, so the two swap places:
+# live-lean-opd-0 (next but two in line) replays the tree with counts and the second run on top of it, and
+# count-tree-opd-0 (queued for that replay, last in line) runs the speed test, now with the tree with counts in it.
+# (Results in nexus/results/live-lean-opd-0: THE TREE WITH COUNTS, replay; nexus/results/count-tree-opd-0: REAL
+# DECODING with the rewritten second run, the one-layer tree and the tree with counts.)
+live-lean-opd-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2.5 --count-data ~/specdec-data/think1 --settings plain,tree63,ctree63,ctree63l20_40,ctree63l15_30,ctree63l30_30,ctree63l45_90,btree63f40t2n@~opd-r1,cbtree63f40t2n@~opd-r1,cbtree63f40t2b8p@opd-m0,btree63f40t2b8r,cbtree63f40t2b8r
+count-tree-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.4 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+tree63_restart4pxt3@opd-m0,plain+btree63f40t2n@~opd-r1,plain+btree63f40t2v16n@~opd-r1,plain+btree63f40t2b8p@opd-m0,plain+tree95,plain+btree95f63t2n@~opd-r1

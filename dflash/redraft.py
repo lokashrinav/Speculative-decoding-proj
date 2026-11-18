@@ -1022,11 +1022,17 @@ class DraftTree:
                 heapq.heappush(heap, (negative - scores[at][0], ranks + (0,)))
         return chosen
 
+    def choose(self, s: SimpleNamespace, best, scores: list[list[float]]):
+        """The tree's nodes, each as the ranks of its tokens, and the log-probability of each node.
+        best: the first run's most probable tokens of every place (topk: values and indices), scores: its values as lists."""
+        chosen = self.paths(scores)
+        return chosen, {ranks: sum(scores[at][rank] for at, rank in enumerate(ranks)) for ranks in chosen}
+
     def __call__(self, s: SimpleNamespace) -> torch.Tensor:
         logits = s.draft_logits[0].float()
         best = logits.log_softmax(dim=-1).topk(min(self.budget, logits.shape[-1]), dim=-1)
         tokens = best.indices.tolist()
-        chosen = self.paths(best.values.tolist())
+        chosen, _ = self.choose(s, best, best.values.tolist())
         self.nodes = len(chosen)
         parents = {ranks[:-1] for ranks in chosen}
         leaves = [ranks for ranks in chosen if ranks not in parents]
@@ -1034,6 +1040,81 @@ class DraftTree:
         width, first = s.block_ids.shape[1], int(s.block_ids[0, 0])
         rows = [[first] + [tokens[at][rank] for at, rank in enumerate(ranks)] + [-1] * (width - 1 - len(ranks)) for ranks in leaves]
         return torch.tensor(rows, dtype=s.block_ids.dtype, device=s.block_ids.device)
+
+
+class CountTree(DraftTree):
+    """DDTree with the scores corrected by counts of which token the target writes after which two
+    tokens: the scores of DForkTree (Zheng et al., arXiv 2611.12356), written here from the paper.
+
+    DDTree gives a node the product of the first run's probabilities of its tokens. The first run
+    wrote every place without knowing which tokens a branch chose before it. Here the probability
+    of a token c after the tokens (a, b) of its own branch is the first run's, times
+    exp(weight x lift(a, b, c)), where lift says how much more often the target writes c after
+    (a, b) than anywhere (dflash/follow.py). The weight is `on_path` while the branch is the path of
+    first choices and `off_path` once it has left it (0.3 and 0.6 in the paper). Only the
+    `candidates` most probable tokens of a place are scored; what the first run gives to all other
+    tokens stays in the sum the scores are divided by, so a branch whose candidates all fit badly
+    loses probability. The first place keeps the first run's probabilities.
+
+    The tree is the `budget` most probable nodes under these scores. They depend on the branch, so
+    the tree is grown a place at a time: the `budget` best nodes of each depth are kept, and the
+    best `budget` of all kept nodes are the tree (a node never scores above its parent, so this is
+    exact). Nothing is trained and no pass is added: one lookup in the counts for all places."""
+
+    def __init__(self, budget: int, follow=None, candidates: int = 16, on_path: float = 0.3, off_path: float = 0.6):
+        super().__init__(budget)
+        self.follow, self.candidates, self.on_path, self.off_path = follow, candidates, on_path, off_path
+
+    def choose(self, s: SimpleNamespace, best, scores: list[list[float]]):
+        if self.follow is None:
+            raise ValueError("the tree with counts needs the counts (dflash/follow.py: FollowCounts)")
+        many = min(self.candidates, best.indices.shape[1])
+        tokens = best.indices[:, :many]                                # [places, candidates], most probable first
+        places = tokens.shape[0]
+        likely = numpy.asarray([row[:many] for row in scores], dtype=numpy.float64)
+        rest = numpy.clip(1.0 - numpy.exp(likely).sum(axis=-1), 0.0, None)      # what the other tokens of a place have
+        if places > 1:
+            # One lookup for all places: the lift of every candidate c of a place after every candidate b of the
+            # place before it and every candidate a of the place before that (for the second place: the block's
+            # first token).
+            first = s.block_ids[0, :1].to(tokens.device).expand(many)[None]
+            a = torch.cat((first, tokens[:-2]))[:, :, None, None]
+            lift = self.follow.lift(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :])
+            lift = lift.double().cpu().numpy()                          # [places - 1, a, b, c]
+        # The kept nodes of a depth: their score, the candidate they end in, the candidate before it, whether
+        # the branch is still the path of first choices, and which kept node of the depth before is their parent.
+        order = numpy.argsort(-likely[0], kind="stable")[: self.budget]
+        score, last = likely[0][order], order
+        before, on_path, parent = numpy.zeros_like(last), last == 0, numpy.full(len(last), -1)
+        depths = [(score, last, parent)]
+        for place in range(1, places):
+            weight = numpy.where(on_path, self.on_path, self.off_path)[:, None]
+            raised = likely[place][None, :] + weight * lift[place - 1][before, last]
+            given = raised - numpy.log(rest[place] + numpy.exp(raised).sum(axis=-1))[:, None]
+            total = (score[:, None] + given).ravel()
+            keep = numpy.argsort(-total, kind="stable")[: self.budget]
+            parent, chosen_candidate = keep // many, keep % many
+            score, before, last = total[keep], last[parent], chosen_candidate
+            on_path = on_path[parent] & (chosen_candidate == 0)
+            depths.append((score, last, parent))
+        # The best `budget` of all kept nodes; of equal scores the shallower first, so a parent comes before its child.
+        every = [(-float(value), depth, at) for depth, (scores_here, _, _) in enumerate(depths) for at, value in enumerate(scores_here)]
+        every.sort()
+        ranks_of = {}
+
+        def ranks(depth, at):
+            if (depth, at) not in ranks_of:
+                _, last_here, parent_here = depths[depth]
+                above = ranks(depth - 1, int(parent_here[at])) if depth else ()
+                ranks_of[(depth, at)] = above + (int(last_here[at]),)
+            return ranks_of[(depth, at)]
+
+        chosen, worth = [], {}
+        for negative, depth, at in every[: self.budget]:
+            node = ranks(depth, at)
+            chosen.append(node)
+            worth[node] = -negative
+        return chosen, worth
 
 
 class BranchTree:
@@ -1069,7 +1150,7 @@ class BranchTree:
         if stand_in not in ("none", "real", "predicted"):
             raise ValueError("stand_in must be 'none', 'real' or 'predicted'")
         self.budget, self.first, self.tail, self.stand_in, self.choices, self.block = budget, first, tail, stand_in, choices, block
-        self.tree = DraftTree(first)
+        self.tree = DraftTree(first)                   # the first tree; a CountTree(first, ...) may be put in its place
         self.features, self.predictor, self.second = None, None, None
         self.nodes, self._hook, self._first_run = 0, None, None
         self.common, self._shortlist = None, None      # the second run's tokens from a short list (see Restarts.common)
@@ -1094,9 +1175,8 @@ class BranchTree:
         best = logits.log_softmax(dim=-1).topk(min(self.first, logits.shape[-1]), dim=-1)
         tokens, scores = best.indices.tolist(), best.values.tolist()
         first_token = int(s.block_ids[0, 0])
-        chosen = self.tree.paths(scores)                              # the first tree's nodes, as ranks along their paths
+        chosen, worth = self.tree.choose(s, best, scores)             # the first tree's nodes, as ranks along their paths
         path = {ranks: [tokens[at][rank] for at, rank in enumerate(ranks)] for ranks in chosen}
-        worth = {ranks: sum(scores[at][rank] for at, rank in enumerate(ranks)) for ranks in chosen}
         had = {}                                                      # the tokens the first tree has after each node
         for ranks in chosen:
             had.setdefault(ranks[:-1], set()).add(path[ranks][-1])

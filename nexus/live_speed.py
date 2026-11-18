@@ -59,7 +59,7 @@ def swap_of(setting, ckpt_dir=None, like=None):
     if found:
         return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
                                   tail=None if found[4] is None else int(found[4]))
-    found = re.fullmatch(r"(.+?)\+((?:(?:b?tree|restart|echo)\d+|reanchor).*)", setting)
+    found = re.fullmatch(r"(.+?)\+((?:(?:cbtree|ctree|btree|tree|restart|echo)\d+|reanchor).*)", setting)
     if found:
         from nexus.redraft_long import make_method
 
@@ -155,6 +155,9 @@ def main():
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--min-tokens", type=int, default=0, help="only prompts whose saved answer is at least this long")
+    parser.add_argument("--count-data", action="append", default=[],
+                        help="a folder of more text by the target for the counts of the trees with counts (+ctree..., "
+                             "+cbtree...), next to the training answers of --data-dir (may be given more than once)")
     parser.add_argument("--max-new-tokens", type=int, default=16384)
     parser.add_argument("--max-answers", type=int, default=12)
     parser.add_argument("--max-hours", type=float, default=3.0)
@@ -184,9 +187,11 @@ def main():
         adapter.fast = True                 # the cheaper way to apply the extra weights when nothing is learned
     settings, settings_from = settings_for(args.results_dir, args.settings)
     names = settings.split(",")
-    from nexus.redraft_long import token_counts
+    from nexus.redraft_long import FOLLOW, follow_counts, token_counts, with_counts
 
     token_counts(args.adapter_dir, args.data_dir, target.config.vocab_size)       # for settings with a short list (vN)
+    if any(with_counts(name) for name in names) and args.data_dir:                # for the trees with counts
+        follow_counts(args.data_dir, args.count_data, target.config.vocab_size, device)
     swaps = {name: swap_of(name, args.adapter_dir, draft) for name in names}
     trainers, started_from = build_trainers(",".join(dict.fromkeys(base for base, _ in swaps.values())), draft, adapters,
                                             args.adapter_dir)
@@ -215,6 +220,7 @@ def main():
     def report(done):
         status = {"done": done, "answers": len(records), "hours": round((time.time() - started) / 3600, 3),
                   "settings": settings, "settings_from": settings_from, "saved_adapters_used": started_from,
+                  "counts_from": FOLLOW.get("from"),
                   "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names),
                   "by_source": by_source(records, names), "updates": {}}
         for name, trainer in trainers.items():

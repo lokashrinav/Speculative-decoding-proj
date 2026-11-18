@@ -1,4 +1,6 @@
 """The probe of restarts after the break (nexus/restart_probe.py)."""
+import math
+
 import pytest
 import torch
 
@@ -1866,3 +1868,99 @@ def test_training_takes_more_folders_of_text(tmp_path):
     write(one, "shard0of2.pt", [([3, 4], [5, 6, 7]), ([8, 9, 10], [11, 12]), ([20], [21, 22])])
     later = more_answers([str(one), str(two)], held_out={(8, 9, 10)}, seen=seen)
     assert [answer[2].tolist() for answer in later] == [[20, 21, 22], [16, 17, 18, 19]]
+
+
+def _round_state(logits, first_token=3, text=(1, 2)):
+    from types import SimpleNamespace
+
+    width = logits.shape[0] + 1
+    return SimpleNamespace(draft_logits=logits[None], block_ids=torch.tensor([[first_token] + [31] * (width - 1)]),
+                           accepted_ids=torch.tensor([list(text)]), start=len(text))
+
+
+def test_counts_of_which_token_follows_which():
+    """dflash/follow.py: counts of one, two and three tokens, smoothed, and the lift of a token after two others."""
+    from dflash.follow import FollowCounts
+
+    text = torch.tensor([9, 9, 1, 2, 3, 1, 2, 3, 1, 2, 4])
+    counts = FollowCounts.count([(text, 2)], vocabulary=10, strength=2.0, clip=10.0)
+    assert counts.tokens == 9 and counts.sizes()["different_triples"] == 6
+    anywhere = lambda token: (int((text[2:] == token).sum()) + 1) / (9 + 10)
+    assert abs(float(counts.anywhere[3]) - anywhere(3)) < 1e-6
+    # after (1, 2): 3 twice, 4 once.   after 2 alone: 3 twice, 4 once.
+    one = (2 + 2.0 * anywhere(3)) / (3 + 2.0)
+    two = (2 + 2.0 * one) / (3 + 2.0)
+    got = counts.after_two(torch.tensor(1), torch.tensor(2), torch.tensor(3))
+    assert abs(float(got) - two) < 1e-6
+    lift = counts.lift(torch.tensor([1]), torch.tensor([2]), torch.tensor([3, 4, 5]))
+    assert lift.shape == (3,) and lift[0] > lift[1] > lift[2]            # seen twice, once, never
+    assert abs(float(lift[0]) - math.log(two / anywhere(3))) < 1e-5
+    never = counts.lift(torch.tensor([7]), torch.tensor([8]), torch.tensor([3]))    # an unseen pair: what is known of 3 alone
+    assert abs(float(never) - math.log(((0 + 2.0 * anywhere(3)) / (0 + 2.0)) / anywhere(3))) < 1e-5
+    assert float(FollowCounts.count([(text, 2)], 10, strength=2.0, clip=0.5).lift(
+        torch.tensor([1]), torch.tensor([2]), torch.tensor([3]))) == 0.5
+
+
+def test_tree_with_counts():
+    """dflash/redraft.py: CountTree. With weight 0 it is DDTree; with counts, the tokens the target writes after
+    a branch's own tokens move up; its nodes are whole paths; BranchTree takes it as its first tree."""
+    from dflash.follow import FollowCounts
+    from dflash.redraft import BranchTree, CountTree, DraftTree
+
+    torch.manual_seed(0)
+    logits = torch.randn(5, 32) * 2.0
+    s = _round_state(logits)
+    nothing = FollowCounts.count([], vocabulary=32)
+    plain, counted = DraftTree(12), CountTree(12, nothing, candidates=12, on_path=0.0, off_path=0.0)
+    assert sorted(map(tuple, plain(s).tolist())) == sorted(map(tuple, counted(s).tolist()))
+    assert plain.nodes == counted.nodes == 12
+
+    # The first run: at the first place tokens 10 (first choice) and 11; at the second place 20, then 21.
+    # The target's own text: after (3, 11) it writes 21, after (3, 10) it writes 20.
+    logits = torch.full((3, 32), -8.0)
+    logits[0, 10], logits[0, 11] = 3.0, 2.5
+    logits[1, 20], logits[1, 21] = 3.0, 2.0
+    logits[2, 25] = 3.0
+    s = _round_state(logits)
+    text = torch.tensor([0, 0] + [3, 11, 21, 3, 10, 20] * 30)
+    follow = FollowCounts.count([(text, 2)], vocabulary=32)
+    best = logits.log_softmax(-1).topk(8, dim=-1)
+    marginal, _ = DraftTree(6).choose(s, best, best.values.tolist())
+    assert (1, 0) in marginal and (1, 1) not in marginal              # DDTree: after 11 it offers 20, the first choice
+    tree = CountTree(6, follow, candidates=8)
+    chosen, worth = tree.choose(s, best, best.values.tolist())
+    assert (1, 1) in chosen and (0, 0) in chosen                       # after 11 comes 21, after 10 still 20
+    assert worth[(1, 1)] > worth.get((1, 0), -1e9)
+    assert all(node[:-1] in chosen for node in chosen if len(node) > 1)             # every node has its parent
+    assert all(worth[node] <= worth[node[:-1]] + 1e-9 for node in chosen if len(node) > 1)
+    rows = tree(s).tolist()
+    assert tree.nodes == 6 and [3, 11, 21] in [row[:3] for row in rows]
+    with pytest.raises(ValueError):
+        CountTree(6)(s)
+
+    both = BranchTree(8, 6, tail=1, stand_in="none")                   # the first tree of the every-node tree
+    both.tree = CountTree(6, follow, candidates=8)
+    plain_first, counted_first = BranchTree(6, 6, stand_in="none"), BranchTree(6, 6, stand_in="none")
+    counted_first.tree = CountTree(6, follow, candidates=8)
+    assert [3, 11, 21] in [row[:3] for row in counted_first(s).tolist()]
+    assert [3, 11, 21] not in [row[:3] for row in plain_first(s).tolist()]
+
+
+def test_names_of_trees_with_counts():
+    from dflash.follow import FollowCounts
+    from dflash.redraft import BranchTree, CountTree
+    from nexus import redraft_long
+
+    assert redraft_long.with_counts("ctree63") and redraft_long.with_counts("cbtree63f40t2n@~opd-r1")
+    assert redraft_long.with_counts("plain+ctree63l20_40") and not redraft_long.with_counts("btree63f40t2n")
+    assert not redraft_long.with_counts("tree63") and not redraft_long.with_counts("plain+tree63_restart4pxt3@opd-m0")
+    redraft_long.FOLLOW["counts"] = FollowCounts.count([], vocabulary=32)
+    try:
+        tree = redraft_long.make_method("ctree63l20_40m8", "/nowhere")
+        assert isinstance(tree, CountTree) and (tree.budget, tree.on_path, tree.off_path, tree.candidates) == (63, 0.2, 0.4, 8)
+        assert redraft_long.make_method("ctree31", "/nowhere").off_path == 0.6
+        both = redraft_long.make_method("cbtree63f40t2n", "/nowhere")
+        assert isinstance(both, BranchTree) and isinstance(both.tree, CountTree) and both.tree.budget == 40
+        assert not isinstance(redraft_long.make_method("btree63f40t2n", "/nowhere").tree, CountTree)
+    finally:
+        redraft_long.FOLLOW.clear()

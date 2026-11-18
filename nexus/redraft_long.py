@@ -197,6 +197,33 @@ def token_counts(ckpt_dir, data_dir, vocabulary):
     return path
 
 
+FOLLOW = {}     # "counts": which token the target writes after which two (follow_counts below), for the trees with counts
+
+
+def follow_counts(data_dir, more, vocabulary, device):
+    """Counts of which token follows which two tokens (dflash/follow.py), for the trees whose scores they correct
+    (ctree..., cbtree...): from the TRAINING answers of data_dir and every answer of the `more` folders, never
+    from the answers a replay or a speed test runs on. Counted once per job, in memory."""
+    from dflash.follow import FollowCounts
+    from nexus.fit_gate import split_of
+    from nexus.replay_memory import load_answers
+
+    texts = [(answer[2], answer[3]) for answer in load_answers(data_dir) if split_of([answer[0], answer[1]]) == "train"]
+    folders = {os.path.basename(os.path.normpath(data_dir)) + " (training answers)": len(texts)}
+    for folder in more or []:
+        found = [(answer[2], answer[3]) for answer in load_answers(os.path.expanduser(folder))]
+        folders[os.path.basename(os.path.normpath(folder))] = len(found)
+        texts += found
+    FOLLOW["counts"] = FollowCounts.count(texts, vocabulary).to(device)
+    FOLLOW["from"] = {"answers": folders, **FOLLOW["counts"].sizes()}
+    return FOLLOW["counts"]
+
+
+def with_counts(name):
+    """Whether a method's name has a tree with counts in it."""
+    return re.search(r"(?:^|[+_])c(?:b)?tree\d", name) is not None
+
+
 def make_method(name, ckpt_dir, like=None):
     """The plug-in of a method name (None for "plain"). like: the first drafter, whose number
     type and device a saved second drafter takes."""
@@ -226,7 +253,17 @@ def make_method(name, ckpt_dir, like=None):
         number = lambda at: None if found[at] is None else int(found[at])
         return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
                         whole=bool(found[2]))
-    found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?(?:v(\d+))?([nrp])(?:@(.+))?", name)
+    found = re.fullmatch(r"ctree(\d+)(?:l(\d+)_(\d+))?(?:m(\d+))?", name)
+    if found:
+        # ctreeB: DDTree with B nodes whose scores are corrected by counts of which token follows which two
+        # (dflash/redraft.py: CountTree, the scores of DForkTree); lX_Y: the weights on and off the path of first
+        # choices, in hundredths (30_60 without); mN: the N most probable tokens of a place are scored (16 without).
+        from dflash.redraft import CountTree
+
+        return CountTree(int(found[1]), FOLLOW.get("counts"), candidates=int(found[4] or 16),
+                         on_path=int(found[2] or 30) / 100, off_path=int(found[3] or 60) / 100)
+    counted = name.startswith("cbtree")              # cbtree...: the first tree of a btree is a tree with counts
+    found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?(?:v(\d+))?([nrp])(?:@(.+))?", name[1:] if counted else name)
     if found:
         # btreeBfFtT: a tree of B nodes in which the second run writes after every node of a first tree of F
         # nodes, T places each (dflash/redraft.py: BranchTree); cN: its N best tokens after each node; bN: blocks
@@ -238,6 +275,10 @@ def make_method(name, ckpt_dir, like=None):
                             block=None if found[5] is None else int(found[5]),
                             stand_in={"n": "none", "r": "real", "p": "predicted"}[found[7]])
         method.common = short_list(ckpt_dir, None if found[6] is None else int(found[6]))      # vN: a short list of tokens
+        if counted:
+            from dflash.redraft import CountTree
+
+            method.tree = CountTree(int(found[2]), FOLLOW.get("counts"))
         predictor, _, second = (found[8] or "").partition("~")
         if found[7] == "p":
             from dflash.stand_in import load_predictor
@@ -533,6 +574,9 @@ def main():
     parser.add_argument("--max-hours", type=float, default=5.0)
     parser.add_argument("--adapter-dir", default=os.path.expanduser("~/specdec-ckpt"), help="where lora-<name>.pt files are")
     parser.add_argument("--ckpt-dir", default=os.path.expanduser("~/specdec-ckpt"), help="where saved second drafters are")
+    parser.add_argument("--count-data", action="append", default=[],
+                        help="a folder of more text by the target for the counts of the trees with counts (ctree..., "
+                             "cbtree...), next to the training answers of --data-dir (may be given more than once)")
     parser.add_argument("--longest", type=int, default=0, help="skip answers longer than this many tokens (for a quick check)")
     parser.add_argument("--max-answers", type=int, default=0, help="stop after this many answers (for a quick check)")
     parser.add_argument("--time-passes", default="", help="text lengths, comma-separated: before the replay, time "
@@ -560,6 +604,8 @@ def main():
         adapter.fast = True
     saved, saved_notes, methods = {}, {}, {}
     token_counts(args.ckpt_dir, args.data_dir, target.config.vocab_size)       # for methods with a short list of tokens (vN)
+    if any(with_counts(options["method"]) for options in parsed.values()):      # for the trees with counts
+        follow_counts(args.data_dir, args.count_data, target.config.vocab_size, device)
     for name, options in parsed.items():
         fixed = options["fixed"]
         if fixed and fixed not in saved:
@@ -588,6 +634,7 @@ def main():
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
                   "hours": round((time.time() - started) / 3600, 3), "draft": args.draft,
                   "settings": settings, "settings_from": settings_from, "saved_adapters_used": saved_notes,
+                  "counts_from": FOLLOW.get("from"),
                   "groups": [name for name, _, _ in GROUPS], "by_setting": summarize(records, names),
                   "in_real_time": in_real_time(records, names),
                   "measured_ms": {"tokens_before": MEASURED_AT, "target_check": CHECK_MS, "first_draft": DRAFT_MS},
