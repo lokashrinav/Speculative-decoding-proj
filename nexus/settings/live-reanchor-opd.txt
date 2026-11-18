@@ -1,0 +1,9 @@
+plain,plain+reanchor,plain+reanchort7,plain+reanchort5b7,plain+reanchor6t5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchort3b5,plain+tree63_reanchor6t5b7,plain:window=4096+tree63,plain:window=4096+tree63_reanchort5b7
+# (Nov 18) ReAnchor (arXiv 2610.26531, nothing trained) in our decoder, and what nobody has shown yet: the same on
+# top of DDTree. New blocks of the drafter are started from what the LAST check left behind (the token the target
+# chose after each rejected draft token, with its states of the rejected tokens) and written in the first draft's own
+# pass, so they cost no second drafter pass; a block is attached where the first draft has its first token.
+#   reanchor      the published method: every block, whole, every attached token checked
+#   t7, t5b7      only 7 or 5 of a block's tokens are checked; b7: a block has 7 tokens
+#   reanchor6     the 6 blocks started nearest to the round's first token
+#   tree63_...    DDTree with the blocks' rows on top

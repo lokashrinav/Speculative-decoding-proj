@@ -59,7 +59,7 @@ def swap_of(setting, ckpt_dir=None, like=None):
     if found:
         return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
                                   tail=None if found[4] is None else int(found[4]))
-    found = re.fullmatch(r"(.+?)\+((?:tree|restart|echo)\d+.*)", setting)
+    found = re.fullmatch(r"(.+?)\+((?:(?:tree|restart|echo)\d+|reanchor).*)", setting)
     if found:
         from nexus.redraft_long import make_method
 
@@ -213,6 +213,8 @@ def main():
                 # rows that decided while following the saved answer, and how many the pass decided otherwise
                 "followed": [int(result.followed_rows), int(result.followed_against)]}
             counts = getattr(swaps[setting][1], "counts", None)   # a second run's own counts, summed over the answers so far
+            # (for a second run in a pass of its own "improve" is its time; blocks written in the first
+            # draft's pass add to "draft" instead)
             if counts:
                 record["settings"][setting]["second_run"] = dict(counts)
         for setting in names:

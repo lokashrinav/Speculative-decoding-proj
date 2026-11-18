@@ -709,6 +709,97 @@ def test_states_left_over_from_the_last_check():
         assert method.counts["restarts"] > 0 and method.counts["states_missing"] >= method.counts["states_from_the_last_check"] >= 0
 
 
+def test_new_blocks_from_what_the_last_check_left():
+    """Reanchor: a block started at the token the target chose after a rejected draft token, with the
+    target's states of the rejected tokens before it, attached where the first draft has that token."""
+    from dflash.redraft import Reanchor, TreeWithRestarts, DraftTree, dflash_generate_redraft
+    from dflash.replay import target_features
+    from nexus.redraft_long import make_method
+
+    named = make_method("reanchor6t5b7f", "/nowhere")
+    assert (named.k, named.alternative_tail, named.block, named.fixed) == (6, 5, 7, True)
+    free = make_method("reanchor", "/nowhere")
+    assert (free.k, free.alternative_tail, free.block, free.fixed) == (None, None, None, False)
+    assert type(make_method("tree31_reanchort3b5", "/nowhere")).__name__ == "TreeWithRestarts"
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+
+    class TruthAsLeftover:
+        """The leftover as it would be had the last check read the answer itself from this round's
+        first token on: then a block started after `count` of those tokens is the first draft of a
+        round that starts there."""
+
+        def __init__(self, method):
+            self.method, self.rounds = method, []
+
+        def start(self, drafter):
+            self.method.start(drafter)
+
+        def __call__(self, s):
+            width = s.block_ids.shape[1]
+            end = min(s.start + width, ids.shape[1] - 1)
+            if end - s.start < 3:
+                return None
+            s.leftover = {"start": s.start, "tokens": ids[0, s.start : end].tolist(), "features": features[0, s.start : end],
+                          "said": ids[0, s.start + 1 : end + 1].tolist()}
+            expected = {}
+            for count in range(1, end - s.start + 1):
+                states = (features[:, s.start : s.start + count], torch.arange(s.start, s.start + count))
+                expected[count] = restarts(s, [ids[0, s.start + count]], [s.start + count], [states],
+                                           min(self.method.block or width, width))[0].tolist()
+            rows = self.method(s)
+            self.rounds.append((s.start, s.block_ids[0].tolist(), expected, None if rows is None else rows.tolist()))
+            return rows
+
+    seen = TruthAsLeftover(Reanchor())
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+    attached = moved = 0
+    for start, first_draft, expected, rows in seen.rounds:
+        want = []
+        for count in sorted(expected):
+            token = int(ids[0, start + count])
+            at = next((index for index in range(len(first_draft)) if first_draft[index] == token), None)
+            if at is not None:
+                want.append((first_draft[: at + 1] + expected[count])[: 2 * len(first_draft)])
+                moved += int(at != count)
+        attached += len(want)
+        got = [] if rows is None else [[token for token in row if token >= 0] for row in rows]
+        assert got == want
+    assert attached > 20 and seen.method.counts["blocks_attached"] == attached
+    assert seen.method.counts["blocks_attached_elsewhere"] == moved and seen.method.counts["blocks"] > attached
+
+    fixed = TruthAsLeftover(Reanchor(k=4, block=5, fixed=True))
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=fixed, block_size=BLOCK)
+    for start, first_draft, expected, rows in fixed.rounds:
+        for row in rows or []:
+            row = [token for token in row if token >= 0]
+            count = next(c for c in sorted(expected) if row[: c + 1] == first_draft[: c + 1] and row[c + 1 :] == expected[c] and c <= 4)
+            assert first_draft[count] == int(ids[0, start + count]) and len(row) == count + 5
+    assert fixed.method.counts["blocks_attached_elsewhere"] == 0 and fixed.method.counts["blocks"] <= 4 * fixed.method.counts["rounds_with_blocks"]
+
+    # Real decoding: the checks leave what the blocks are started from, and the text stays the plain drafter's.
+    prompt = ids[:, :length]
+    # The blocks are written in the first draft's pass (ahead) or in one of their own: the same blocks either way.
+    for make in (lambda ahead: Reanchor(ahead=ahead), lambda ahead: Reanchor(k=6, tail=3, block=5, ahead=ahead),
+                 lambda ahead: TreeWithRestarts(DraftTree(15), Reanchor(tail=3, block=5, ahead=ahead))):
+        ran = []
+        for ahead in (True, False):
+            method = make(ahead)
+            assert bool(method.ahead) == ahead
+            timers = {}
+            result = dflash_generate_redraft(draft, target, prompt, 200, None, improver=method, block_size=BLOCK,
+                                             return_stats=True, timers=timers)
+            assert torch.equal(result.output_ids, plain.output_ids) and result.rounds <= plain.rounds
+            counts = method.counts
+            assert counts["rounds"] > 0 and counts["blocks"] >= counts["blocks_attached"] >= counts["blocks_attached_elsewhere"] >= 0
+            assert counts["rounds_with_blocks"] > 0
+            ran.append((result.rounds, dict(counts), timers["rows_one"] if "rows_one" in timers else 0, timers.get("rows_two", 0)))
+        assert ran[0] == ran[1]
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 

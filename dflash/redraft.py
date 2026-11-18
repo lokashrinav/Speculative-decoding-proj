@@ -625,6 +625,91 @@ class Restarts:
         return rows
 
 
+class Reanchor:
+    """New blocks of the same drafter started from what the LAST check left behind (ReAnchor, Lee et
+    al., arXiv 2610.26531; nothing is trained).
+
+    In its last check the target also read the draft tokens after the first one it rejected. Its
+    states there are states of text that was not written, and so is the token it chose after each of
+    them. But they belong together: a block started at that token, placed right after the rejected
+    token it was chosen after, with the target's states of the rejected tokens before it, is what the
+    drafter would write next if the text had gone that way. Text often comes back to the rejected
+    draft a token or two later; where this round's first draft holds a block's first token, the
+    block's tokens are attached after it (at the earliest such place), and the target checks them in
+    the same pass as the first draft.
+
+    k: at most this many blocks, the ones started nearest to this round's first token (None: all).
+    tail: the target checks only this many of a block's tokens. block: the tokens of a new block
+    (first token and masks; None: a whole block). fixed: attach a block only at the place it was
+    started at (ReAnchor's ablation; False: at the earliest place the first draft has its token).
+    ahead: the blocks are written in the first draft's own pass, as ReAnchor does (they need nothing
+    of the first draft); False: in a pass of their own after it, which costs a drafter pass more.
+    Returned: rows [first token, ...] with -1 after their end, or None. Real decoding only: a replay
+    makes no checks."""
+
+    swap = False
+
+    def __init__(self, k: int | None = None, tail: int | None = None, block: int | None = None, fixed: bool = False,
+                 ahead: bool = True):
+        self.k, self.alternative_tail, self.block, self.fixed = k, tail, block, fixed
+        self.ahead = ahead          # the blocks are written in the first draft's pass (real decoding does that)
+        self.kept = []
+        self.counts = {"rounds": 0, "rounds_with_blocks": 0, "blocks": 0, "blocks_attached": 0, "blocks_attached_elsewhere": 0}
+
+    def start(self, drafter: nn.Module) -> None:
+        self.kept = []
+
+    def blocks(self, s: SimpleNamespace):
+        """The blocks the last check allows: (first tokens, their places, [(states, places)]),
+        nearest first, or None."""
+        left = getattr(s, "leftover", None)
+        if left is None:
+            return None
+        device = s.block_ids.device
+        skip = max(s.start - left["start"], 0)                      # leftover tokens whose places are text by now
+        firsts, places, stand_ins = [], [], []
+        for count in range(skip + 1, len(left["tokens"]) + 1):      # after the first `count` leftover tokens
+            if self.k is not None and len(firsts) >= self.k:
+                break
+            firsts.append(left["said"][count - 1])
+            places.append(left["start"] + count)
+            stand_ins.append((left["features"][None, skip:count], torch.arange(left["start"] + skip, left["start"] + count, device=device)))
+        return (firsts, places, stand_ins) if firsts else None
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor | None:
+        self.counts["rounds"] += 1
+        width = s.block_ids.shape[1]
+        if getattr(s, "ahead", None) is not None:                   # written in the first draft's pass
+            firsts, places, new = s.ahead
+        else:
+            found = self.blocks(s)
+            if found is None:
+                return None
+            firsts, places, stand_ins = found
+            new = restarts(s, firsts, places, stand_ins, width if self.block is None else min(self.block, width))
+        first_draft = s.block_ids[0].tolist()
+        rows = []
+        for number, token in enumerate(firsts):
+            nominal = places[number] - s.start
+            if self.fixed:
+                at = nominal if nominal < width and first_draft[nominal] == token else None
+            else:
+                at = next((index for index in range(width) if first_draft[index] == token), None)
+            if at is None:
+                continue
+            self.counts["blocks_attached"] += 1
+            self.counts["blocks_attached_elsewhere"] += int(at != nominal)
+            rows.append(first_draft[: at + 1] + new[number].tolist())
+        self.counts["rounds_with_blocks"] += 1
+        self.counts["blocks"] += len(firsts)
+        if not rows:
+            return None
+        out = torch.full((len(rows), 2 * width), -1, dtype=s.block_ids.dtype, device=s.block_ids.device)
+        for number, row in enumerate(rows):
+            out[number, : len(row)] = torch.tensor(row[: 2 * width], dtype=out.dtype, device=out.device)
+        return out
+
+
 class DraftTree:
     """DDTree (Ringel and Romano, arXiv 2604.12989): a tree of drafts from the first pass alone.
 
@@ -821,6 +906,17 @@ class TreeWithRestarts:
     def counts(self):
         return getattr(self.restarts, "counts", None)
 
+    @property
+    def ahead(self):                                                  # blocks written in the first draft's pass
+        return getattr(self.restarts, "ahead", False)
+
+    @property
+    def block(self):
+        return getattr(self.restarts, "block", None)
+
+    def blocks(self, s: SimpleNamespace):
+        return self.restarts.blocks(s)
+
     def heard(self, before_block, tokens, parents, said) -> None:
         if hasattr(self.restarts, "heard"):
             self.restarts.heard(before_block, tokens, parents, said)
@@ -915,6 +1011,46 @@ class Gated:
 
 def _leading_matches(proposed: torch.Tensor, verified: torch.Tensor) -> int:
     return int((proposed == verified).cumprod(dim=1).sum(dim=1)[0].item())
+
+
+def _draft_with_blocks(drafter, target, cache, context_features, noise, position_ids, start, block_len, blocks, reach):
+    """The round's first draft and other blocks of the same drafter in ONE pass.
+
+    blocks: (first tokens, their places, [(the target's states it is given besides the text's, their
+    places)]) as Reanchor.blocks gives them: the states of block n are the first n + 1 of the last
+    block's, so they are laid out once. The first draft sees the text and itself, as in a pass of its
+    own; a block sees the text, its states and itself. Returns the first draft's final states
+    ([1, block_len, size]) and (first tokens, places, the tokens each block writes after its first
+    token: [blocks, reach - 1]); the cache keeps the text's new entries only."""
+    firsts, places, stand_ins = blocks
+    device, count = noise.device, len(firsts)
+    states, state_places = stand_ins[-1]
+    extra = states.shape[1]
+    assert all(entry[0].shape[1] == number + 1 + extra - count for number, entry in enumerate(stand_ins))
+    more = torch.full((count, reach), drafter.mask_token_id, dtype=torch.long, device=device)
+    more[:, 0] = torch.as_tensor(firsts, dtype=torch.long, device=device)
+    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+    new = context_features.shape[1]
+    seen = cache.get_seq_length() + new
+    slots = torch.arange(reach, device=device)
+    positions = torch.cat([position_ids[0, start - new : start], state_places.to(device), position_ids[0, start : start + block_len]]
+                          + [place + slots for place in places])[None]
+    queries = block_len + count * reach
+    sees = torch.zeros((queries, seen + extra + queries), dtype=torch.bool, device=device)
+    sees[:, :seen] = True
+    sees[:block_len, seen + extra : seen + extra + block_len] = True
+    for number in range(count):
+        rows = slice(block_len + number * reach, block_len + (number + 1) * reach)
+        sees[rows, seen : seen + extra - count + number + 1] = True
+        sees[rows, seen + extra + block_len + number * reach : seen + extra + block_len + (number + 1) * reach] = True
+    hidden = drafter(
+        target_hidden=torch.cat((context_features, states.to(context_features.dtype)), dim=1),
+        noise_embedding=torch.cat((noise, _raw_input_embeddings(target, more.reshape(1, -1), scale)), dim=1),
+        position_ids=positions, attention_mask=sees[None, None], past_key_values=cache, use_cache=True,
+    )[:, -queries:, :]
+    cache.crop(-(extra + queries))
+    logits = drafter.compute_logits(hidden[:, block_len:].reshape(count, reach, -1)[:, 1:, :], _output_head(target))
+    return hidden[:, :block_len], (firsts, places, logits.argmax(dim=-1))
 
 
 def _tree_of_drafts(trunk: list[int], rows: list[list[int]], deepest: int):
@@ -1118,13 +1254,23 @@ def dflash_generate_redraft(
                     model, _output_head(target), context_features, noise,
                     position_ids[:, start - context_features.shape[1] : start + block_len], draft_cache, start)
             else:
-                draft_states = model(
-                    target_hidden=context_features, noise_embedding=noise,
-                    position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
-                    past_key_values=draft_cache, use_cache=True,
-                )[:, -block_len:, :]
+                # A plug-in may have blocks of its own written in the first draft's pass (Reanchor): they
+                # are started from what the last check left behind, so they do not wait for the draft.
+                ahead = None
+                if improver is not None and block_len > 2 and getattr(improver, "ahead", False):
+                    ahead = improver.blocks(SimpleNamespace(start=start, block_ids=block_ids, leftover=leftover))
+                if ahead is None:
+                    draft_states = model(
+                        target_hidden=context_features, noise_embedding=noise,
+                        position_ids=position_ids[:, start - context_features.shape[1] : start + block_len],
+                        past_key_values=draft_cache, use_cache=True,
+                    )[:, -block_len:, :]
+                    draft_cache.crop(-block_len)             # the block's own entries go
+                else:
+                    draft_states, ahead = _draft_with_blocks(
+                        model, target, draft_cache, context_features, noise, position_ids, start, block_len, ahead,
+                        min(getattr(improver, "block", None) or block_len, block_len))
                 hidden = draft_states[:, 1:, :]
-                draft_cache.crop(-block_len)                 # the block's own entries go
                 if context_window:                           # ... and so does context older than the window
                     for layer in draft_cache.layers:
                         if layer.keys is not None and layer.keys.shape[-2] > context_window:
@@ -1142,7 +1288,7 @@ def dflash_generate_redraft(
                     position_ids=position_ids, context_features=context_features,
                     accepted_ids=output_ids[:, :start], first_drafter=model,
                     draft_cache=draft_cache, target=target, draft_states=draft_states,
-                    canvas=canvas, leftover=leftover,
+                    canvas=canvas, leftover=leftover, ahead=ahead if learner is None else None,
                 ))
 
             if timers is not None and improver is not None:
@@ -1253,8 +1399,10 @@ def dflash_generate_redraft(
                 # place of the first of them, and its states at them. They are states of text that was
                 # not written, but where the next draft has the same token at the same place they are
                 # the target's own states of that token, with a context that differs a few tokens back.
+                # "said": the token the target chose after each of them.
                 leftover = {"start": start + in_order, "tokens": tokens[in_order:on_trunk],
-                            "features": features[0, num_pending + in_order : num_pending + on_trunk]}
+                            "features": features[0, num_pending + in_order : num_pending + on_trunk],
+                            "said": own_choice[0, num_pending + in_order : num_pending + on_trunk].tolist()}
             if round_clock is not None:
                 round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
             start += produced
@@ -1377,7 +1525,8 @@ def dflash_generate_redraft(
             context_features = features[:, winner_rows[:produced], :]
             if first_accepted + 1 < block_len:                # the first draft's tokens the target read and did not accept
                 leftover = {"start": start + first_accepted + 1, "tokens": block_ids[0, first_accepted + 1 :].tolist(),
-                            "features": features[0, first_rows[first_accepted + 1 :]]}
+                            "features": features[0, first_rows[first_accepted + 1 :]],
+                            "said": own_choice[0, first_rows[first_accepted + 1 :]].tolist()}
         if round_clock is not None:
             round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
         start += produced

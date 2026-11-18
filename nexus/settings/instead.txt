@@ -74,9 +74,12 @@ tree-replay-pub-4: train_restart.py --data-dir ~/specdec-data/long1 --save pub-b
 restart-replay-pub-3: train_restart.py --draft opd --data-dir ~/specdec-data/long1 --save opd-s0 --coming --layers 2 --memory 8 --vector-weight 2 --passes 2 --max-hours 3 --check-answers 12
 # (Nov 18, 11:10 UTC) The second run's own speed test moved to the front of the queue. probe-shift-opd-0 started with
 # the first list (3 tokens checked after each restart, gates g3 and g6, alone and on top of DDTree: its settings.txt has
-# it). probe-shift-pub-0 runs the second list on the public drafter (short new blocks, states left by the last check,
-# restarts picked best first: nexus/settings/live-second-pub.txt), and live-second-opd-0 the same list on Draft-OPD, as
-# queued. (Results in nexus/results/probe-shift-opd-0 and -pub-0: they are SPEED TESTS of the second run, not counts
-# of shifted drafts. That count waits: ReAnchor, arXiv 2610.26531, has published it and a method built on it.)
+# it). live-second-opd-0 runs the second list as queued (short new blocks, states left by the last check, restarts
+# picked best first: nexus/settings/live-second-opd.txt).
+# (Nov 18, 11:50 UTC) probe-shift-pub-0, the next job to start, runs ReAnchor on DRAFT-OPD, alone and on top of DDTree
+# (the list of nexus/settings/live-reanchor-opd.txt): blocks written in the first draft's pass cost no second drafter
+# pass, which is what the second run pays for. (Results in nexus/results/probe-shift-opd-0: the SPEED TEST of the
+# second run on Draft-OPD; in nexus/results/probe-shift-pub-0: REANCHOR ON DRAFT-OPD, not the public drafter. The
+# count of shifted drafts these two jobs were queued for is dropped: ReAnchor has published it.)
 probe-shift-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
-probe-shift-pub-0: live_speed.py --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 12 --max-hours 7 --settings plain,plain+restart4pxt3b5@pub-m0,plain+restart4pxmt3b5@pub-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@pub-m0,plain+restart4pxmc3r12t3b5@pub-m0,plain+restart4pxmc3r12st3b5@pub-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@pub-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@pub-m0
+probe-shift-pub-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+reanchor,plain+reanchort7,plain+reanchort5b7,plain+reanchor6t5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchort3b5,plain+tree63_reanchor6t5b7,plain:window=4096+tree63,plain:window=4096+tree63_reanchort5b7
