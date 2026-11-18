@@ -259,28 +259,49 @@ it ours: it writes NEW tokens after the alternative token, with predicted states
    they are. The drafter itself is not changed. One layer, the predictor, the output head and the
    lists come to about 4 ms by the count of steps; the layer probe's timing will say.
 
-**What the layer probe says so far** (`live-reanchor-pub-0`, Draft-OPD, 3 answers, 3,846 rounds with
-a break). Tokens accepted after the right token at the break:
+**What the layer probe says** (`live-reanchor-pub-0`, Draft-OPD, 12 answers, 18,316 rounds with a
+break). Tokens accepted after the right token at the break:
 
 | The restart runs | Real states | Predicted states | No states |
 | --- | --- | --- | --- |
-| The whole drafter (5 layers) | 4.51 | 2.54 | 1.18 |
-| All layers but one (the 2nd, 3rd or 4th) | 2.7 to 3.2 | 1.3 to 1.6 | 0.9 |
-| Its first 4 layers | 2.50 | 1.50 | 0.75 |
-| Its last 4 layers, from the embeddings | 0.05 | 0.05 | 0.05 |
-| Its last layer, going on from the first run | 0.91 | 0.91 | 0.90 |
-| No restart: the first draft's old tokens | 0.75 | | |
+| The whole drafter (5 layers) | 4.09 | 2.19 | 1.02 |
+| All layers but one (the 2nd, 3rd or 4th) | 2.1 to 2.4 | 1.1 to 1.4 | 0.7 |
+| Its first 4 layers | 2.08 | 1.18 | 0.56 |
+| Its last 4 layers, from the embeddings | 0.04 | 0.04 | 0.04 |
+| Its last layer, going on from the first run | 0.82 | 0.80 | 0.80 |
+| No restart: the first draft's old tokens | 0.70 | | |
 
 Nothing untrained works. Any layer left out costs half of the tokens, and the last layer going on
 from the first run does not look at the states at all. So the layers are trained (step 3).
 
-Times on the GPU (299 samples): a pass of 5 layers 7.6 ms, of 1 layer 2.0 ms (1.4 ms a layer and
-0.7 ms that every pass has); the output head 1.3 ms however few places it is asked for (it reads
-the weights of all 152,000 tokens); the predictor 1.3 ms; the first draft's own pass 8.1 ms. With
-the lists the whole second run is 11.2 ms where it was 14.7. A second run through one trained
-layer comes to 2.0 + 1.3 + 1.3 ms and its own steps; with the output head over a short list of
-tokens (`dflash/shortlist.py`: the most common tokens, the tokens of the text so far and the first
-run's choices) about 1 ms less. The probe now times exactly that (`layer-probe-pub-0`).
+Times on the GPU (299 samples): a pass of 5 layers 7.6 ms (9.1 ms on texts over 4,000 tokens), of
+1 layer 2.0 ms (1.4 ms a layer and 0.7 ms that every pass has); the output head 1.3 ms however few
+places it is asked for (it reads the weights of all 152,000 tokens); the predictor 1.3 ms; the
+first draft's own pass 8.1 ms. With the lists the whole second run is 11.2 ms where it was 14.7. A
+second run through one trained layer comes to 2.0 + 1.3 + 1.3 ms and its own steps; with the
+output head over a short list of tokens (`dflash/shortlist.py`: the most common tokens, the tokens
+of the text so far and the first run's choices) about 1 ms less. The probe now times exactly that.
+
+**The second passes that are published, read on November 18.** D-Loop (arXiv 2610.06011) retrains
+the drafter so that it can run a second, whole pass on its block with a prefix of its own draft
+revealed as tokens; the 4 likeliest prefixes are redrafted and checked together. The draft takes
+9.4 ms where it took 4.2, the accepted length rises by 18%, the speed by 4% at temperature 0 on
+Qwen3-4B (no tree). DLoop (2610.07659) drafts further blocks before the check while the drafter is
+confident, giving it its OWN hidden states where the target's are missing, with a drafter trained
+for that; +12% speed on top of DDTree. DEdit (2609.38510) edits the whole draft in further whole
+passes of a retrained drafter. D2SD uses a second, separately trained drafter. Each of them pays a
+whole drafter pass for every extra stage, and D-Loop and DLoop name that cost as their limit. The
+tree-side corrections (DARTree, TreeSpark, UBTree, Weaver, DForkTree) and the drafter with several
+modes (Multi-Future Drafting, 2611.13017) choose among or re-rank what one pass gave.
+
+What this means for step 3: a trained reader of the round's own tokens works (D-Loop), and
+stand-ins for the target's states work when the reader is trained on them (DLoop). What nobody has
+is an extra stage that costs one layer because it goes on from the first pass, and restarts after
+the alternative tokens of a tree. So the tiny second drafter is trained in two forms on Draft-OPD:
+`bench-opd-0`: the layer reads the tokens known at the restart, written into the block at their
+places (D-Loop's second pass through one layer), with predicted states in half of the steps, real
+ones in 20% and none in 30%, so that one model shows what the states add; `bench-pub-0`: the layer
+is given the restart's first token and predicted states only.
 
 **Where DDTree's rounds end** (`live-reanchor-opd-0`, Draft-OPD, 30 answers, 29,987 rounds, 63
 nodes, 5.6 draft tokens accepted per round):
