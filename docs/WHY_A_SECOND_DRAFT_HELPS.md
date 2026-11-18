@@ -254,6 +254,29 @@ add-on weights. The window and the add-on weights do not add to each other.
 | Draft-OPD, sharper attention (12 answers) | +3% | +7% |
 | Draft-OPD, the drafter sees only the last 4,096 tokens (3 answers) | +6% | +15% |
 
+## Result 10: the swap against DDTree
+
+DDTree (arXiv 2604.12989) builds a tree from the first pass alone: the most probable nodes, by the
+drafter's own probabilities, checked by the target in one pass. The swap is a small fixed tree of
+that kind. Replay on 50 validation answers with Draft-OPD (job `tree-replay-opd-5`), with the
+measured cost of the extra tokens the target reads:
+
+| Method | Tokens the target reads besides a block | Tokens per round | Estimated real speed |
+| --- | --- | --- | --- |
+| Plain | 0 | 4.99 | 80.1 tokens per second |
+| The swap (four likely breaks, 3 tokens after each) | 15 | +14.9% | +12.5% |
+| DDTree, 15 nodes (a block's worth, placed by probability) | 0 | +16.9% | +15.9% |
+| DDTree, 31 nodes | 16 | +27.5% | +24.6% |
+| DDTree, 63 nodes | 48 | +35.7% | +29.1% |
+| DDTree, 127 nodes | 112 | +42.4% | +28.2% |
+
+DDTree beats the swap clearly at the same number of tokens read (31 nodes against the swap's 15 +
+16: +27.5% against +14.9%), and even a tree of only 15 nodes, which costs nothing, beats it. On an
+A5000 the best budget is about 63 nodes. Beyond 8,000 tokens of text the extra tokens cost more
+and 31 to 63 nodes are equal (+25% to +26%). So the swap is the baseline with no tree search, and
+DDTree is the method to beat. (This is a replay with measured costs, not real decoding: DDTree is
+not yet built into this repository's real decoding. The public drafter's run is still to do.)
+
 ## What the first draft's mistakes look like
 
 I read 60 breaks as text. Four kinds of mistake keep coming back.

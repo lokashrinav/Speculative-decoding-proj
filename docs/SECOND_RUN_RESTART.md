@@ -213,6 +213,38 @@ Two things it could not know:
    the other slots chose. The restart knows the tokens, but a predictor that looks at one token at a
    time cannot put them together.
 
+**The second predictor's result (November 18, 02:10 UTC).** Taught at real breaks for both kinds:
+28% of the gap on Draft-OPD (`opd-b0`: 2.07 against 1.11 with nothing and 4.51 with the real
+states, check still running) and 49% on the public drafter (`pub-b0`: 1.40 against 0.59 and 2.24).
+The vectors-only predictor of the public drafter (`pub-m0`) also closes 49%. From the break on, the
+better of the two kinds of restart gets 2.17 with predicted states where the real ones give 4.32
+(Draft-OPD), and 1.32 where they give 1.90 (public). So teaching at real breaks did not change the
+picture: about a third on Draft-OPD, about half on the public drafter.
+
+**E2, the ceiling in real speed, and DDTree (November 18, Draft-OPD).** Replay with the measured
+costs. Restarts with the target's real states (`restart-replay-opd-3`, 10 of 50 answers so far) and
+DDTree (`tree-replay-opd-5`, 50 answers):
+
+| Method | Tokens per round | Extra drafter time | Extra tokens read | Estimated real speed |
+| --- | --- | --- | --- | --- |
+| The swap | +15.7% | 0.9 ms | 15 | +13.2% |
+| Restarts from the second choice, real states, with the swaps | +37.6% | 13.4 ms | 108 | +7.7% |
+| Restarts one token earlier, real states | +35.7% | 13.2 ms | 45 | +10.1% |
+| Both kinds, real states, with the swaps | +59.0% | 14.8 ms | 153 | +19.7% |
+| Both kinds and the third choice, real states, 7 tokens checked | +62.7% | 18.0 ms | 149 | +18.7% |
+| DDTree, 31 nodes (no second drafter pass, no states needed) | +27.5% | 0.9 ms | 16 | +24.6% |
+| DDTree, 63 nodes | +35.7% | 1.6 ms | 48 | +29.1% |
+
+This is the plain state of things. With the real states the restarts get far more tokens out of a
+round than DDTree does (+59% against +36%), but their drafter pass costs 13 to 15 ms of a 62 ms
+round, so in real speed they stay below DDTree even at this ceiling, which no predictor reaches.
+With today's predictors (a third to a half of the gap) a second run is below the swap.
+
+So on this target a second run can only earn its place on top of DDTree, and only if the tokens it
+adds there are worth more than its pass. That is measured next (`tree-restart-opd-0`): DDTree alone,
+DDTree with restarts in the same check with the real states (the ceiling of the combination), and
+with the states of the predictor `opd-m0`.
+
 **The third predictor (queued for Draft-OPD on November 18).** `opd-c0` is told the token after each
 token; after the last one that is the token the restart starts from (job `train-restart-opd-3`).
 `opd-s0` has that and two layers in which the missing tokens look at the ones before them and at
