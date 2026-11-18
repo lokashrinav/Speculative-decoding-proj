@@ -1086,8 +1086,12 @@ class CountTree(DraftTree):
         order = numpy.argsort(-likely[0], kind="stable")[: self.budget]
         score, last = likely[0][order], order
         before, on_path, parent = numpy.zeros_like(last), last == 0, numpy.full(len(last), -1)
-        depths = [(score, last, parent)]
+        depths, so_far = [(score, last, parent)], score
         for place in range(1, places):
+            # A node never scores above its parent: once `budget` kept nodes score above the best node of this
+            # depth, nothing deeper can come into the tree.
+            if len(so_far) >= self.budget and score.max() < numpy.partition(so_far, -self.budget)[-self.budget]:
+                break
             weight = numpy.where(on_path, self.on_path, self.off_path)[:, None]
             raised = likely[place][None, :] + weight * lift[place - 1][before, last]
             given = raised - numpy.log(rest[place] + numpy.exp(raised).sum(axis=-1))[:, None]
@@ -1097,6 +1101,7 @@ class CountTree(DraftTree):
             score, before, last = total[keep], last[parent], chosen_candidate
             on_path = on_path[parent] & (chosen_candidate == 0)
             depths.append((score, last, parent))
+            so_far = numpy.concatenate((so_far, score))
         # The best `budget` of all kept nodes; of equal scores the shallower first, so a parent comes before its child.
         every = [(-float(value), depth, at) for depth, (scores_here, _, _) in enumerate(depths) for at, value in enumerate(scores_here)]
         every.sort()
