@@ -1816,3 +1816,29 @@ def test_the_second_run_through_layers_that_read_the_tokens():
             assert method.counts["nodes_from_the_second_run"] > 0
         method.close()
     assert not any(layer._forward_hooks for layer in draft.layers)
+
+
+def test_text_written_many_answers_at_once():
+    """nexus/gen_text.py: a batch of prompts gets the answers each prompt gets alone, known prompts are left out,
+    and a batch holds as many rows as the memory allows."""
+    from nexus.gen_text import batches_by_memory, cut_at_stop, without_known, write_batch
+
+    target, _ = make_models(seed=5)
+    prompts = [("a", [3, 4, 5]), ("b", [6, 7, 8, 9, 10, 11]), ("c", [12]), ("a", [3, 4, 5]), ("d", [13, 14])]
+    fresh = without_known(prompts, known=[[12], [1, 2]])
+    assert fresh == [("a", [3, 4, 5]), ("b", [6, 7, 8, 9, 10, 11]), ("d", [13, 14])]
+
+    batches = batches_by_memory(fresh, max_new_tokens=6, row_tokens=20)
+    assert [[len(tokens) for _, tokens in batch] for batch in batches] == [[2, 3], [6]]     # 2 x (3 + 6) <= 20 < 3 x (6 + 6)
+    assert batches_by_memory(fresh, max_new_tokens=6, row_tokens=1000, largest=2)[0] == [("d", [13, 14]), ("a", [3, 4, 5])]
+
+    assert cut_at_stop([4, 5, 30, 0, 0], {30}) == ([4, 5, 30], True)
+    assert cut_at_stop([4, 5, 6], {30}) == ([4, 5, 6], False)
+
+    together = write_batch(target, fresh, pad=0, stops={30}, max_new_tokens=6, device=torch.device("cpu"))
+    for (_, tokens), (answer, stopped) in zip(fresh, together):
+        alone = target.generate(torch.tensor([tokens]), do_sample=False, num_beams=1, max_new_tokens=6,
+                                pad_token_id=0, eos_token_id=[30])[0, len(tokens):].tolist()
+        assert answer == cut_at_stop(alone, {30})[0]
+        assert stopped == (30 in alone)
+        assert 1 <= len(answer) <= 6
