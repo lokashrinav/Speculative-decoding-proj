@@ -303,19 +303,19 @@ On the tiny test models every method writes plain decoding's tokens. The jobs `l
 nodes, DDTree with the context window, and the second run with predicted states, alone and on top
 of DDTree.
 
-**The second run measured in real decoding (November 18, same jobs).** Restarts of both kinds with
-the states of the vectors-only predictors (`opd-m0`, `pub-m0`), 7 tokens checked after each:
+**The second run measured in real decoding (November 18, same jobs, 16 answers per drafter, complete).**
+Restarts of both kinds with the states of the vectors-only predictors (`opd-m0`, `pub-m0`), 7 tokens
+checked after each:
 
 | Setting | Public drafter | Draft-OPD |
 | --- | --- | --- |
-| The swap | +13.2% | +10.4% |
-| The second run with predicted states, with the swaps | +6.4% | +8.2% |
-| DDTree, 63 nodes | +34.9% | +23.5% |
-| DDTree 63 and the second run with predicted states | +20.4% | +15.6% |
+| The swap | +13.5% | +10.6% |
+| The second run with predicted states, with the swaps | +4.9% | +6.6% |
+| DDTree, 63 nodes | +37.1% | +26.1% |
+| DDTree 63 and the second run with predicted states | +22.0% | +15.6% |
 
 The replay's estimates were +9.0% and +17.7% on Draft-OPD, so they hold. The second run with
 predicted states is a real speedup over plain decoding, a smaller one than the swap, and it makes
-DDTree slower: a round takes 92 to 95 ms with it against 71 ms without (the drafter's second pass,
-the predictor, and the extra tokens the target reads). `opd-c0`, the last predictor, closes 29% of
-the gap.
-
+DDTree slower: a round takes about 90 ms with it against about 70 ms without (the drafter's second
+pass, the predictor, and the extra tokens the target reads). `opd-c0`, the last predictor, closes
+29% of the gap.

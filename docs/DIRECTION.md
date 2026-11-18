@@ -123,10 +123,28 @@ predictor fails, and what the extra pass costs. A second run could pay where a d
 cheap next to the target's pass, which means a much larger target.
 
 Real decoding now takes DDTree and the restarts. Measured in real tokens per second on the same
-text (7 answers on the public drafter, 10 on Draft-OPD, still running): the swap +13% and +10%,
-DDTree +35% and +24%, DDTree with the window +60% and +33%, DDTree with the add-on weights +78%
-(public). The second run with predicted hidden states: +6% and +8% alone, and +20% and +16% on
-top of DDTree, which is less than DDTree alone. The replay's estimates held.
+text (16 long answers per drafter, public and Draft-OPD): the swap +14% and +11%, DDTree +37% and
++26%, DDTree with the window +65% and +34%, DDTree with the add-on weights +79% (public). The
+second run with predicted hidden states: +5% and +7% alone, and +22% and +16% on top of DDTree,
+which is less than DDTree alone. The replay's estimates held.
+
+### What the second run cannot be fed (November 18, later)
+
+Three more ways to give the restart its hidden states were measured on the frozen drafters (partial
+data, `probe-more-opd-0` and `-pub-0`). Tokens accepted after g on Draft-OPD: nothing 1.0, the
+predictor 2.2, the real states 4.1.
+
+- Real states of only the first layers the drafter reads (what a check stopped early could hand
+  over): 0.7 to 0.8, worse than nothing. The drafter reads target layers 1, 9, 17, 25 and 33; the
+  last two alone give 3.8.
+- The real state of an earlier place in the answer where the target read the same tokens: 1.8,
+  and 2.4 when the tokens before and after match.
+- The real state most like the predicted one: 2.1.
+
+So what a restart needs is made in the target's deep layers at that very place in the text. It
+cannot be had early, borrowed or guessed. Feeding a second run is set aside; the ideas now tried
+need no second run and no hidden states (see `nexus/settings/live-echo*.txt` and the probe's
+`shift_*` columns).
 
 ## The experiments and where their results are
 
