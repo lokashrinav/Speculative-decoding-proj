@@ -30,8 +30,11 @@ target check 3), and those inside the first block (what a warm plan can reach).
 It also times the parts of the second run on the GPU, waiting for the GPU at every boundary
 (--time-rounds samples, spread over the answers): the predictor, and for the whole drafter and its
 last 1, 2 and 3 layers the preparing, the pass and the output head, with 4 restarts of 16 tokens,
-12 of 5 and 12 of 16; the second run as real decoding calls it, as a whole; and the first draft's
-pass made again. What a whole call takes beyond its parts is time spent in Python.
+12 of 5 and 12 of 16; and the first draft's pass made again. Then the second run as real decoding
+calls it (USED below), as a whole and by its parts (deciding where to restart, the states, preparing
+the pass, the pass, the output head, the rows): through the whole drafter and through copies of its
+last one and two layers (untrained here: a pass costs the same trained or not), with the output
+head over the whole vocabulary and over a short list of tokens (dflash/shortlist.py).
 """
 import argparse
 import os
@@ -45,6 +48,8 @@ from dflash.hindsight import loop_start
 from dflash.model import _draft_value, _output_head, _raw_input_embeddings
 from dflash.redraft import Restarts, restarts
 from dflash.replay import _clock, _matches, replay_decode, target_features
+from dflash.restart_layers import RestartLayers
+from dflash.shortlist import count_tokens
 from dflash.stand_in import load_predictor, predicted_states, project
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
@@ -54,6 +59,18 @@ from nexus.replay_memory import load_answers
 WIDTH = 16
 BASE = ("answer", "where", "broke_after", "second_choice_right", "old_rest")
 SHAPES = (("4x16", 4, 16), ("12x5", 12, 5), ("12x16", 12, 16))        # restarts in a pass, tokens in each
+# The second run as real decoding calls it: (name, options of Restarts, layers of a second drafter (0: the whole
+# drafter), thousands of tokens in the short list (0: the whole vocabulary)).
+BOTH = dict(k=4, kind="both", tail=3)                                  # restart4pxt3: the 4 likely breaks, from the next choice and one token earlier
+BEST = dict(k=4, kind="both", tail=3, choices=3, best=12, block=5)     # 12 restarts picked best first and 4 one token earlier, blocks of 5
+USED = (("whole drafter, 8 restarts of 16", BOTH, 0, 0),
+        ("whole drafter, 16 restarts of 5", BEST, 0, 0),
+        ("whole drafter, 16 restarts of 5, short list", BEST, 0, 16),
+        ("two layers, 16 restarts of 5", BEST, 2, 0),
+        ("two layers, 16 restarts of 5, short list", BEST, 2, 16),
+        ("one layer, 16 restarts of 5", BEST, 1, 0),
+        ("one layer, 16 restarts of 5, short list", BEST, 1, 16),
+        ("one layer, 8 restarts of 16, short list", BOTH, 1, 16))
 
 
 def plans(count):
@@ -72,7 +89,8 @@ def plans(count):
 class Layers:
     """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
 
-    def __init__(self, drafter, predictor=None, width=WIDTH, time_rounds=0, time_every=10):
+    def __init__(self, drafter, predictor=None, width=WIDTH, time_rounds=0, time_every=10, common=None):
+        """common: the most common tokens, most common first (for the short list; None: no short list is timed)."""
         self.width, self.predictor, self.rows = width, predictor, []
         self.plans = plans(len(drafter.layers))
         self.kinds = ("real",) + (("predicted",) if predictor is not None else ()) + ("none",)
@@ -83,12 +101,19 @@ class Layers:
         self.hooks = [layer.register_forward_hook(self._keep(number)) for number, layer in enumerate(drafter.layers)]
         self.time_rounds, self.time_every, self.breaks, self.timings = time_rounds, time_every, 0, []
         stand_in = "predicted" if predictor is not None else "none"
-        self.methods = {"restart4_swap_tail3": Restarts(k=4, stand_in=stand_in, swap=True, tail=3),
-                        "restart_best12_of_3_choices_blocks_of_5": Restarts(k=4, stand_in=stand_in, swap=True, tail=3,
-                                                                            choices=3, best=12, block=5)}
-        for method in self.methods.values():
+        self.methods, copies = {}, {}
+        for name, options, layers, listed in USED if time_rounds else ():
+            if layers >= len(drafter.layers) or (listed and common is None):
+                continue
+            method = Restarts(stand_in=stand_in, **options)
             method.predictor = predictor
-            method.start(drafter)
+            if layers:
+                if layers not in copies:
+                    copies[layers] = RestartLayers(drafter, count=layers, rank=1).merge()
+                method.second = copies[layers]
+            if listed:
+                method.common = common[: 1024 * listed]
+            self.methods[name] = method
 
     def _keep(self, number):
         def keep(layer, given, output):
@@ -155,10 +180,10 @@ class Layers:
 
         self.breaks += 1
         if len(self.timings) < self.time_rounds and self.breaks % self.time_every == 0:
-            self.time_it(s, token, restart, places)
+            self.time_it(s, token, restart, places, first_run)
         return None
 
-    def time_it(self, s, token, restart, places):
+    def time_it(self, s, token, restart, places, first_run):
         """Seconds of each part of a second run in this round (the clock waits for the GPU)."""
         drafter, device, count = s.first_drafter, s.block_ids.device, len(s.first_drafter.layers)
         sample = {"context": int(s.start), "missing": int(places.shape[0])}
@@ -177,9 +202,15 @@ class Layers:
                 sample[f"{label} {name}: whole"] = _clock(device) - began
                 sample.update({f"{label} {name}: {part}": seconds for part, seconds in timers.items()})
         for label, method in self.methods.items():
+            if method.second is not None:              # what the first run gave before the second drafter's layers
+                method._first_run = first_run[method.second.first - 1]
+            method.timers = None
             began = _clock(device)
             method(s)
-            sample[f"second run as used, {label}"] = _clock(device) - began
+            sample[f"USED {label}: whole"] = _clock(device) - began
+            method.timers = {}
+            method(s)
+            sample.update({f"USED {label}: {part}": seconds for part, seconds in method.timers.items()})
         # The first draft's pass made again (with no new context to read): pass, cache, output head.
         began = _clock(device)
         block = torch.full_like(s.block_ids, drafter.mask_token_id)
@@ -258,8 +289,8 @@ def main():
         return
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    answers = [answer for answer in load_answers(args.data_dir)
-               if args.part == "all" or split_of([answer[0], answer[1]]) == args.part]
+    everything = load_answers(args.data_dir)
+    answers = [answer for answer in everything if args.part == "all" or split_of([answer[0], answer[1]]) == args.part]
     status_path = os.path.join(args.results_dir, "status.json")
     write_json(status_path, {"done": False, "answers": 0}, indent=1)
     target, draft, tokenizer = load_transformers_models(args.model, find_drafter(args.draft), device)
@@ -267,7 +298,10 @@ def main():
     predictor, predictor_notes = None, {}
     if args.predictor:
         predictor, predictor_notes = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
-    probe = Layers(draft, predictor=predictor, time_rounds=args.time_rounds)
+    # The most common tokens, counted on the training answers (or on all of them when every answer is measured).
+    counted = [answer for answer in everything if args.part == "all" or split_of([answer[0], answer[1]]) == "train"]
+    common = count_tokens([answer[2][answer[3] :] for answer in counted], target.config.vocab_size).argsort(descending=True)
+    probe = Layers(draft, predictor=predictor, time_rounds=args.time_rounds, common=common.to(device))
     records, started = [], time.time()
 
     def report(done):

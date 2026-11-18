@@ -458,13 +458,18 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
 
 def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], context: torch.Tensor | None, counts: list[int],
                   context_places: list[int], width: int, layers=None, entering: torch.Tensor | None = None,
-                  lengths: list[int] | None = None) -> torch.Tensor:
+                  lengths: list[int] | None = None, shortlist=None, also: torch.Tensor | None = None,
+                  timers: dict | None = None) -> torch.Tensor:
     """The pass of restarts(), prepared without small steps on the GPU: the tokens, the places and who
     sees whom are made as lists and sent over once each. tokens, begin: the restarts' first tokens and
     their positions. context: [states, D], the stand-ins of all restarts in the form the drafter reads
     states, one restart after the other; counts[n]: how many of them are restart n's; context_places:
-    their positions. layers, entering, lengths: as in restarts(). Returns [restarts, width - 1]."""
+    their positions. layers, entering, lengths: as in restarts(). shortlist: the best token is looked
+    for among a short list of tokens and the tokens `also` (dflash/shortlist.py), not in the whole
+    vocabulary. timers: seconds are added to its "prepare", "pass" and "head" (the clock waits for the
+    GPU). Returns [restarts, width - 1]."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
+    clock = _cuda_time() if timers is not None else None
     ran = None
     if layers is not None:                                            # (a trained copy of a layer counts as that layer)
         ran = [layer if isinstance(layer, int) else layer.self_attn.layer_idx for layer in layers]
@@ -485,6 +490,10 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
         new[rows, at : at + counts[number]] = True
         at += counts[number]
     sees = torch.cat((torch.ones((count * width, seen), dtype=torch.bool, device=device), torch.from_numpy(new).to(device)), dim=1)
+    if timers is not None:
+        now = _cuda_time()
+        timers["prepare"] = timers.get("prepare", 0.0) + now - clock
+        clock = now
     hidden = drafter(
         target_hidden=s.context_features[:, :0], context_states=None if context is None else context[None],
         noise_embedding=noise, position_ids=positions, attention_mask=sees[None, None], past_key_values=s.draft_cache,
@@ -495,8 +504,18 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
     else:                                                             # only the layers that ran made their entries longer
         for number in ran:
             s.draft_cache.layers[number].crop(-(extra + count * width))
-    logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
-    return logits.argmax(dim=-1)
+    if timers is not None:
+        now = _cuda_time()
+        timers["pass"] = timers.get("pass", 0.0) + now - clock
+        clock = now
+    states = hidden.reshape(count, width, -1)[:, 1:, :]
+    if shortlist is None:
+        written = drafter.compute_logits(states, _output_head(s.target)).argmax(dim=-1)
+    else:
+        written = shortlist.best(states, also)
+    if timers is not None:
+        timers["head"] = timers.get("head", 0.0) + _cuda_time() - clock
+    return written
 
 
 class Restarts:
@@ -586,6 +605,15 @@ class Restarts:
         # past its block's end, so a restart writes at most up to there.
         self.second = None
         self._hook, self._first_run = None, None
+        # common: the tokens most common in answers (their numbers, counted ahead of time). With them the
+        # restarts' tokens are looked for in a short list (these, the tokens of the text so far and the first
+        # run's choices), not in the whole vocabulary: the output head over all of it takes over a
+        # millisecond (dflash/shortlist.py).
+        self.common, self._shortlist = None, None
+        # timers: a dict to which the seconds of the second run's parts are added ("decide", "states",
+        # "prepare", "pass", "head", "rows"; the clock waits for the GPU at each boundary, which itself
+        # costs a little: for measuring, not for use).
+        self.timers = None
 
     def close(self) -> None:
         """Stops watching the drafter's first run (only a second run through a second drafter watches it)."""
@@ -624,6 +652,8 @@ class Restarts:
         # what is decided here is decided from a few lists read from the GPU once, and what the pass needs
         # (tokens, places, who sees whom) and the rows are made as lists and sent over once each.
         s = round_state
+        timers = self.timers
+        clock = _cuda_time() if timers is not None else None
         width = s.block_ids.shape[1]
         first = s.draft_logits[0].float()
         likely = first.softmax(dim=-1)
@@ -665,6 +695,10 @@ class Restarts:
         if not starts:
             return None
         ranked_tokens, block = ranked.tolist(), s.block_ids[0].tolist()
+        if timers is not None:
+            now = _cuda_time()
+            timers["decide"] = timers.get("decide", 0.0) + now - clock
+            clock = now
         most = max(broke for broke, _ in starts) + 1                  # the round's tokens that some restart lacks the states of
         hits, read = self._from_the_last_check(s, most)
         # The stand-ins of all restarts come from one table of vectors, in the form the drafter reads
@@ -740,9 +774,21 @@ class Restarts:
             given = torch.tensor([first_tokens + [s.first_drafter.mask_token_id]], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)[0]
             entering = self.second.enter(self._first_run[0, -width:][places], embedded[:-1], embedded[-1])
+        also = None
+        if self.common is not None:
+            if self._shortlist is None or self._shortlist.head is not _output_head(s.target):
+                from .shortlist import Shortlist
+
+                self._shortlist = Shortlist(_output_head(s.target), self.common)
+            also = torch.cat((s.accepted_ids.flatten(), ranked.flatten()))
+        if timers is not None:
+            now = _cuda_time()
+            timers["states"] = timers.get("states", 0.0) + now - clock
         new = _restart_pass(s, first_tokens, begin, context, counts, places_taken, reach,
                             layers=None if self.second is None else list(self.second.layers), entering=entering,
-                            lengths=lengths).tolist()
+                            lengths=lengths, shortlist=self._shortlist if self.common is not None else None, also=also,
+                            timers=timers).tolist()
+        clock = _cuda_time() if timers is not None else None
         rows = [[-1] * (2 * width) for _ in range(len(starts) + (chosen if self.swap else 0))]
         for number, (broke, choice) in enumerate(starts):
             row, written = rows[number], new[number]
@@ -758,7 +804,10 @@ class Restarts:
                 swapped = rows[len(starts) + number]
                 swapped[:width] = block
                 swapped[broke + 1] = ranked_tokens[broke][choice]
-        return torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
+        rows = torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
+        if timers is not None:
+            timers["rows"] = timers.get("rows", 0.0) + _cuda_time() - clock
+        return rows
 
 
 class Reanchor:

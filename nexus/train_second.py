@@ -103,7 +103,7 @@ class TeachSecond:
     """Trains the restart layers (and the predictor) on the tokens they write (see the top of this file)."""
 
     def __init__(self, second, predictor, optimizer, drafter, target, every=8, window=2048, vector_weight=0.1, decay=0.8,
-                 width=16, seed=0, compare_every=4, train_predictor=True, distill=0.0, real_share=0.0):
+                 width=16, seed=0, compare_every=4, train_predictor=True, distill=0.0, real_share=0.0, earlier=True):
         self.second, self.predictor, self.optimizer, self.drafter, self.target = second, predictor, optimizer, drafter, target
         self.every, self.window, self.vector_weight, self.width = every, window, vector_weight, width
         self.compare_every, self.train_predictor = compare_every, train_predictor
@@ -115,6 +115,11 @@ class TeachSecond:
         # predicted ones. Before training they do not look at the states at all; with the real ones there is
         # something to find, and the way of reading them carries over to the predicted ones.
         self.distill, self.real_share = distill, real_share
+        # earlier: the layers are also taught the restart one token earlier, from the last token the first draft
+        # got right (dflash/redraft.py: Restarts, kind "earlier"): it needs no guess of the token at the break
+        # and one state fewer, and writes the token at the break itself. In real decoding half of what the second
+        # run wins comes from these restarts.
+        self.earlier, self.also = earlier, []
         # The predictor as it was saved: the whole drafter's restart is measured with its states, so that the
         # comparison is with the second run as it is today.
         self.saved_predictor = copy.deepcopy(predictor).eval() if train_predictor else predictor
@@ -147,17 +152,19 @@ class TeachSecond:
             recalled = project(self.drafter, features[:, max(start - held, low) : start])[0].float()
         return (*state_inputs(block_states, count), tokens, last, torch.arange(count, device=ids.device), coming, recalled)
 
-    def step(self, ids, features, start, learn=True):
+    def step(self, ids, features, start, learn=True, count=None):
+        """count: how many of the round's tokens the target has not read at the restart (None: where the first
+        draft of the round really breaks, as in use)."""
         drafter, target, width, device = self.drafter, self.target, self.width, ids.device
         low = max(start - self.window, 0)
         with torch.no_grad():
             block_states, kept = first_run(drafter, target, features, ids, start, low, width, self.second.first - 1)
             first = drafter.compute_logits(block_states[None, 1:], _output_head(target))[0]
             wrong = (first.argmax(dim=-1) != ids[0, start + 1 : start + width]).nonzero()
-            if not wrong.numel():
+            if count is None and not wrong.numel():
                 self.unbroken += 1                    # the first draft is right to its end: nothing to restart
                 return
-            count = int(wrong[0]) + 1                 # tokens of the round the target has not read at the restart
+            count = int(wrong[0]) + 1 if count is None else count     # tokens of the round the target has not read at the restart
             places = width - count                    # from the restart's first token to the end of the first block
             if places < 2:
                 self.at_the_end += 1                  # the break is at the block's last place: no place to go on from
@@ -165,8 +172,10 @@ class TeachSecond:
             given = self.inputs(self.predictor, block_states, ids, features, start, count, low)
             real = project(drafter, features[:, start : start + count])[0].float()
             scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
-            pair = torch.stack((ids[0, start + count], torch.as_tensor(drafter.mask_token_id, dtype=ids.dtype, device=device)))
-            token_in, mask_in = _raw_input_embeddings(target, pair[None], scale)[0]
+            trio = torch.stack((ids[0, start + count], torch.as_tensor(drafter.mask_token_id, dtype=ids.dtype, device=device),
+                                ids[0, start + count - 1]))
+            token_in, mask_in, before_in = _raw_input_embeddings(target, trio[None], scale)[0]
+            from_the_break = ids[0, start + count : start + width].clone()             # the tokens from the break on, inside the block
             answer = ids[0, start + count + 1 : start + width].clone()                  # the tokens after the right token, inside the block
             aim = None
             if learn and self.distill:
@@ -188,6 +197,14 @@ class TeachSecond:
             if aim is not None:
                 apart = 1.0 - torch.nn.functional.cosine_similarity(states.float(), aim.float(), dim=-1)
                 total = total + self.distill * (apart * weights).sum() / weights.sum()
+            before = None
+            if self.earlier and count >= 2:
+                # One token earlier: from the last right token, with the states of the tokens before it.
+                given_before = (real if with_real else written)[: count - 1]
+                before = warm_logits(drafter, self.second, target, features, ids, start, given_before,
+                                     self.second.enter(kept[count - 1 :], before_in, mask_in), low).float()
+                wider = self.weights[: places].to(device)
+                total = total + (torch.nn.functional.cross_entropy(before, from_the_break, reduction="none") * wider).sum() / wider.sum()
             if learn:
                 (total / self.every).backward()
         if with_real:           # (the counts below are of the layers as they are used: with the predicted states)
@@ -216,6 +233,15 @@ class TeachSecond:
                     counts[name] = _right(whole[: places - 1], answer)
                 counts["old_rest"] = _right(first[count:], answer)
                 self.compared.append([counts[name] for name in ARMS])
+                if before is not None:
+                    # From the token at the break on: the layers from the last right token (predicted states), and
+                    # the whole drafter from there with the saved predictor's states and with the real ones.
+                    if with_real:
+                        before = warm_logits(drafter, self.second, target, features, ids, start, written[: count - 1],
+                                             self.second.enter(kept[count - 1 :], before_in, mask_in), low)
+                    others = [restart_logits(drafter, target, features, ids, start, states[: count - 1].to(written.dtype), low, width)
+                              [:places] for states in (saved, real)]
+                    self.also.append([_right(before, from_the_break)] + [_right(other, from_the_break) for other in others])
 
     def progress(self):
         """Means over the rounds since the last call."""
@@ -232,6 +258,14 @@ class TeachSecond:
                 "rounds": len(compared),
                 "tokens_right_inside_the_block": {name: round(float(table[:, at].mean()), 3) for at, name in enumerate(ARMS)},
                 "at_most_3_of_them": {name: round(float(table[:, at].clamp(max=3).mean()), 3) for at, name in enumerate(ARMS)}}
+        also, self.also = self.also, []
+        if also:
+            table = torch.tensor(also, dtype=torch.float32)
+            names = ("second", "whole_predicted", "whole_real")
+            point["one_token_earlier_from_the_break_on"] = {
+                "rounds": len(also),
+                "tokens_right_inside_the_block": {name: round(float(table[:, at].mean()), 3) for at, name in enumerate(names)},
+                "at_most_4_of_them": {name: round(float(table[:, at].clamp(max=4).mean()), 3) for at, name in enumerate(names)}}
         return point
 
 
@@ -255,6 +289,7 @@ def main():
     parser.add_argument("--compare-every", type=int, default=4)
     parser.add_argument("--distill", type=float, default=1.0,
                         help="weight of the pull towards the whole drafter's final states with the real states (0: off)")
+    parser.add_argument("--only-after", action="store_true", help="do not also teach the restart one token earlier")
     parser.add_argument("--real-share", type=float, default=0.3,
                         help="share of the steps in which the layers are given the target's real states")
     parser.add_argument("--max-hours", type=float, default=3.0, help="of training; the measurement comes after")
@@ -278,6 +313,9 @@ def main():
     target, draft, _ = load_transformers_models(args.model, find_drafter(args.draft), device)
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(False)
+    from nexus.redraft_long import token_counts
+
+    token_counts(args.adapter_dir, args.data_dir, target.config.vocab_size)       # the count a short list of tokens is made from
     with torch.inference_mode(False):
         second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed).train()
         if args.predictor:
@@ -291,7 +329,7 @@ def main():
         optimizer = torch.optim.AdamW(groups, weight_decay=0.0)
     teach = TeachSecond(second, predictor, optimizer, draft, target, args.every, args.window, args.vector_weight, seed=args.seed,
                         compare_every=args.compare_every, train_predictor=not args.freeze_predictor, distill=args.distill,
-                        real_share=args.real_share)
+                        real_share=args.real_share, earlier=not args.only_after)
     curve, started = [], time.time()
 
     def report(done, learned, measured=None):
@@ -300,7 +338,7 @@ def main():
                   "layers": args.layers, "of_the_drafters_layers": len(draft.layers), "rank": args.rank, "rate": args.rate,
                   "predictor": args.predictor, "predictor_trained_too": not args.freeze_predictor,
                   "predictor_rate": args.predictor_rate, "every": args.every, "vector_weight": args.vector_weight,
-                  "distill": args.distill, "real_share": args.real_share,
+                  "distill": args.distill, "real_share": args.real_share, "one_token_earlier_too": not args.only_after,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
                   "rounds_without_a_break": teach.unbroken, "rounds_broken_at_the_last_place": teach.at_the_end,
                   "curve": curve, "on_validation_answers": measured}

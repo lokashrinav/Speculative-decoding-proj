@@ -210,7 +210,7 @@ the same text in every row):
 | Setting | Tokens per round | Draft | Second run | Check | Tokens per second |
 | --- | --- | --- | --- | --- | --- |
 | Plain | 4.82 | 10.2 ms | | 57.5 ms | 70.1 |
-| Second run (4 restarts, swaps, 3 tokens checked after each) | 6.24 (+30%) | 10.2 | 14.7 ms | 58.8 | 73.2 (+4%) |
+| Second run (restarts at the 4 likely breaks, from the next choice and one token earlier, 3 tokens checked after each) | 6.24 (+30%) | 10.2 | 14.7 ms | 58.8 | 73.2 (+4%) |
 | DDTree, 63 nodes | 6.59 (+37%) | 10.2 | 1.6 (the tree) | 61.3 | 88.1 (+26%) |
 | DDTree and the second run | 7.14 (+48%) | 10.2 | 17.3 | 62.0 | 78.2 (+12%) |
 
@@ -258,6 +258,29 @@ it ours: it writes NEW tokens after the alternative token, with predicted states
    the break, together with the predictor, so the reader learns to use the predicted states as
    they are. The drafter itself is not changed. One layer, the predictor, the output head and the
    lists come to about 4 ms by the count of steps; the layer probe's timing will say.
+
+**What the layer probe says so far** (`live-reanchor-pub-0`, Draft-OPD, 3 answers, 3,846 rounds with
+a break). Tokens accepted after the right token at the break:
+
+| The restart runs | Real states | Predicted states | No states |
+| --- | --- | --- | --- |
+| The whole drafter (5 layers) | 4.51 | 2.54 | 1.18 |
+| All layers but one (the 2nd, 3rd or 4th) | 2.7 to 3.2 | 1.3 to 1.6 | 0.9 |
+| Its first 4 layers | 2.50 | 1.50 | 0.75 |
+| Its last 4 layers, from the embeddings | 0.05 | 0.05 | 0.05 |
+| Its last layer, going on from the first run | 0.91 | 0.91 | 0.90 |
+| No restart: the first draft's old tokens | 0.75 | | |
+
+Nothing untrained works. Any layer left out costs half of the tokens, and the last layer going on
+from the first run does not look at the states at all. So the layers are trained (step 3).
+
+Times on the GPU (299 samples): a pass of 5 layers 7.6 ms, of 1 layer 2.0 ms (1.4 ms a layer and
+0.7 ms that every pass has); the output head 1.3 ms however few places it is asked for (it reads
+the weights of all 152,000 tokens); the predictor 1.3 ms; the first draft's own pass 8.1 ms. With
+the lists the whole second run is 11.2 ms where it was 14.7. A second run through one trained
+layer comes to 2.0 + 1.3 + 1.3 ms and its own steps; with the output head over a short list of
+tokens (`dflash/shortlist.py`: the most common tokens, the tokens of the text so far and the first
+run's choices) about 1 ms less. The probe now times exactly that (`layer-probe-pub-0`).
 
 **Where DDTree's rounds end** (`live-reanchor-opd-0`, Draft-OPD, 24 answers, 63 nodes): 5% at the
 end of the block, 2% at a leaf on the path of first choices, 27% at a leaf after an alternative

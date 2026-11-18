@@ -184,6 +184,9 @@ def main():
         adapter.fast = True                 # the cheaper way to apply the extra weights when nothing is learned
     settings, settings_from = settings_for(args.results_dir, args.settings)
     names = settings.split(",")
+    from nexus.redraft_long import token_counts
+
+    token_counts(args.adapter_dir, args.data_dir, target.config.vocab_size)       # for settings with a short list (vN)
     swaps = {name: swap_of(name, args.adapter_dir, draft) for name in names}
     trainers, started_from = build_trainers(",".join(dict.fromkeys(base for base, _ in swaps.values())), draft, adapters,
                                             args.adapter_dir)

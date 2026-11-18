@@ -1147,7 +1147,7 @@ def test_the_probe_of_how_many_layers_a_restart_needs():
     plain, length = answer(target, draft, budget=160)
     ids = plain.output_ids
     features = target_features(target, draft, ids)
-    probe = Layers(draft, width=BLOCK, time_rounds=3, time_every=2)
+    probe = Layers(draft, width=BLOCK, time_rounds=3, time_every=2, common=torch.arange(32))
     assert [name for name, _, _ in probe.plans] == ["all", "top2", "warm2", "warm2p", "bottom2", "top1", "warm1", "warm1p",
                                                     "bottom1", "without2"]
     assert dict((name, layers) for name, layers, _ in probe.plans) == {
@@ -1185,10 +1185,13 @@ def test_the_probe_of_how_many_layers_a_restart_needs():
     times = layer_probe.timing_summary(probe.timings)
     assert times["samples"] == 2
     for name in ("4x16 all: pass", "4x16 all: head", "4x16 all: prepare", "4x16 all: whole", "12x5 top1: pass", "12x16 top2: whole",
-                 "second run as used, restart4_swap_tail3", "second run as used, restart_best12_of_3_choices_blocks_of_5",
+                 "USED whole drafter, 8 restarts of 16: whole", "USED whole drafter, 16 restarts of 5: pass",
+                 "USED one layer, 16 restarts of 5: whole", "USED one layer, 16 restarts of 5, short list: head",
+                 "USED two layers, 16 restarts of 5, short list: decide", "USED one layer, 8 restarts of 16, short list: rows",
                  "first draft made again"):
         assert len(times["all"][name]) == 2 and times["all"][name][0] >= 0, name
     assert "predictor" not in times["all"]
+    assert not any(layer._forward_hooks for layer in draft.layers)
 
 
 def test_the_tiny_second_drafter_and_its_training(tmp_path):
@@ -1259,6 +1262,14 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     assert set(compared["tokens_right_inside_the_block"]) == set(ARMS) == set(compared["at_most_3_of_them"])
     assert all(compared["at_most_3_of_them"][name] <= min(compared["tokens_right_inside_the_block"][name], 3) for name in ARMS)
     assert compared["rounds"] > 0 and teach.saved_predictor is not predictor
+    # The restart one token earlier is taught and counted wherever the first draft has a right token before the break
+    # (here: restarts placed three tokens into the round).
+    steps = teach.steps
+    for at in range(length + 2, length + 12):
+        teach.step(ids, features, at, count=3)
+    earlier = teach.progress()["one_token_earlier_from_the_break_on"]
+    assert earlier["rounds"] == 10 and teach.steps == steps + 5
+    assert set(earlier["tokens_right_inside_the_block"]) == {"second", "whole_predicted", "whole_real"} == set(earlier["at_most_4_of_them"])
     assert all(torch.equal(before[name], value) for name, value in teach.saved_predictor.state_dict().items())
 
     # With the second aim (the whole drafter's final states) and the real states in a share of the steps.
@@ -1281,9 +1292,9 @@ def test_the_tiny_second_drafter_and_its_training(tmp_path):
     kept_as = {name: value.clone() for name, value in frozen.state_dict().items()}
     other = RestartLayers(draft, count=2, rank=2)
     alone = TeachSecond(other, frozen, torch.optim.AdamW(other.trained(), lr=3e-3), draft, target, every=2, window=64, width=BLOCK,
-                        compare_every=2, train_predictor=False)
+                        compare_every=2, train_predictor=False, earlier=False)
     alone.learn_from(ids, features, length, most=8)
-    assert alone.steps >= 1 and alone.saved_predictor is frozen
+    assert alone.steps >= 1 and alone.saved_predictor is frozen and "one_token_earlier_from_the_break_on" not in alone.progress()
     assert all(torch.equal(kept_as[name], value) for name, value in frozen.state_dict().items())
     assert other.first == 1 and len(other.layers) == 2
 
@@ -1417,3 +1428,62 @@ def test_the_second_run_through_the_tiny_second_drafter():
     assert len(before.rounds) == len(after.rounds) > 20
     assert sum(int(torch.equal(mine[3], theirs[3])) for mine, theirs in zip(before.rounds, after.rounds)) > 0.9 * len(before.rounds)
     assert not draft.layers[1]._forward_hooks
+
+
+def test_the_output_head_over_a_short_list_of_tokens(tmp_path):
+    """Among the listed tokens the short list picks what the whole head picks; a token of the text or one
+    of the first run's choices is found although it is not listed; with every token listed the second run
+    writes exactly what it writes with the whole head."""
+    from dflash.redraft import Restarts, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.shortlist import Shortlist, common_tokens, count_tokens, save_counts
+    from nexus.redraft_long import make_method, short_list
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    head = target.lm_head
+    torch.manual_seed(1)
+    states = torch.randn(3, 5, 16, dtype=torch.float64)
+    scores = head(states)
+    whole = Shortlist(head, torch.arange(32))
+    assert torch.equal(whole.best(states), scores.argmax(dim=-1))
+    few = Shortlist(head, torch.tensor([3, 7, 11, 30]))
+    assert torch.equal(few.best(states), torch.tensor([3, 7, 11, 30])[scores[..., [3, 7, 11, 30]].argmax(dim=-1)])
+    best = scores.argmax(dim=-1)
+    assert torch.equal(few.best(states, also=torch.arange(32).reshape(4, 8)), best)       # every other token added for the call
+    also = torch.tensor([7, 5, 5, 20])                                                    # listed ones and doubles do no harm
+    allowed = torch.tensor([3, 7, 11, 30, 5, 20])
+    assert torch.equal(few.best(states, also=also), allowed[scores[..., allowed].argmax(dim=-1)])
+    assert torch.equal(few.best(states, also=torch.tensor([3, 30])), few.best(states))
+
+    counts = count_tokens([ids[0, length:], ids[0, length:]], 32)
+    assert int(counts.sum()) == 2 * (ids.shape[1] - length) and counts.shape == (32,)
+    save_counts(str(tmp_path / "token-counts.pt"), counts, {"answers": 2})
+    assert common_tokens(str(tmp_path / "token-counts.pt"), 4).tolist() == counts.topk(4).indices.tolist()
+    assert short_list(str(tmp_path), None) is None and short_list(str(tmp_path), 1).shape == (32,)
+
+    features = target_features(target, draft, ids)
+    kept = {}
+    for name, common in (("whole", None), ("all listed", torch.arange(32)), ("few", counts.topk(6).indices)):
+        method = Restarts(k=3, stand_in="none", swap=True, tail=2)
+        method.common = common
+        seen = Seen(method)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+        kept[name] = [rows for _, _, _, rows, _ in seen.rounds]
+        # Real decoding writes the same text with any list.
+        with_it = dflash_generate_redraft(draft, target, torch.tensor([[1, 2, 3, 4, 5]]), 200, None, improver=method,
+                                          block_size=BLOCK, return_stats=True)
+        assert torch.equal(with_it.output_ids, ids)
+    assert all(torch.equal(mine, theirs) for mine, theirs in zip(kept["whole"], kept["all listed"]))
+    assert any(not torch.equal(mine, theirs) for mine, theirs in zip(kept["whole"], kept["few"]))
+    # By name: v1 is a short list of the 1024 most common tokens (here: all 32).
+    named = make_method("restart3nst2v1", str(tmp_path))
+    assert named.common.shape == (32,) and named.swap and named.alternative_tail == 2 and named.gate is None
+    assert make_method("restart3nst2v1g6", str(tmp_path)).gate == 6.0 and make_method("restart3nst2", str(tmp_path)).common is None
+    # The parts of the second run are timed when asked.
+    method = Restarts(k=3, stand_in="none", swap=True, tail=2)
+    method.timers = {}
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=method, block_size=BLOCK)
+    assert set(method.timers) == {"decide", "states", "prepare", "pass", "head", "rows"}
+    assert all(seconds >= 0 for seconds in method.timers.values())

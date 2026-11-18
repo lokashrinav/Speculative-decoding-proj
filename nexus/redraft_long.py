@@ -171,6 +171,32 @@ class TrueBreak:
         return redrafts_from(self.inner, s, self.kept, self.differ)
 
 
+def short_list(ckpt_dir, thousands):
+    """The `thousands` * 1024 most common tokens (vN in a restart's name: its tokens are looked for among these,
+    the tokens of the text so far and the first run's choices, not in the whole vocabulary; dflash/shortlist.py),
+    from the count saved as token-counts.pt (token_counts below). None without vN."""
+    if thousands is None:
+        return None
+    from dflash.shortlist import common_tokens
+
+    return common_tokens(os.path.join(ckpt_dir, "token-counts.pt"), 1024 * thousands)
+
+
+def token_counts(ckpt_dir, data_dir, vocabulary):
+    """Makes token-counts.pt if it is not there: how often each token occurs in the TRAINING answers of a folder."""
+    from dflash.shortlist import count_tokens, save_counts
+    from nexus.fit_gate import split_of
+    from nexus.replay_memory import load_answers
+
+    path = os.path.join(ckpt_dir, "token-counts.pt")
+    if os.path.exists(path) or not data_dir:
+        return path
+    learned = [answer for answer in load_answers(data_dir) if split_of([answer[0], answer[1]]) == "train"]
+    save_counts(path, count_tokens([answer[2][answer[3] :] for answer in learned], vocabulary),
+                {"answers": len(learned), "from": os.path.basename(os.path.normpath(data_dir)), "part": "train"})
+    return path
+
+
 def make_method(name, ckpt_dir, like=None):
     """The plug-in of a method name (None for "plain"). like: the first drafter, whose number
     type and device a saved second drafter takes."""
@@ -205,17 +231,18 @@ def make_method(name, ckpt_dir, like=None):
         from dflash.redraft import TreeWithRestarts
 
         return TreeWithRestarts(DraftTree(int(found[1])), make_method(found[2], ckpt_dir, like))
-    found = re.fullmatch(r"restart(\d+)p([ex]?)(m?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:g(\d+))?@(.+)", name)
+    found = re.fullmatch(r"restart(\d+)p([ex]?)(m?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:v(\d+))?(?:g(\d+))?@(.+)", name)
     if found:                                                       # a restart with predicted states
         from dflash.stand_in import load_predictor
 
         number = lambda at: None if found[at] is None else int(found[at])
         method = Restarts(int(found[1]), "predicted", swap=bool(found[6]), tail=number(7), choices=int(found[4] or 1),
                           kind=KINDS[found[2]], best=number(5), block=number(8), stale=bool(found[3]),
-                          gate=None if found[9] is None else float(found[9]))
+                          gate=None if found[10] is None else float(found[10]))
+        method.common = short_list(ckpt_dir, number(9))
         # @PREDICTOR, or @PREDICTOR~SECOND: the restarts run through the tiny second drafter warm-SECOND.pt
         # (dflash/restart_layers.py), which goes on from the first run.
-        predictor, _, second = found[10].partition("~")
+        predictor, _, second = found[11].partition("~")
         method.predictor, _ = load_predictor(os.path.join(ckpt_dir, f"restart-{predictor}.pt"),
                                              "cpu" if like is None else like.fc.weight.device)
         if second:
@@ -232,12 +259,14 @@ def make_method(name, ckpt_dir, like=None):
     found = re.fullmatch(r"tree(\d+)", body)
     if found and model is None:
         return DraftTree(int(found[1]))
-    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(m?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:g(\d+))?", body)
+    found = re.fullmatch(r"restart(\d+)([nlr])([ex]?)(m?)(?:c(\d))?(?:r(\d+))?(s?)(?:t(\d+))?(?:b(\d+))?(?:v(\d+))?(?:g(\d+))?", body)
     if found and model is None:
         number = lambda at: None if found[at] is None else int(found[at])
-        return Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[7]),
-                        tail=number(8), choices=int(found[5] or 1), kind=KINDS[found[3]], best=number(6), block=number(9),
-                        stale=bool(found[4]), gate=None if found[10] is None else float(found[10]))
+        method = Restarts(int(found[1]), {"n": "none", "l": "last", "r": "real"}[found[2]], swap=bool(found[7]),
+                          tail=number(8), choices=int(found[5] or 1), kind=KINDS[found[3]], best=number(6), block=number(9),
+                          stale=bool(found[4]), gate=None if found[11] is None else float(found[11]))
+        method.common = short_list(ckpt_dir, number(10))
+        return method
     found = re.fullmatch(r"branches(\d+)([les]?)(?:t(\d+))?", body)
     if found:
         return Branches(k=int(found[1]), model=model, differ=kinds[found[2]], tail=None if found[3] is None else int(found[3]))
@@ -507,6 +536,7 @@ def main():
     for adapter in adapters:
         adapter.fast = True
     saved, saved_notes, methods = {}, {}, {}
+    token_counts(args.ckpt_dir, args.data_dir, target.config.vocab_size)       # for methods with a short list of tokens (vN)
     for name, options in parsed.items():
         fixed = options["fixed"]
         if fixed and fixed not in saved:

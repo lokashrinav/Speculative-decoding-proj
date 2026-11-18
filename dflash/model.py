@@ -639,11 +639,15 @@ class DFlashDraftModel(Qwen3PreTrainedModel):
         # trained copy of one of the drafter's layers (dflash/restart_layers.py), which reads and
         # writes the cache entry of the layer it was copied from.
         hidden_states = noise_embedding
-        target_hidden = self.hidden_norm(self.fc(target_hidden))
-        if context_states is not None:
-            # Context given as the drafter reads it (after fc and hidden_norm): stand-ins for the
-            # target's states of tokens the target has not read yet. They follow target_hidden.
-            target_hidden = torch.cat((target_hidden, context_states.to(target_hidden.dtype)), dim=1)
+        if context_states is not None and target_hidden.shape[1] == 0:
+            # (a restart reads no new states of the target: nothing to project, nothing to join)
+            target_hidden = context_states.to(self.fc.weight.dtype)
+        else:
+            target_hidden = self.hidden_norm(self.fc(target_hidden))
+            if context_states is not None:
+                # Context given as the drafter reads it (after fc and hidden_norm): stand-ins for the
+                # target's states of tokens the target has not read yet. They follow target_hidden.
+                target_hidden = torch.cat((target_hidden, context_states.to(target_hidden.dtype)), dim=1)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
         for layer in self.layers if layers is None else [
             self.layers[layer] if isinstance(layer, int) else layer for layer in layers
