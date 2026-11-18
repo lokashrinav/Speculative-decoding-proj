@@ -1842,3 +1842,27 @@ def test_text_written_many_answers_at_once():
         assert answer == cut_at_stop(alone, {30})[0]
         assert stopped == (30 in alone)
         assert 1 <= len(answer) <= 6
+
+
+def test_training_takes_more_folders_of_text(tmp_path):
+    """nexus/train_second.py: answers of other folders are learned from, but none whose prompt is held out, none
+    twice, and what is written later is found at the next reading."""
+    from nexus.train_second import more_answers
+
+    def write(folder, name, rows):
+        folder.mkdir(exist_ok=True)
+        torch.save({"sequences": [torch.tensor(prompt + answer, dtype=torch.int32) for prompt, answer in rows],
+                    "prompt_lengths": [len(prompt) for prompt, _ in rows], "sources": ["x"] * len(rows)}, folder / name)
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    write(one, "shard0of2.pt", [([3, 4], [5, 6, 7]), ([8, 9, 10], [11, 12])])
+    write(two, "shard0of1.pt", [([3, 4], [9, 9, 9]), ([13], [14, 15])])
+    seen = set()
+    first = more_answers([str(one), str(two)], held_out={(8, 9, 10)}, seen=seen)
+    assert [answer[2].tolist() for answer in first] == [[3, 4, 5, 6, 7], [3, 4, 9, 9, 9], [13, 14, 15]]
+    assert more_answers([str(one), str(two)], held_out={(8, 9, 10)}, seen=seen) == []
+
+    write(one, "shard1of2.pt", [([16, 17], [18, 19])])                                  # written while the training runs
+    write(one, "shard0of2.pt", [([3, 4], [5, 6, 7]), ([8, 9, 10], [11, 12]), ([20], [21, 22])])
+    later = more_answers([str(one), str(two)], held_out={(8, 9, 10)}, seen=seen)
+    assert [answer[2].tolist() for answer in later] == [[20, 21, 22], [16, 17, 18, 19]]

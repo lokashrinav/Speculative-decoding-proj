@@ -39,6 +39,7 @@ is frozen, restart-<name>.pt (the predictor as trained with the layers) in --ada
 import argparse
 import copy
 import os
+import random
 import time
 
 import torch
@@ -308,6 +309,23 @@ class TeachSecond:
         return point
 
 
+def more_answers(folders, held_out, seen):
+    """The answers of other folders that may be learned from and were not handed out before.
+
+    held_out: prompts (tuples of tokens) whose answers are kept for measuring; seen: (folder, file, index) of the
+    answers handed out so far, added to here. A folder that is still being written gives its new answers at the next call."""
+    out = []
+    for folder in folders:
+        folder = os.path.abspath(os.path.expanduser(folder))
+        for answer in load_answers(folder):
+            key = (folder, answer[0], answer[1])
+            if key in seen or tuple(answer[2][:answer[3]].tolist()) in held_out:
+                continue
+            seen.add(key)
+            out.append(answer)
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
@@ -321,6 +339,12 @@ def main():
     parser.add_argument("--layers", type=int, default=1, help="how many of the drafter's last layers the second drafter has")
     parser.add_argument("--rank", type=int, default=256, help="of the low-rank updates")
     parser.add_argument("--part", default="train", help="the answers it learns from")
+    parser.add_argument("--more-data", action="append", default=[],
+                        help="a folder of more answers to learn from, all of them but those with a prompt of --data-dir's "
+                             "validation or test answers (may be given more than once; read again when the answers run out, "
+                             "so text that is still being written is learned from too)")
+    parser.add_argument("--more-only", action="store_true",
+                        help="learn from the --more-data answers only (--data-dir still gives the validation answers)")
     parser.add_argument("--vector-weight", type=float, default=0.1)
     parser.add_argument("--window", type=int, default=2048, help="tokens of text the drafter reads in a step")
     parser.add_argument("--rate", type=float, default=2e-4)
@@ -398,6 +422,7 @@ def main():
                   "distill": args.distill, "real_share": args.real_share, "one_token_earlier_too": not args.only_after,
                   "reads_the_tokens": second.reveal, "states_written_into_the_block": second.states_in_block,
                   "share_of_steps_with_no_states": args.no_states,
+                  "more_data": args.more_data, "more_data_only": args.more_only,
                   "parameters_trained": sum(value.numel() for value in second.trained()),
                   "rounds_without_a_break": teach.unbroken, "rounds_broken_at_the_last_place": teach.at_the_end,
                   "curve": curve, "on_validation_answers": measured}
@@ -413,7 +438,22 @@ def main():
             save_predictor(os.path.join(args.adapter_dir, f"restart-{args.save}.pt"), predictor, notes)
 
     learned, saved_at = 0, time.time()
-    for name, index, sequence, prompt_length, source in [entry for _ in range(max(args.passes, 1)) for entry in answers]:
+    waiting = [] if args.more_only else [entry for _ in range(max(args.passes, 1)) for entry in answers]
+    held_out = {tuple(answer[2][:answer[3]].tolist()) for answer in everything
+                if split_of([answer[0], answer[1]]) != "train"} if args.more_data else set()
+    seen_more, order = set(), random.Random(args.seed)
+    if args.more_data:                              # the other folders' answers among this folder's, not after them
+        waiting += more_answers(args.more_data, held_out, seen_more)
+        order.shuffle(waiting)
+        answers = list(waiting)
+    while True:
+        if not waiting and args.more_data:          # text written since the folders were last read
+            waiting = more_answers(args.more_data, held_out, seen_more)
+            order.shuffle(waiting)
+            answers = answers + waiting
+        if not waiting:
+            break
+        name, index, sequence, prompt_length, source = waiting.pop(0)
         if time.time() - started > args.max_hours * 3600 or (args.max_answers and learned >= args.max_answers):
             break
         if len(sequence) - prompt_length < 2 or (args.longest and len(sequence) - prompt_length > args.longest):

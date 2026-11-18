@@ -448,8 +448,10 @@ trained layers instead of a whole pass.
    twenty), on prompts of the same kinds as `long1`'s and none of its own. Tonight: about 3,000
    answers of up to 3,072 tokens (`~/specdec-data/think1`), in four jobs: the places of
    `train-depth4-opd-0` and `train-depth3b-opd-0`, then `gen-think-2` and `gen-think-3`.
-2. *The one- and two-layer restarts trained on all of it*, then the replay of the tree above. The
-   aim is the whole drafter's +5.0% through two layers.
+2. *The one- and two-layer restarts trained on all of it* (`train-more-opd-0`: one layer, on from
+   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `train-more-opd-1`: two layers, on from
+   `warm-opd-s2.pt`, saved as `warm-opd-s2x.pt`; `nexus/train_second.py --more-data`), then the
+   replay of the tree above. The aim is the whole drafter's +5.0% through two layers.
 3. *The restart inside the first run's pass* (point 3 above), if 2 reaches about +5%.
 4. *DForkTree's counts as the method to beat and to add to*: they cost nothing in a round, so the
    second run has to add tokens on top of them. The new text serves the counts as well.
@@ -471,7 +473,7 @@ which measures the cost side of the table above. The three-layer training runs i
 | The restart second run over whole answers | Accepted tokens with the real states (the limit), with nothing, with crude stand-ins | `dflash/redraft.py` (`Restarts`), `nexus/redraft_long.py` | `nexus/results/restart-replay-pub-0`, `restart-replay-opd-0` (queued) |
 | A predictor of the missing states | Whether a small trained network can stand in for the target's states at a restart | `dflash/stand_in.py`, `nexus/train_restart.py` | `nexus/results/train-restart-pub-0`, `train-restart-opd-0` (queued) |
 | How many layers a restart needs | Restarts through fewer layers, cold and going on from the first run; the time of each part of the second run | `nexus/layer_probe.py` | `nexus/results/live-reanchor-pub-0` (Draft-OPD), `layer-probe-pub-0` |
-| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer that reads the tokens), `bench-pub-0` (one layer, first token only), `layer-probe-pub-0` (one layer, states in the block), `train-depth2-opd-0`, `train-depth3-opd-0`, `train-second-pub-0` (five layers) |
+| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer that reads the tokens), `bench-pub-0` (one layer, first token only), `layer-probe-pub-0` (one layer, states in the block), `train-depth2-opd-0`, `train-depth3-opd-0`, `train-second-pub-0` (five layers), `train-more-opd-0`, `train-more-opd-1` (one and two layers on the new text) |
 | Where DDTree's rounds end | What is left to add on top of a tree | `nexus/tree_ends.py` | `nexus/results/live-reanchor-opd-0` |
 | The second run at every node of a tree | Accepted tokens at the same number of tokens checked as DDTree | `dflash/redraft.py` (`BranchTree`), `nexus/redraft_long.py` | `nexus/results/tree-ends-pub-0` (Draft-OPD, replay, through the trained layers) |
 | More text from the target | About twenty thinking-mode answers at a time, for training and for counts | `nexus/gen_text.py` | `nexus/results/train-depth4-opd-0`, `train-depth3b-opd-0`, `gen-think-2`, `gen-think-3` (the text is in `~/specdec-data/think1`) |
