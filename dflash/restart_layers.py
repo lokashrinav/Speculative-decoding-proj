@@ -91,10 +91,20 @@ class RestartLayers(nn.Module):
         known = known_in.shape[-2]
         if not known:
             return states
-        unit = known_in.float() * known_in.float().pow(2).mean(dim=-1, keepdim=True).clamp_min(1e-8).rsqrt()
-        added = self.token_up(self.token_down(unit.to(self.token_down.weight.dtype)))
-        written = states[..., 1 : 1 + known, :] + (known_in - mask_in[..., None, :]).to(states.dtype) + added.to(states.dtype)
+        written = self._written(states[..., 1 : 1 + known, :], known_in, mask_in[..., None, :])
         return torch.cat((states[..., :1, :], written, states[..., 1 + known :, :]), dim=-2)
+
+    def _written(self, states, tokens_in, mask_in):
+        unit = tokens_in.float() * tokens_in.float().pow(2).mean(dim=-1, keepdim=True).clamp_min(1e-8).rsqrt()
+        added = self.token_up(self.token_down(unit.to(self.token_down.weight.dtype)))
+        return states + (tokens_in - mask_in).to(states.dtype) + added.to(states.dtype)
+
+    def enter_blocks(self, states: torch.Tensor, tokens_in: torch.Tensor, mask_in: torch.Tensor, known: torch.Tensor) -> torch.Tensor:
+        """enter_block for several restarts with different numbers of known tokens: states [places, size]
+        (the same first-run states for all), tokens_in [restarts, places, size], known [restarts, places]
+        (true where a token is written in). Returns [restarts, places, size]."""
+        states = states[None].expand(tokens_in.shape[0], -1, -1)
+        return torch.where(known[..., None], self._written(states, tokens_in, mask_in), states)
 
     @torch.no_grad()
     def merge(self):

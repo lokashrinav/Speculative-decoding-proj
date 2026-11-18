@@ -1648,3 +1648,97 @@ def test_a_tree_in_which_the_second_run_writes_after_every_node():
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=two, block_size=BLOCK)
     assert sum(int(sorted(mine.tolist()) == sorted(theirs.tolist())) for (_, mine, _), (_, theirs, _) in zip(one.rounds, two.rounds)) \
         > 0.9 * len(one.rounds)
+
+
+def test_the_second_run_through_layers_that_read_the_tokens():
+    """Restarts and the tree with restarts at every node, through restart layers that read the tokens: before
+    training each restart is the drafter's own last layer on the round's block with the known tokens written in;
+    trained (here: changed at random), real decoding still writes the same text."""
+    from dflash.redraft import BranchTree, DraftTree, Restarts, TreeWithRestarts, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+    from dflash.stand_in import StatePredictor
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    chain = replay_decode(draft, target, ids, length, ended=False, features=features, block_size=BLOCK)
+    reader = RestartLayers(draft, count=1, rank=4, reveal=True)
+
+    class Checked(Seen):
+        """Every restart of every round against a pass made by hand."""
+
+        def __init__(self, inner, drafter):
+            super().__init__(inner)
+            self.given, self.checked = None, 0
+            self.hook = drafter.layers[1].register_forward_hook(lambda module, came, output: setattr(self, "given", output))
+
+        def __call__(self, s):
+            first_run = self.given[0].clone()
+            rows = self.inner(s)
+            width, block = s.block_ids.shape[1], s.block_ids[0]
+            second = s.draft_logits[0].topk(2, dim=-1).indices[:, 1]
+            mask_in = draft_embeddings(s.target, torch.tensor([[s.first_drafter.mask_token_id]]))[0, 0]
+            for number, broke in enumerate(self.inner.kept):
+                place = broke + 1                                  # the restart's first token: the second choice there
+                if place >= width - 1:
+                    continue
+                known = torch.cat((block[1:place], second[broke : broke + 1]))
+                entering = first_run.clone()
+                entering[1 : place + 1] += draft_embeddings(s.target, known[None])[0] - mask_in
+                given = None
+                if self.inner.stand_in == "real":
+                    given = self.inner.features[:, s.start : s.start + place]
+                positions = torch.cat((torch.arange(s.start, s.start + (place if given is not None else 0)),
+                                       torch.arange(s.start, s.start + width)))[None]
+                seen = s.draft_cache.get_seq_length()
+                hidden = s.first_drafter(target_hidden=s.context_features[:, :0] if given is None else given,
+                                         noise_embedding=entering[None], position_ids=positions, past_key_values=s.draft_cache,
+                                         use_cache=True, layers=[2])
+                s.draft_cache.layers[2].crop(-(s.draft_cache.layers[2].get_seq_length() - seen))
+                by_hand = s.first_drafter.compute_logits(hidden[:, -width:][:, place + 1 :], s.target.lm_head)[0].argmax(dim=-1)
+                assert rows[number, : place].tolist() == block[:place].tolist() and int(rows[number, place]) == int(second[broke])
+                assert rows[number, place + 1 : width].tolist() == by_hand.tolist()
+                assert bool((rows[number, width:] == -1).all())
+                self.checked += 1
+            self.rounds.append((s.start, block.clone(), s.draft_logits[0].clone(), rows.clone(), list(self.inner.kept)))
+            return rows
+
+    for stand_in in ("real", "none"):
+        method = Restarts(k=3, stand_in=stand_in)
+        method.features, method.second = features, reader
+        checked = Checked(method, draft)
+        result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=checked, block_size=BLOCK)
+        checked.hook.remove()
+        method.close()
+        assert checked.checked > 30 and sum(result.acceptance_lengths) == sum(chain.acceptance_lengths)
+        assert result.rounds <= chain.rounds
+
+    torch.manual_seed(7)
+    with torch.no_grad():
+        for adapter in reader.adapters:
+            adapter.up.normal_(std=0.3)
+        reader.token_up.weight.normal_(std=0.3)
+    predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK)
+    prompt = torch.tensor([[1, 2, 3, 4, 5]])
+    methods = []
+    for kind, block, on_a_tree in (("choice", None, False), ("both", 4, False), ("choice", 4, True)):
+        method = Restarts(k=3, stand_in="predicted", swap=not on_a_tree, tail=2, kind=kind, block=block, choices=2)
+        method.predictor, method.second = predictor, reader
+        methods.append((TreeWithRestarts(DraftTree(15), method) if on_a_tree else method, method))
+    for stand_in in ("predicted", "none"):
+        tree = BranchTree(14, 8, tail=2, stand_in=stand_in)
+        tree.predictor, tree.second = predictor, reader
+        methods.append((tree, tree))
+    for improver, method in methods:
+        with_it = dflash_generate_redraft(draft, target, prompt, 200, None, improver=improver, block_size=BLOCK, return_stats=True)
+        assert torch.equal(with_it.output_ids, ids) and len(with_it.acceptance_lengths) <= len(plain.acceptance_lengths)
+        seen = Seen(method) if isinstance(method, Restarts) else None
+        if seen is not None:                                   # nothing is written past the first block's end
+            replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen, block_size=BLOCK)
+            assert all(token == -1 for _, first, _, rows, _ in seen.rounds for row in rows.tolist() for token in row[first.shape[0] :])
+        else:
+            assert method.counts["nodes_from_the_second_run"] > 0
+        method.close()
+    assert not any(layer._forward_hooks for layer in draft.layers)

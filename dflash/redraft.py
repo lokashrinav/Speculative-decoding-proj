@@ -459,7 +459,8 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
 def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], context: torch.Tensor | None, counts: list[int],
                   context_places: list[int], width: int, layers=None, entering: torch.Tensor | None = None,
                   lengths: list[int] | None = None, shortlist=None, also: torch.Tensor | None = None,
-                  timers: dict | None = None, top: int | None = None, shared: list[list[int]] | None = None):
+                  timers: dict | None = None, top: int | None = None, shared: list[list[int]] | None = None,
+                  wanted: tuple[list[int], int] | None = None):
     """The pass of restarts(), prepared without small steps on the GPU: the tokens, the places and who
     sees whom are made as lists and sent over once each. tokens, begin: the restarts' first tokens and
     their positions. context: [states, D], the stand-ins of all restarts in the form the drafter reads
@@ -470,7 +471,9 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
     GPU). Returns [restarts, width - 1].
     shared: the stand-ins are given once and shared: restart n sees the rows shared[n] of `context`
     (counts is not read then). top: in place of the best token, the `top` best tokens of every place
-    with their log-probabilities are returned: ([restarts, width - 1, top], the same shape)."""
+    with their log-probabilities are returned: ([restarts, width - 1, top], the same shape).
+    wanted: (the first place wanted of each restart, how many places): the output head is asked for
+    these places only, and [restarts, places] is returned (places past the block's end: its last)."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
     clock = _cuda_time() if timers is not None else None
     ran = None
@@ -514,7 +517,11 @@ def _restart_pass(s: SimpleNamespace, tokens: list[int], begin: list[int], conte
         now = _cuda_time()
         timers["pass"] = timers.get("pass", 0.0) + now - clock
         clock = now
-    states = hidden.reshape(count, width, -1)[:, 1:, :]
+    if wanted is None:
+        states = hidden.reshape(count, width, -1)[:, 1:, :]
+    else:
+        index = torch.tensor([[min(first + step, width - 1) for step in range(wanted[1])] for first in wanted[0]], device=device)
+        states = hidden.reshape(count, width, -1)[torch.arange(count, device=device)[:, None], index]
     if top is not None and shortlist is not None:
         if _draft_value(drafter.config, "final_logit_softcapping") is not None:
             raise ValueError("a drafter that caps its scores needs the whole output head for probabilities")
@@ -776,9 +783,26 @@ class Restarts:
             context = pool[torch.tensor(rows_taken, device=device)]
         reach = width if self.block is None else min(self.block, width)
         lengths, entering = None, None
+        wanted, pass_width, pass_begin = None, reach, begin
         if self.second is not None and getattr(self.second, "reveal", False):
-            raise NotImplementedError("restarts through layers that read the tokens are made by BranchTree and Restarts.revealed")
-        if self.second is not None:
+            # Through layers that read the tokens: every restart's block is the round's block from its first
+            # token on, as far as the restart writes, with the tokens known at the restart written in at their
+            # places (the draft tokens before it, and its first token).
+            first_place = [broke + 1 if choice else broke for broke, choice in starts]
+            lengths = [min(place + reach, width) for place in first_place]
+            pass_width, pass_begin = max(lengths), [s.start] * len(starts)
+            wanted = ([place + 1 for place in first_place], reach - 1)
+            mask_token = s.first_drafter.mask_token_id
+            written_in = [block[: place] + [token] + [mask_token] * (pass_width - place - 1)
+                          for place, token in zip(first_place, first_tokens)]
+            known = [[0 < slot <= place for slot in range(pass_width)] for place in first_place]
+            scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
+            given = torch.tensor(written_in + [[mask_token] * pass_width], dtype=s.block_ids.dtype, device=device)
+            embedded = _raw_input_embeddings(s.target, given, scale)
+            entering = self.second.enter_blocks(self._first_run[0, -width:][:pass_width], embedded[:-1], embedded[-1, 0],
+                                                torch.tensor(known, device=device))
+            lengths_written = [length - place for length, place in zip(lengths, first_place)]     # as below: its places from its first token on
+        elif self.second is not None:
             # Through the tiny second drafter, going on from the first run. A restart's first token is at
             # the block's place broke + 1 (from a choice) or broke (one token earlier); the first run has
             # no states past the block's end, so nothing is written past it.
@@ -789,6 +813,7 @@ class Restarts:
             given = torch.tensor([first_tokens + [s.first_drafter.mask_token_id]], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)[0]
             entering = self.second.enter(self._first_run[0, -width:][places], embedded[:-1], embedded[-1])
+            lengths_written = lengths
         also = None
         if self.common is not None:
             if self._shortlist is None or self._shortlist.head is not _output_head(s.target):
@@ -799,16 +824,16 @@ class Restarts:
         if timers is not None:
             now = _cuda_time()
             timers["states"] = timers.get("states", 0.0) + now - clock
-        new = _restart_pass(s, first_tokens, begin, context, counts, places_taken, reach,
+        new = _restart_pass(s, first_tokens, pass_begin, context, counts, places_taken, pass_width,
                             layers=None if self.second is None else list(self.second.layers), entering=entering,
                             lengths=lengths, shortlist=self._shortlist if self.common is not None else None, also=also,
-                            timers=timers).tolist()
+                            timers=timers, wanted=wanted).tolist()
         clock = _cuda_time() if timers is not None else None
         rows = [[-1] * (2 * width) for _ in range(len(starts) + (chosen if self.swap else 0))]
         for number, (broke, choice) in enumerate(starts):
             row, written = rows[number], new[number]
             if lengths is not None:                                   # nothing is written past the first block's end
-                written = written[: lengths[number] - 1] + [-1] * (reach - lengths[number])
+                written = written[: lengths_written[number] - 1] + [-1] * (reach - lengths_written[number])
             row[: broke + 1] = block[: broke + 1]
             if not choice:
                 row[broke + 1 : broke + reach] = written
@@ -1092,10 +1117,23 @@ class BranchTree:
         anchors = [path[ranks][-1] for ranks in nodes]
         begin = [s.start + len(ranks) for ranks in nodes]
         reach = min(1 + self.tail, width) if self.second is not None else (width if self.block is None else min(self.block, width))
-        lengths, entering = None, None
+        lengths, entering, wanted, room_of = None, None, None, None
         if self.second is not None and getattr(self.second, "reveal", False):
-            raise NotImplementedError("a tree through layers that read the tokens: not written yet")
-        if self.second is not None:
+            # Through layers that read the tokens: a node's block is the round's block from its first token to
+            # `tail` places after the node, with the tokens of the node's path written in at their places.
+            lengths = [min(len(ranks) + reach, width) for ranks in nodes]
+            wide, mask_token = max(lengths), s.first_drafter.mask_token_id
+            wanted, begin = ([len(ranks) + 1 for ranks in nodes], reach - 1), [s.start] * len(nodes)
+            written_in = [[first_token] + path[ranks] + [mask_token] * (wide - len(ranks) - 1) for ranks in nodes]
+            known = [[0 < slot <= len(ranks) for slot in range(wide)] for ranks in nodes]
+            scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
+            given = torch.tensor(written_in + [[mask_token] * wide], dtype=s.block_ids.dtype, device=device)
+            embedded = _raw_input_embeddings(s.target, given, scale)
+            entering = self.second.enter_blocks(self._first_run[0, -width:][:wide], embedded[:-1], embedded[-1, 0],
+                                                torch.tensor(known, device=device))
+            room_of = [length - len(ranks) - 1 for length, ranks in zip(lengths, nodes)]
+            reach = wide
+        elif self.second is not None:
             lengths = [min(width - len(ranks), reach) for ranks in nodes]
             at = torch.tensor([[min(len(ranks) + slot, width - 1) for slot in range(reach)] for ranks in nodes], device=device)
             scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
@@ -1112,13 +1150,15 @@ class BranchTree:
         wrote, likely = _restart_pass(s, anchors, begin, context, [], context_places, reach,
                                       layers=None if self.second is None else list(self.second.layers), entering=entering,
                                       lengths=lengths, top=max(self.choices, 1), shared=shared,
-                                      shortlist=self._shortlist if self.common is not None else None, also=also)
+                                      shortlist=self._shortlist if self.common is not None else None, also=also, wanted=wanted)
         wrote, likely = wrote.tolist(), likely.tolist()
+        if room_of is None:                                           # how many places after each node the pass wrote
+            room_of = [(reach if lengths is None else lengths[at]) - 1 for at in range(len(nodes))]
         # What the pass wrote, most probable first: after node n its `choices` best tokens, and after the
         # best one the best tokens of the next places (a chain: each is offered once the one before is in).
         heap = []
         for at, ranks in enumerate(nodes):
-            room = min(self.tail, width - 1 - len(ranks), (reach if lengths is None else lengths[at]) - 1)
+            room = min(self.tail, width - 1 - len(ranks), room_of[at])
             for choice in range(min(self.choices, len(wrote[at][0])) if room > 0 else 0):
                 token = wrote[at][0][choice]
                 if token in had.get(ranks, ()):
@@ -1129,7 +1169,7 @@ class BranchTree:
         while heap and len(added) < self.budget - len(chosen):
             negative, at, choice, depth, chain = heapq.heappop(heap)
             added.append((nodes[at], chain))
-            room = min(self.tail, width - 1 - len(nodes[at]), (reach if lengths is None else lengths[at]) - 1)
+            room = min(self.tail, width - 1 - len(nodes[at]), room_of[at])
             if choice == 0 and depth < room:                          # the chain goes on after the best token only
                 heapq.heappush(heap, (negative - likely[at][depth][0], at, 0, depth + 1, chain + (wrote[at][depth][0],)))
         self.counts["nodes_from_the_second_run"] += len(added)
