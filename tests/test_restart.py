@@ -324,6 +324,13 @@ def test_restarts_from_the_last_token_before_the_break():
     assert compared > 10
     with pytest.raises(ValueError):
         Restarts(kind="later")
+    # An answer that ended by itself: its last block reaches past its end, where there are no states.
+    for kind, method in methods.items():
+        closed = replay_decode(draft, target, ids, length, ended=True, features=features, improver=Seen(method), block_size=BLOCK)
+        assert sum(closed.acceptance_lengths) >= ids.shape[1] - length - 1
+    unset = Restarts(k=3, stand_in="real")
+    with pytest.raises(ValueError):
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=Seen(unset), block_size=BLOCK)
 
 
 def test_an_alternative_that_only_adds_to_the_block_is_checked_from_its_end():

@@ -479,6 +479,14 @@ class Restarts:
         first = s.draft_logits[0].float()
         scores = break_scores(first.softmax(dim=-1).amax(dim=-1))[: width - 1]
         self.kept = scores.topk(min(self.k, scores.shape[0])).indices.tolist()
+        if self.stand_in == "real":
+            if self.features is None:
+                raise ValueError("stand_in='real' needs the answer's states (replay only)")
+            # In replay the last block of an answer that ended by itself reaches past the answer's end:
+            # breaks out there have no states, and nothing after them can be accepted anyway.
+            self.kept = [broke for broke in self.kept if s.start + broke + 1 <= self.features.shape[1]]
+            if not self.kept:
+                return None
         choices = min(self.choices, first.shape[-1] - 1)
         ranked = first.topk(1 + choices, dim=-1).indices              # [place, the first choice and the next ones]
         device = s.block_ids.device
@@ -493,8 +501,6 @@ class Restarts:
             if self.stand_in == "predicted":
                 given.append((written[:, :missing], places, True))
             elif self.stand_in == "real":
-                if self.features is None or self.features.shape[1] < s.start + missing:
-                    raise ValueError("stand_in='real' needs the answer's states (replay only)")
                 given.append((self.features[:, s.start : s.start + missing], places))
             elif self.stand_in == "last" and s.context_features.shape[1]:
                 given.append((s.context_features[:, -1:].repeat(1, missing, 1), places))
