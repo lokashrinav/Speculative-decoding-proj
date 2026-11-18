@@ -1,8 +1,8 @@
 {
  "done": false,
- "answers": 3,
+ "answers": 10,
  "part": "validation",
- "hours": 0.039,
+ "hours": 0.128,
  "draft": "opd",
  "columns": [
   "answer",
@@ -54,168 +54,259 @@
     "31": 630,
     "127": 582
    }
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard0of4.pt",
+    24
+   ],
+   "tokens": 16384,
+   "rounds": {
+    "63": 2206,
+    "31": 2363,
+    "127": 2098
+   }
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    33
+   ],
+   "tokens": 5893,
+   "rounds": {
+    "63": 679,
+    "31": 722,
+    "127": 654
+   }
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard0of4.pt",
+    49
+   ],
+   "tokens": 5994,
+   "rounds": {
+    "63": 726,
+    "31": 764,
+    "127": 696
+   }
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard0of4.pt",
+    52
+   ],
+   "tokens": 942,
+   "rounds": {
+    "63": 288,
+    "31": 308,
+    "127": 271
+   }
+  },
+  {
+   "source": "aime-before-2024",
+   "origin": [
+    "shard0of4.pt",
+    55
+   ],
+   "tokens": 7103,
+   "rounds": {
+    "63": 908,
+    "31": 964,
+    "127": 876
+   }
+  },
+  {
+   "source": "ultrachat",
+   "origin": [
+    "shard0of4.pt",
+    66
+   ],
+   "tokens": 5204,
+   "rounds": {
+    "63": 811,
+    "31": 861,
+    "127": 763
+   }
+  },
+  {
+   "source": "math-train-level5",
+   "origin": [
+    "shard0of4.pt",
+    75
+   ],
+   "tokens": 16384,
+   "rounds": {
+    "63": 2007,
+    "31": 2115,
+    "127": 1915
+   }
   }
  ],
  "by_budget": {
   "63": {
-   "rounds": 3105,
-   "draft_tokens_accepted_per_round": 6.571,
+   "rounds": 10712,
+   "draft_tokens_accepted_per_round": 6.592,
    "nodes_per_tree": 63.0,
-   "nodes_on_the_path_of_first_choices": 9.69,
+   "nodes_on_the_path_of_first_choices": 9.9,
    "ways": {
     "block end": {
-     "share": 0.0866,
+     "share": 0.0681,
      "draft_tokens_accepted_by_then": 15.0
     },
     "leaf on the trunk, the first choice was next": {
-     "share": 0.0135,
-     "draft_tokens_accepted_by_then": 9.31,
-     "first_pass_tokens_after_the_missing_one": 0.69,
-     "tokens_per_round_if_that_token_were_there": 0.023
+     "share": 0.0119,
+     "draft_tokens_accepted_by_then": 9.68,
+     "first_pass_tokens_after_the_missing_one": 0.492,
+     "tokens_per_round_if_that_token_were_there": 0.018
     },
     "leaf on the trunk, another token was next": {
-     "share": 0.0219,
-     "draft_tokens_accepted_by_then": 9.24,
-     "first_pass_tokens_after_the_missing_one": 0.132,
-     "tokens_per_round_if_that_token_were_there": 0.025
+     "share": 0.0176,
+     "draft_tokens_accepted_by_then": 9.37,
+     "first_pass_tokens_after_the_missing_one": 0.19,
+     "tokens_per_round_if_that_token_were_there": 0.021
     },
     "leaf off the trunk, the first choice was next": {
-     "share": 0.0767,
-     "draft_tokens_accepted_by_then": 6.85,
-     "first_pass_tokens_after_the_missing_one": 0.891,
-     "tokens_per_round_if_that_token_were_there": 0.145
+     "share": 0.0775,
+     "draft_tokens_accepted_by_then": 7.28,
+     "first_pass_tokens_after_the_missing_one": 1.04,
+     "tokens_per_round_if_that_token_were_there": 0.158
     },
     "leaf off the trunk, another token was next": {
-     "share": 0.1807,
-     "draft_tokens_accepted_by_then": 5.97,
-     "first_pass_tokens_after_the_missing_one": 0.212,
-     "tokens_per_round_if_that_token_were_there": 0.219
+     "share": 0.1833,
+     "draft_tokens_accepted_by_then": 6.49,
+     "first_pass_tokens_after_the_missing_one": 0.245,
+     "tokens_per_round_if_that_token_were_there": 0.228
     },
     "not among the children: rank 2-4": {
-     "share": 0.3317,
-     "draft_tokens_accepted_by_then": 5.75,
-     "first_pass_tokens_after_the_missing_one": 0.352,
-     "tokens_per_round_if_that_token_were_there": 0.449
+     "share": 0.3308,
+     "draft_tokens_accepted_by_then": 6.01,
+     "first_pass_tokens_after_the_missing_one": 0.335,
+     "tokens_per_round_if_that_token_were_there": 0.442
     },
     "not among the children: rank 5-10": {
-     "share": 0.1762,
-     "draft_tokens_accepted_by_then": 5.2,
-     "first_pass_tokens_after_the_missing_one": 0.166,
-     "tokens_per_round_if_that_token_were_there": 0.205
+     "share": 0.1864,
+     "draft_tokens_accepted_by_then": 5.28,
+     "first_pass_tokens_after_the_missing_one": 0.187,
+     "tokens_per_round_if_that_token_were_there": 0.221
     },
     "not among the children: rank 11 and more": {
-     "share": 0.1127,
-     "draft_tokens_accepted_by_then": 4.57,
-     "first_pass_tokens_after_the_missing_one": 0.157,
-     "tokens_per_round_if_that_token_were_there": 0.13
+     "share": 0.1243,
+     "draft_tokens_accepted_by_then": 4.53,
+     "first_pass_tokens_after_the_missing_one": 0.118,
+     "tokens_per_round_if_that_token_were_there": 0.139
     }
    }
   },
   "31": {
-   "rounds": 3265,
-   "draft_tokens_accepted_per_round": 6.202,
+   "rounds": 11343,
+   "draft_tokens_accepted_per_round": 6.17,
    "nodes_per_tree": 31.0,
-   "nodes_on_the_path_of_first_choices": 8.73,
+   "nodes_on_the_path_of_first_choices": 8.95,
    "ways": {
     "block end": {
-     "share": 0.0747,
+     "share": 0.0557,
      "draft_tokens_accepted_by_then": 15.0
     },
     "leaf on the trunk, the first choice was next": {
-     "share": 0.0361,
-     "draft_tokens_accepted_by_then": 8.4,
-     "first_pass_tokens_after_the_missing_one": 0.788,
-     "tokens_per_round_if_that_token_were_there": 0.065
+     "share": 0.0319,
+     "draft_tokens_accepted_by_then": 9.07,
+     "first_pass_tokens_after_the_missing_one": 0.798,
+     "tokens_per_round_if_that_token_were_there": 0.057
     },
     "leaf on the trunk, another token was next": {
-     "share": 0.045,
-     "draft_tokens_accepted_by_then": 8.39,
-     "first_pass_tokens_after_the_missing_one": 0.279,
-     "tokens_per_round_if_that_token_were_there": 0.058
+     "share": 0.0417,
+     "draft_tokens_accepted_by_then": 8.52,
+     "first_pass_tokens_after_the_missing_one": 0.266,
+     "tokens_per_round_if_that_token_were_there": 0.053
     },
     "leaf off the trunk, the first choice was next": {
-     "share": 0.083,
-     "draft_tokens_accepted_by_then": 6.27,
-     "first_pass_tokens_after_the_missing_one": 1.244,
+     "share": 0.0868,
+     "draft_tokens_accepted_by_then": 6.66,
+     "first_pass_tokens_after_the_missing_one": 1.143,
      "tokens_per_round_if_that_token_were_there": 0.186
     },
     "leaf off the trunk, another token was next": {
-     "share": 0.1786,
-     "draft_tokens_accepted_by_then": 5.63,
-     "first_pass_tokens_after_the_missing_one": 0.273,
-     "tokens_per_round_if_that_token_were_there": 0.227
+     "share": 0.1716,
+     "draft_tokens_accepted_by_then": 5.95,
+     "first_pass_tokens_after_the_missing_one": 0.299,
+     "tokens_per_round_if_that_token_were_there": 0.223
     },
     "not among the children: rank 2-4": {
-     "share": 0.3528,
-     "draft_tokens_accepted_by_then": 5.33,
-     "first_pass_tokens_after_the_missing_one": 0.369,
-     "tokens_per_round_if_that_token_were_there": 0.483
+     "share": 0.3662,
+     "draft_tokens_accepted_by_then": 5.53,
+     "first_pass_tokens_after_the_missing_one": 0.396,
+     "tokens_per_round_if_that_token_were_there": 0.511
     },
     "not among the children: rank 5-10": {
-     "share": 0.1516,
-     "draft_tokens_accepted_by_then": 4.32,
-     "first_pass_tokens_after_the_missing_one": 0.234,
-     "tokens_per_round_if_that_token_were_there": 0.187
+     "share": 0.1573,
+     "draft_tokens_accepted_by_then": 4.55,
+     "first_pass_tokens_after_the_missing_one": 0.225,
+     "tokens_per_round_if_that_token_were_there": 0.193
     },
     "not among the children: rank 11 and more": {
-     "share": 0.0781,
-     "draft_tokens_accepted_by_then": 4.34,
-     "first_pass_tokens_after_the_missing_one": 0.169,
-     "tokens_per_round_if_that_token_were_there": 0.091
+     "share": 0.0887,
+     "draft_tokens_accepted_by_then": 3.94,
+     "first_pass_tokens_after_the_missing_one": 0.141,
+     "tokens_per_round_if_that_token_were_there": 0.101
     }
    }
   },
   "127": {
-   "rounds": 2955,
-   "draft_tokens_accepted_per_round": 6.954,
+   "rounds": 10210,
+   "draft_tokens_accepted_per_round": 6.965,
    "nodes_per_tree": 127.0,
-   "nodes_on_the_path_of_first_choices": 10.42,
+   "nodes_on_the_path_of_first_choices": 10.69,
    "ways": {
     "block end": {
-     "share": 0.1039,
+     "share": 0.0817,
      "draft_tokens_accepted_by_then": 15.0
     },
     "leaf on the trunk, the first choice was next": {
-     "share": 0.0064,
-     "draft_tokens_accepted_by_then": 9.37,
-     "first_pass_tokens_after_the_missing_one": 0.474,
-     "tokens_per_round_if_that_token_were_there": 0.009
+     "share": 0.0046,
+     "draft_tokens_accepted_by_then": 10.17,
+     "first_pass_tokens_after_the_missing_one": 0.511,
+     "tokens_per_round_if_that_token_were_there": 0.007
     },
     "leaf on the trunk, another token was next": {
-     "share": 0.0112,
-     "draft_tokens_accepted_by_then": 10.55,
-     "first_pass_tokens_after_the_missing_one": 0.303,
-     "tokens_per_round_if_that_token_were_there": 0.015
+     "share": 0.0099,
+     "draft_tokens_accepted_by_then": 10.46,
+     "first_pass_tokens_after_the_missing_one": 0.198,
+     "tokens_per_round_if_that_token_were_there": 0.012
     },
     "leaf off the trunk, the first choice was next": {
-     "share": 0.0633,
-     "draft_tokens_accepted_by_then": 7.14,
-     "first_pass_tokens_after_the_missing_one": 0.909,
-     "tokens_per_round_if_that_token_were_there": 0.121
+     "share": 0.0646,
+     "draft_tokens_accepted_by_then": 7.65,
+     "first_pass_tokens_after_the_missing_one": 0.892,
+     "tokens_per_round_if_that_token_were_there": 0.122
     },
     "leaf off the trunk, another token was next": {
-     "share": 0.1777,
-     "draft_tokens_accepted_by_then": 6.62,
-     "first_pass_tokens_after_the_missing_one": 0.187,
-     "tokens_per_round_if_that_token_were_there": 0.211
+     "share": 0.1802,
+     "draft_tokens_accepted_by_then": 7.05,
+     "first_pass_tokens_after_the_missing_one": 0.223,
+     "tokens_per_round_if_that_token_were_there": 0.22
     },
     "not among the children: rank 2-4": {
-     "share": 0.2985,
-     "draft_tokens_accepted_by_then": 5.94,
-     "first_pass_tokens_after_the_missing_one": 0.243,
-     "tokens_per_round_if_that_token_were_there": 0.371
+     "share": 0.2983,
+     "draft_tokens_accepted_by_then": 6.27,
+     "first_pass_tokens_after_the_missing_one": 0.284,
+     "tokens_per_round_if_that_token_were_there": 0.383
     },
     "not among the children: rank 5-10": {
-     "share": 0.2061,
-     "draft_tokens_accepted_by_then": 5.47,
-     "first_pass_tokens_after_the_missing_one": 0.149,
+     "share": 0.2039,
+     "draft_tokens_accepted_by_then": 5.75,
+     "first_pass_tokens_after_the_missing_one": 0.164,
      "tokens_per_round_if_that_token_were_there": 0.237
     },
     "not among the children: rank 11 and more": {
-     "share": 0.133,
-     "draft_tokens_accepted_by_then": 5.18,
-     "first_pass_tokens_after_the_missing_one": 0.168,
-     "tokens_per_round_if_that_token_were_there": 0.155
+     "share": 0.1567,
+     "draft_tokens_accepted_by_then": 4.98,
+     "first_pass_tokens_after_the_missing_one": 0.118,
+     "tokens_per_round_if_that_token_were_there": 0.175
     }
    }
   }
