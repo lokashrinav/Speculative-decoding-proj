@@ -212,6 +212,9 @@ def main():
                                  int(result.alternative_extra_tokens), int(result.corrections)],
                 # rows that decided while following the saved answer, and how many the pass decided otherwise
                 "followed": [int(result.followed_rows), int(result.followed_against)]}
+            counts = getattr(swaps[setting][1], "counts", None)   # a second run's own counts, summed over the answers so far
+            if counts:
+                record["settings"][setting]["second_run"] = dict(counts)
         for setting in names:
             record["settings"][setting]["differs_from_plain_at"] = first_difference(outputs[setting], outputs["plain"])
         records.append(record)

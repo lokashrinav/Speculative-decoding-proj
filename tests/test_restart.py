@@ -635,6 +635,80 @@ def test_short_restarts_picked_best_first():
         assert torch.equal(result.output_ids, plain.output_ids) and result.rounds <= plain.rounds
 
 
+def test_states_left_over_from_the_last_check():
+    """stale: where the last check read this round's token at its place, the target's state from that
+    check is given to the second run, in place of a predicted one or as the only state. Given the true
+    states of the tokens the first draft has right, the restarts are those with the target's real states."""
+    from dflash.redraft import Restarts, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.stand_in import StatePredictor
+    from nexus.redraft_long import make_method
+
+    named = make_method("restart4nxmc2r6st3b5", "/nowhere")
+    assert named.stale and named.stand_in == "none" and (named.kind, named.choices, named.best, named.block) == ("both", 2, 6, 5)
+    assert not make_method("restart4nxt3b5", "/nowhere").stale
+
+    target, draft = make_models()
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+
+    class TruthAsLeftover:
+        """Hands the method a leftover that holds the answer's own tokens and states at the block's
+        places, shifted by two tokens to see that places are matched, not numbers."""
+
+        def __init__(self, method):
+            self.method, self.rounds = method, []
+
+        def start(self, drafter):
+            self.method.start(drafter)
+
+        def __call__(self, s):
+            begin = max(s.start - 2, 0)
+            end = min(s.start + s.block_ids.shape[1], features.shape[1])
+            s.leftover = {"start": begin, "tokens": ids[0, begin:end].tolist(), "features": features[0, begin:end]}
+            rows = self.method(s)
+            self.rounds.append((s.start, s.block_ids[0].clone(), None if rows is None else rows.clone(), list(self.method.kept)))
+            return rows
+
+    real = Restarts(k=3, stand_in="real", kind="both")
+    real.features = features
+    only = Restarts(k=3, stand_in="none", kind="both", stale=True)
+    mixed = Restarts(k=3, stand_in="predicted", kind="both", stale=True)
+    torch.manual_seed(0)
+    mixed.predictor = StatePredictor(draft.config.hidden_size, inner=32, hidden=64, block=BLOCK).eval()
+    bare = Restarts(k=3, stand_in="none", kind="both")
+    seen = {}
+    for name, method in (("real", real), ("only", only), ("mixed", mixed), ("bare", bare)):
+        seen[name] = TruthAsLeftover(method)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen[name], block_size=BLOCK)
+    same = differs_without = compared = 0
+    for round_real, round_only, round_mixed, round_bare in zip(*(seen[name].rounds for name in ("real", "only", "mixed", "bare"))):
+        start, block, rows, kept = round_real
+        if rows is None or round_only[0] != start or round_only[3] != kept or round_mixed[0] != start or round_bare[0] != start:
+            break                                           # the replays part ways once one accepts more
+        width = block.shape[0]
+        truth = ids[0, start : start + width]
+        right = int((block[: truth.shape[0]] == truth).long().cumprod(dim=0).sum())      # the block's first tokens that are right
+        for number, broke in enumerate(kept):
+            if broke + 1 <= right:                          # every state this restart misses is the answer's
+                compared += 1
+                same += int(torch.equal(rows[number], round_only[2][number]) and torch.equal(rows[number], round_mixed[2][number]))
+                differs_without += int(not torch.equal(rows[number], round_bare[2][number]))
+    assert compared > 5 and same == compared and differs_without > 0
+    assert only.counts["restarts"] > 0 and 0 < only.counts["states_from_the_last_check"] <= only.counts["states_missing"]
+    assert 0 < only.counts["restarts_with_the_nearest_state_from_the_last_check"] <= only.counts["restarts"]
+    assert bare.counts["states_from_the_last_check"] == 0 and bare.counts["states_missing"] > 0
+
+    # In real decoding the checks leave their states; the text stays the plain drafter's.
+    prompt = ids[:, :length]
+    for method in (Restarts(k=3, stand_in="none", kind="both", stale=True, tail=3, block=5),
+                   Restarts(k=3, stand_in="none", kind="both", stale=True, choices=2, best=4, tail=3, block=5, gate=4.0)):
+        result = dflash_generate_redraft(draft, target, prompt, 200, None, improver=method, block_size=BLOCK, return_stats=True)
+        assert torch.equal(result.output_ids, plain.output_ids) and result.rounds <= plain.rounds
+        assert method.counts["restarts"] > 0 and method.counts["states_missing"] >= method.counts["states_from_the_last_check"] >= 0
+
+
 def test_restart_methods_by_name():
     from nexus.redraft_long import make_method
 

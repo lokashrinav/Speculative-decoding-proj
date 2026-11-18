@@ -1,12 +1,13 @@
-plain,plain+restart4pxt3@pub-m0,plain+restart4pxt3b5@pub-m0,plain+restart4pxst3b5@pub-m0,plain+restart4pxc3r12t3b5@pub-m0,plain+restart4pxc3r12st3b5@pub-m0,plain+restart4pxc3r12t5b7@pub-m0,plain+restart4pxt3b5g6@pub-m0,plain+tree63,plain+tree63_restart4pxt3b5@pub-m0,plain+tree63_restart4pxc3r12t3b5@pub-m0
-# (Nov 18) The second run of the drafter made cheaper and aimed better, in real tokens per second on the same text.
-# As measured before (restart4pxst7: restarts of both kinds from four likely breaks, with the swaps, 7 tokens checked
-# after each) a round gained 38% in tokens and took 20 ms longer: 15 ms for the second run itself (it wrote 8 whole
-# blocks), 4 ms for the 78 more tokens in the check. Here:
-#   t3      only 3 tokens checked after a restart's first new token, no swaps
+plain,plain+restart4pxt3b5@pub-m0,plain+restart4pxmt3b5@pub-m0,plain+restart4nxmt3b5,plain+restart4nxt3b5,plain+restart4pxc3r12t3b5@pub-m0,plain+restart4pxmc3r12t3b5@pub-m0,plain+restart4pxmc3r12st3b5@pub-m0,plain+restart4nxmc3r12st3b5,plain+restart4pxmt3b5g6@pub-m0,plain+tree63,plain+tree63_restart4pxmc3r12t3b5@pub-m0
+# (Nov 18) The second run of the drafter made cheaper, aimed better, and given real states where there are some.
+# As measured (restart4pxst7): a round gained 38% in tokens and took 20 ms longer, 15 ms of it the second run itself
+# (8 whole blocks) and 4 ms the 78 more tokens in the check. With 3 tokens checked after each restart and no swaps
+# (restart4pxt3, first answer) the round gains 29% in tokens and the second run still takes 14 ms. Here:
 #   b5      a restart's new block has 5 tokens, not 16: all that is checked, so the second run is a third the size
+#   m       where the LAST CHECK already read this round's token at its place (on the rejected part of its first path),
+#           the target's state from that check is used in place of the predicted one; restart4nxm... uses only those
+#           states and no predictor (nothing trained), restart4nx... nothing at all (its control)
 #   c3r12   12 restarts from the drafter's second to fourth choices, picked over the whole block by the probability
-#           that the text goes that way (the second choice is the right token at 46% of breaks, the third at 16%,
-#           the fourth at 8%); s adds the swaps; t5b7 checks 5 tokens after each
+#           that the text goes that way; s adds the swaps
 #   g6      the second run only in rounds where the drafter's confidences expect at most 6 accepted tokens
 # Then DDTree (63 nodes) alone and with the short restarts on top.

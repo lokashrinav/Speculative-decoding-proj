@@ -458,7 +458,7 @@ class Restarts:
 
     def __init__(self, k: int = 4, stand_in: str = "none", swap: bool = False, tail: int | None = None,
                  choices: int = 1, kind: str = "choice", gate: float | None = None, block: int | None = None,
-                 best: int | None = None):
+                 best: int | None = None, stale: bool = False):
         if stand_in not in ("none", "last", "real", "predicted"):
             raise ValueError("stand_in must be 'none', 'last', 'real' or 'predicted'")
         if choices < 1:
@@ -486,12 +486,38 @@ class Restarts:
         if best is not None and best < 1:
             raise ValueError("best must be at least 1")
         self.block, self.best = block, best
+        # stale: where the last check already read this round's token at its place (on the part of its
+        # first path that the target did not accept), the target's state from that check is used: a real
+        # state of the target for that token, computed with a context that differs a few tokens back
+        # (the rejected ones). It takes the place of the predicted state there, or with stand_in="none"
+        # it is the only state given (nothing is trained then). Real decoding only: a replay makes no
+        # checks. counts: how often such a state was there, for all missing states and for the one
+        # right before a restart's first token, which is the one a restart needs most.
+        self.stale = stale
+        self.counts = {"restarts": 0, "states_missing": 0, "states_from_the_last_check": 0,
+                       "restarts_with_the_nearest_state_from_the_last_check": 0}
         self.features = None        # the answer's states, for stand_in="real"
         self.predictor = None       # a StatePredictor, for stand_in="predicted"
         self.kept = []              # the breaks of the last round, most likely first
 
     def start(self, first_drafter: nn.Module) -> None:
         self.kept = []
+
+    def _from_the_last_check(self, s: SimpleNamespace, count: int):
+        """Which of the round's first `count` tokens the last check read at the same place (their
+        numbers in the block), and the target's states of them from that check as the drafter reads
+        them ([hits, size]); ([], None) without `stale` or when there are none."""
+        left = getattr(s, "leftover", None)
+        if not self.stale or left is None:
+            return [], None
+        shift = s.start - left["start"]                              # the block's first token in the leftover
+        mine = s.block_ids[0, :count].tolist()
+        hits = [at for at in range(count) if 0 <= shift + at < len(left["tokens"]) and left["tokens"][shift + at] == mine[at]]
+        if not hits:
+            return [], None
+        from .stand_in import project
+
+        return hits, project(s.first_drafter, left["features"][None, [shift + at for at in hits]])[0]
 
     def __call__(self, round_state: SimpleNamespace) -> torch.Tensor | None:
         s = round_state
@@ -535,15 +561,22 @@ class Restarts:
             return None
         begin, stand_ins, given = [], [], {}
         used = sorted({broke for broke, _ in starts})
+        hits, read = self._from_the_last_check(s, used[-1] + 1)
         if self.stand_in == "predicted":
             from .stand_in import predicted_states
 
             written = predicted_states(self.predictor, s, used[-1] + 1)
+            if hits:
+                written = written.clone()
+                written[0, hits] = read.to(written.dtype)
         for broke in used:
             missing = broke + 1
             places = torch.arange(s.start, s.start + missing, device=device)
             if self.stand_in == "predicted":
                 given[broke] = (written[:, :missing], places, True)
+            elif self.stale and self.stand_in == "none":              # only the states the last check left
+                mine = [number for number, at in enumerate(hits) if at < missing]
+                given[broke] = (read[None, mine], places[[hits[number] for number in mine]], True) if mine else None
             elif self.stand_in == "real":
                 given[broke] = (self.features[:, s.start : s.start + missing], places)
             elif self.stand_in == "last" and s.context_features.shape[1]:
@@ -558,11 +591,22 @@ class Restarts:
                 first_tokens.append(ranked[broke, choice])
                 begin.append(s.start + broke + 1)
                 if told:        # the predictor is told which token this restart starts from
-                    entry = (predicted_states(self.predictor, s, broke + 1, coming=ranked[broke, choice]), entry[1], True)
+                    mine = predicted_states(self.predictor, s, broke + 1, coming=ranked[broke, choice])
+                    for number, at in enumerate(hits):
+                        if at <= broke:
+                            mine[0, at] = read[number].to(mine.dtype)
+                    entry = (mine, entry[1], True)
             else:                                                     # from the last token before the break: one state fewer
                 first_tokens.append(s.block_ids[0, broke])
                 begin.append(s.start + broke)
-                entry = None if entry is None else (entry[0][:, :-1], entry[1][:-1]) + tuple(entry[2:])
+                if entry is not None:
+                    keep = entry[1] < s.start + broke
+                    entry = (entry[0][:, keep], entry[1][keep]) + tuple(entry[2:]) if bool(keep.any()) else None
+            nearest = broke if choice else broke - 1                  # the token right before the restart's first token
+            self.counts["restarts"] += 1
+            self.counts["states_missing"] += nearest + 1
+            self.counts["states_from_the_last_check"] += sum(1 for at in hits if at <= nearest)
+            self.counts["restarts_with_the_nearest_state_from_the_last_check"] += int(nearest in hits)
             stand_ins.append(entry)
         reach = width if self.block is None else min(self.block, width)
         new = restarts(s, first_tokens, begin, stand_ins, reach)
@@ -772,6 +816,10 @@ class TreeWithRestarts:
     @property
     def kept(self):
         return getattr(self.restarts, "kept", [])
+
+    @property
+    def counts(self):
+        return getattr(self.restarts, "counts", None)
 
     def heard(self, before_block, tokens, parents, said) -> None:
         if hasattr(self.restarts, "heard"):
@@ -1006,6 +1054,7 @@ def dflash_generate_redraft(
     # Accepted tokens whose target cache entries were computed on the alternative
     # branch. They are fed again at the front of the next verification pass.
     pending = output_ids[:, :0]
+    leftover = None        # what the last check read past the accepted text (see where it is set)
     stopped = stop_tokens is not None and torch.isin(output_ids[:, start], stop_tokens).any()
     # A plug-in may ask for what the target predicted on each draft (see dflash/adapt.py).
     canvas_top = int(getattr(improver, "canvas_top", 0) or 0)
@@ -1093,12 +1142,13 @@ def dflash_generate_redraft(
                     position_ids=position_ids, context_features=context_features,
                     accepted_ids=output_ids[:, :start], first_drafter=model,
                     draft_cache=draft_cache, target=target, draft_states=draft_states,
-                    canvas=canvas,
+                    canvas=canvas, leftover=leftover,
                 ))
 
             if timers is not None and improver is not None:
                 timers["improve"] = timers.get("improve", 0.0) + _cuda_time() - clock
 
+        leftover = None                                        # (it was for this round's second run only)
         # An improver that replaces the draft: the edited draft is the only one checked.
         tree = None
         if alternative is not None and getattr(improver, "replace", False):
@@ -1198,6 +1248,13 @@ def dflash_generate_redraft(
             pending = output_ids[:, start + kept_in_cache : start + produced].clone()
             features = extract_context_feature(output.hidden_states, model.target_layer_ids)
             context_features = features[:, path_rows[:produced], :]
+            if on_trunk > in_order:
+                # What the target read on the first path past the text it accepted: those tokens, the
+                # place of the first of them, and its states at them. They are states of text that was
+                # not written, but where the next draft has the same token at the same place they are
+                # the target's own states of that token, with a context that differs a few tokens back.
+                leftover = {"start": start + in_order, "tokens": tokens[in_order:on_trunk],
+                            "features": features[0, num_pending + in_order : num_pending + on_trunk]}
             if round_clock is not None:
                 round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
             start += produced
@@ -1318,6 +1375,9 @@ def dflash_generate_redraft(
         if block_len > 1:
             features = extract_context_feature(output.hidden_states, model.target_layer_ids)
             context_features = features[:, winner_rows[:produced], :]
+            if first_accepted + 1 < block_len:                # the first draft's tokens the target read and did not accept
+                leftover = {"start": start + first_accepted + 1, "tokens": block_ids[0, first_accepted + 1 :].tolist(),
+                            "features": features[0, first_rows[first_accepted + 1 :]]}
         if round_clock is not None:
             round_clock.append([start - num_input_tokens, produced, _cuda_time() - decode_start])
         start += produced
