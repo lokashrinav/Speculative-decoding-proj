@@ -43,6 +43,8 @@ class RestartLayers(nn.Module):
             for parent in (layer.self_attn, layer.mlp):
                 for name in ADAPTED:
                     module = getattr(parent, name, None)
+                    if isinstance(module, LowRank):    # the drafter carries add-on weights of its own: the copy starts from the plain layer
+                        module = module.base
                     if isinstance(module, nn.Linear):
                         wrapped = LowRank(module, rank, seed=seed + 1000 * number + len(self.adapters)).to(module.weight.device)
                         setattr(parent, name, wrapped)

@@ -84,7 +84,7 @@ class LowRank(nn.Module):
         # saves the conversions of every call (about a quarter of a draft's time with 25 adapters).
         # Off by default, so that replays stay number for number what they were.
         self.fast = False
-        self._copies = None          # (versions of the two halves, number format, down, up times scale)
+        self._copies = None          # (versions of the two halves, number format, down, up times scale, is there an update)
 
     def forward(self, x):
         out = self.base(x)
@@ -92,8 +92,13 @@ class LowRank(nn.Module):
             versions = (self.down._version, self.up._version)
             if self._copies is None or self._copies[0] != versions or self._copies[1] != out.dtype:
                 with torch.inference_mode(False), torch.no_grad():
-                    self._copies = (versions, out.dtype, self.down.detach().to(out.dtype),
-                                    (self.up.detach() * self.scale).to(out.dtype))
+                    up = (self.up.detach() * self.scale).to(out.dtype)
+                    self._copies = (versions, out.dtype, self.down.detach().to(out.dtype), up, bool((up != 0).any()))
+            if not self._copies[4]:
+                # Nothing learned and nothing loaded: the frozen layer as it is. (Adding the empty update
+                # took three steps on the GPU for each of the 25 adapted layers, in every drafter pass of
+                # every setting, plain decoding included.)
+                return out
             return out + F.linear(F.linear(x, self._copies[2]), self._copies[3])
         update = F.linear(F.linear(x.to(self.down.dtype), self.down), self.up) * self.scale
         return out + update.to(out.dtype)
