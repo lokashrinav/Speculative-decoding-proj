@@ -1077,3 +1077,115 @@ def test_where_the_trees_rounds_end():
     report = summary(probe.rows, width=BLOCK)
     assert report["rounds"] == len(table) and abs(sum(entry["share"] for entry in report["ways"].values()) - 1) < 1e-3
     assert set(report["ways"]) <= set(WAYS)
+
+
+class Partly:
+    """In every round with a break: restarts through some of the drafter's layers, checked against the whole pass."""
+
+    def __init__(self, ids, features):
+        self.ids, self.features, self.checked, self.differs = ids, features, 0, 0
+
+    def start(self, drafter):
+        pass
+
+    def __call__(self, s):
+        width = s.block_ids.shape[1]
+        truth = self.ids[:, s.start + 1 : s.start + width]
+        broke = _matches(s.block_ids[:, 1:], truth)
+        restart = s.start + broke + 1
+        if not (width == BLOCK and truth.shape[1] == BLOCK - 1 and broke < BLOCK - 1 and restart + BLOCK <= self.ids.shape[1]):
+            return None
+        drafter = s.first_drafter
+        given = [(self.features[:, s.start : restart], torch.arange(s.start, restart)), None]
+        anchors, begin = [truth[0, broke]] * 2, [restart] * 2
+        lengths = [layer.get_seq_length() for layer in s.draft_cache.layers]
+        whole = restarts(s, anchors, begin, given, BLOCK)
+        # Every layer named: the same pass.
+        assert torch.equal(restarts(s, anchors, begin, given, BLOCK, layers=[0, 1, 2]), whole)
+        # The last two layers, entered with what the first layer gave in the whole pass: the whole pass.
+        kept = {}
+        hook = drafter.layers[0].register_forward_hook(lambda layer, came, output: kept.update(first=output))
+        restarts(s, anchors, begin, given, BLOCK)
+        hook.remove()
+        entering = kept["first"].reshape(2, BLOCK, -1)
+        assert torch.equal(restarts(s, anchors, begin, given, BLOCK, layers=[1, 2], entering=entering), whole)
+        # Fewer layers from the embeddings: another draft (not in every round, but in many).
+        self.differs += int(not torch.equal(restarts(s, anchors, begin, given, BLOCK, layers=[2]), whole))
+        self.differs += int(not torch.equal(restarts(s, anchors, begin, given, BLOCK, layers=[0, 2]), whole))
+        # The cache is left as it was, in the layers that ran and in those that did not.
+        assert [layer.get_seq_length() for layer in s.draft_cache.layers] == lengths
+        timers = {}
+        assert torch.equal(restarts(s, anchors, begin, given, BLOCK, timers=timers), whole)
+        assert set(timers) == {"prepare", "pass", "head"} and all(seconds >= 0 for seconds in timers.values())
+        with pytest.raises(ValueError):
+            restarts(s, anchors, begin, given, BLOCK, layers=[1, 1])
+        self.checked += 1
+        return None
+
+
+def test_a_restart_through_some_of_the_drafters_layers():
+    from dflash.replay import target_features
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=160)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    partly = Partly(ids, features)
+    with_it = replay_decode(draft, target, ids, length, ended=False, features=features, improver=partly, block_size=BLOCK)
+    assert partly.checked > 10 and partly.differs > 5
+    # Nothing it did changed the decoding.
+    assert with_it.acceptance_lengths == replay_decode(draft, target, ids, length, ended=False, features=features,
+                                                       block_size=BLOCK).acceptance_lengths
+
+
+def test_the_probe_of_how_many_layers_a_restart_needs():
+    from dflash.replay import target_features
+    from nexus import layer_probe
+    from nexus.layer_probe import Layers
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=160)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    probe = Layers(draft, width=BLOCK, time_rounds=3, time_every=2)
+    assert [name for name, _, _ in probe.plans] == ["all", "top2", "warm2", "warm2p", "bottom2", "top1", "warm1", "warm1p",
+                                                    "bottom1", "without2"]
+    assert dict((name, layers) for name, layers, _ in probe.plans) == {
+        "all": None, "top2": [1, 2], "warm2": [1, 2], "warm2p": [1, 2], "bottom2": [0, 1], "top1": [2], "warm1": [2],
+        "warm1p": [2], "bottom1": [0], "without2": [0, 2]}
+    probe.begin(ids, length, features, None, answer=0)
+    result = replay_decode(draft, target, ids, length, ended=False, features=features, improver=probe, block_size=BLOCK)
+    probe.close()
+    assert not any(layer._forward_hooks for layer in draft.layers)
+    # The plug-in returns no draft: the rounds are plain decoding's.
+    assert result.acceptance_lengths == replay_decode(draft, target, ids, length, ended=False, block_size=BLOCK).acceptance_lengths
+    # The whole drafter's restarts are the ones the first probe of restarts counts.
+    old = Restart(k=3, width=BLOCK)
+    old.begin(ids, length, features, None, answer=0)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=old, block_size=BLOCK)
+    table, before = torch.tensor(probe.rows), torch.tensor(old.rows)
+    column = {name: table[:, probe.columns.index(name)] for name in probe.columns}
+    assert len(table) == len(before) > 10 and table.shape[1] == 5 + 10 * 2
+    for mine, theirs in (("where", "where"), ("broke_after", "broke_after"), ("old_rest", "old_rest"), ("all_real", "real"),
+                         ("all_none", "none"), ("second_choice_right", "second_choice_right")):
+        assert torch.equal(column[mine], before[:, COLUMNS.index(theirs)]), mine
+    # A plan that goes on from the first run writes only up to the end of the first block.
+    inside = BLOCK - 2 - column["broke_after"]
+    for name in ("warm2", "warm2p", "warm1", "warm1p"):
+        for kind in ("real", "none"):
+            assert bool((column[f"{name}_{kind}"] <= inside).all()) and bool((column[f"{name}_{kind}"] >= 0).all())
+    assert any(not torch.equal(column[f"{name}_real"], column["all_real"]) for name in ("top2", "top1", "bottom1", "without2"))
+    report = layer_probe.summary(probe.rows, probe.columns, width=BLOCK)
+    assert report["rounds"] == len(table) and len(report["all"]["all_real"]) == 3
+    assert report["all"]["all_real"][0] == round(float(column["all_real"].float().mean()), 3)
+    assert report["all"]["all_real"][1] == round(float(column["all_real"].clamp(max=3).float().mean()), 3)
+    assert report["all"]["warm1_real"][0] == report["all"]["warm1_real"][2]
+    # The parts of the second run were timed in three rounds.
+    assert len(probe.timings) == 3
+    times = layer_probe.timing_summary(probe.timings)
+    assert times["samples"] == 2
+    for name in ("4x16 all: pass", "4x16 all: head", "4x16 all: prepare", "4x16 all: whole", "12x5 top1: pass", "12x16 top2: whole",
+                 "second run as used, restart4_swap_tail3", "second run as used, restart_best12_of_3_choices_blocks_of_5",
+                 "first draft made again"):
+        assert len(times["all"][name]) == 2 and times["all"][name][0] >= 0, name
+    assert "predictor" not in times["all"]

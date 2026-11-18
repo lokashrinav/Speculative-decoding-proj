@@ -14,7 +14,7 @@ def cpu_timer(monkeypatch):
     monkeypatch.setattr("dflash.redraft._cuda_time", time.perf_counter)
 
 
-def make_models(seed=17, second=False):
+def make_models(seed=17, second=False, layers=1):
     torch.manual_seed(seed)
     torch.set_num_threads(1)
     common = dict(
@@ -26,7 +26,7 @@ def make_models(seed=17, second=False):
     target = Qwen3ForCausalLM(Qwen3Config(num_hidden_layers=2, **common)).eval().double()
 
     def drafter():
-        config = Qwen3Config(num_hidden_layers=1, **common)
+        config = Qwen3Config(num_hidden_layers=layers, **common)
         config.num_target_layers = 2
         config.target_layer_ids = [0]
         config.mask_token_id = 31

@@ -379,7 +379,8 @@ class Chain:
         self.inner.roll_back(tokens)
 
 
-def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: list, width: int) -> torch.Tensor:
+def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: list, width: int,
+             layers=None, entering: torch.Tensor | None = None, timers: dict | None = None) -> torch.Tensor:
     """Several restarts of the first drafter in ONE pass. Restart n starts a block of masks at the
     token anchors[n], placed at position begin[n], with the context the drafter already has (the
     target's states of the text before this round) and stand_ins[n]: (states [1, count, D], their
@@ -387,12 +388,25 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
     or, as (states, positions, True), vectors in the form the drafter reads them after its own
     projection (a predictor's). A restart sees the context, its own stand-ins and itself. Returns
     the tokens it writes after its anchor, one row per restart ([restarts, width - 1]), and leaves
-    the drafter's cache as it was."""
+    the drafter's cache as it was.
+
+    layers: the pass runs only these of the drafter's layers (their numbers; None: all). A pass costs
+    by the layers it runs, hardly by the restarts it holds, so this is what makes a second run cheap.
+    entering: [restarts, width, D], the states the blocks enter the first of those layers with, in
+    place of the embeddings of [anchor, masks]: states the FIRST run already had at those places
+    after the layers left out here, so that the second run goes on from the first one.
+    timers: seconds are added to its "prepare", "pass" and "head" (the clock waits for the GPU)."""
     drafter, device, count = s.first_drafter, s.block_ids.device, len(begin)
-    block = torch.full((count, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
-    block[:, 0] = torch.as_tensor(anchors, dtype=block.dtype, device=device)
-    scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
-    noise = _raw_input_embeddings(s.target, block.reshape(1, -1), scale)
+    if layers is not None and len(set(layers)) != len(layers):
+        raise ValueError("a layer can run only once in a pass")
+    clock = _cuda_time() if timers is not None else None
+    if entering is None:
+        block = torch.full((count, width), drafter.mask_token_id, dtype=s.block_ids.dtype, device=device)
+        block[:, 0] = torch.as_tensor(anchors, dtype=block.dtype, device=device)
+        scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+        noise = _raw_input_embeddings(s.target, block.reshape(1, -1), scale)
+    else:
+        noise = entering.reshape(1, count * width, -1)
     slots = torch.arange(width, device=device)
     seen = s.draft_cache.get_seq_length()
     given = [entry for entry in stand_ins if entry is not None]
@@ -410,13 +424,28 @@ def restarts(s: SimpleNamespace, anchors: list, begin: list[int], stand_ins: lis
         if entry is not None:
             sees[rows, at : at + entry[0].shape[1]] = True
             at += entry[0].shape[1]
+    if timers is not None:
+        now = _cuda_time()
+        timers["prepare"] = timers.get("prepare", 0.0) + now - clock
+        clock = now
     hidden = drafter(
         target_hidden=s.context_features[:, :0], context_states=context, noise_embedding=noise, position_ids=positions,
-        attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True,
+        attention_mask=sees[None, None], past_key_values=s.draft_cache, use_cache=True, layers=layers,
     )[:, -count * width :, :]
-    s.draft_cache.crop(-(extra + count * width))
+    if layers is None:
+        s.draft_cache.crop(-(extra + count * width))
+    else:                                                             # only the layers that ran made their entries longer
+        for number in set(layers):
+            s.draft_cache.layers[number].crop(-(extra + count * width))
+    if timers is not None:
+        now = _cuda_time()
+        timers["pass"] = timers.get("pass", 0.0) + now - clock
+        clock = now
     logits = drafter.compute_logits(hidden.reshape(count, width, -1)[:, 1:, :], _output_head(s.target))
-    return logits.argmax(dim=-1)
+    tokens = logits.argmax(dim=-1)
+    if timers is not None:
+        timers["head"] = timers.get("head", 0.0) + _cuda_time() - clock
+    return tokens
 
 
 class Restarts:

@@ -83,19 +83,27 @@ restart-replay-pub-3: train_restart.py --draft opd --data-dir ~/specdec-data/lon
 # count of shifted drafts these two jobs were queued for is dropped: ReAnchor has published it.)
 probe-shift-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+restart4pxt3@opd-m0,plain+restart4pxt3g3@opd-m0,plain+restart4pxt3g6@opd-m0,plain+restart4pet3@opd-m0,plain+restart2pxt3g6@opd-m0,plain+tree63,plain+tree63_restart4pxt3@opd-m0,plain+tree63_restart4pxt3g3@opd-m0,plain+tree63_restart4pxt3g6@opd-m0
 probe-shift-pub-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 16 --max-hours 7 --settings plain,plain+reanchor,plain+reanchort5b7,plain+reanchorct5b7,plain+reanchor6ct5b7,plain+tree63,plain+tree63_reanchort5b7,plain+tree63_reanchorwt5b7,plain+tree63_reanchorwct5b7,plain+tree63_reanchorwct3b5,plain:window=4096+tree63,plain:window=4096+tree63_reanchorwct5b7
-# (Nov 18, 14:00 UTC) What the next free GPUs are used for. Four long speed tests run until the evening (the second
-# run's two lists on Draft-OPD, its second list on the public drafter, and ReAnchor on Draft-OPD), so few slots open.
-# 1. Where do DDTree's rounds end, and what would have carried them further? (nexus/tree_ends.py) Everything tried
-#    on top of DDTree adds few tokens to its rounds; this counts what there is to add: rounds that end at a node with
-#    nothing after it (on the path of first choices or after an alternative token), rounds where the answer's token
-#    is not among a node's children (by its rank among the drafter's choices), and what the first pass would give
-#    after the missing token. 30 validation answers, trees of 63, 31 and 127 nodes, replay, about half an hour.
-#    Draft-OPD in live-reanchor-opd-0 (set aside in skip.txt, first in line), the public drafter in bench-pub-0.
-# 2. The standard benchmarks: the public drafter without thinking, as the DFlash papers measure, in
-#    live-reanchor-pub-0 (second in line); Draft-OPD with thinking in bench-opd-0 as queued.
-# (Results in nexus/results/live-reanchor-opd-0 and bench-pub-0: the count of where trees end; in
-# nexus/results/live-reanchor-pub-0: THE STANDARD BENCHMARKS on the public drafter, see its by_source. ReAnchor on the
-# public drafter's long answers is not run for now: on Draft-OPD it is slower than DDTree alone.)
-live-reanchor-opd-0: tree_ends.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
-live-reanchor-pub-0: live_speed.py --reasoning off --max-new-tokens 1024 --per-bench 30 --bench gsm8k,math500,humaneval,mbpp,mt-bench --rank 16 --max-answers 400 --max-hours 8.5 --settings plain,plain+tree63,plain+reanchor,plain+reanchorct5b7,plain+tree63_reanchorwct5b7,plain+tree63_echo4r4,plain+restart4pxmc3r12st3b5@pub-m0
+# (Nov 18, 16:00 UTC) What the next free GPUs are used for. The second run of the drafter gives a third more tokens
+# per round and costs 14 ms a round; on top of a tree of drafts it must cost about 4 ms to pay. A drafter pass costs
+# by the layers it runs. So:
+# 1. How many of the drafter's layers does a restart need, and where do the 14 ms go? (nexus/layer_probe.py) In
+#    every round with a break of 12 validation answers the drafter restarts from the right token through fewer
+#    layers: its last K, its first K, all but one, and its last K GOING ON FROM THE FIRST RUN (the masks enter with
+#    the states the first run had at those places; nothing trained), each with the target's real states, predicted
+#    ones and none. It also times the parts of the second run on the GPU (predictor, preparing, pass, output head,
+#    the whole call as real decoding makes it). Draft-OPD in live-reanchor-opd-0 (first in line; its line in skip.txt
+#    does not count, this file is read first), the public drafter in live-reanchor-pub-0 (second in line).
+# 2. Where do DDTree's rounds end, and what would have carried them further? (nexus/tree_ends.py) Rounds that end at
+#    a node with nothing after it (on the path of first choices or after an alternative token), rounds where the
+#    answer's token is not among a node's children, and what the first pass would give after the missing token. 30
+#    validation answers, trees of 63, 31 and 127 nodes, replay, about half an hour. Draft-OPD in bench-opd-0, the
+#    public drafter in bench-pub-0.
+# (Results in nexus/results/live-reanchor-opd-0 and live-reanchor-pub-0: THE LAYERS A RESTART NEEDS AND THE COST OF
+# THE SECOND RUN'S PARTS; in nexus/results/bench-opd-0 and bench-pub-0: the count of where trees end.)
+# The standard benchmarks these four jobs were queued for wait until there is a second run worth a table: each
+# takes a GPU for eight hours. The public drafter's line, to be queued again then:
+#   live_speed.py --reasoning off --max-new-tokens 1024 --per-bench 30 --bench gsm8k,math500,humaneval,mbpp,mt-bench --rank 16 --max-answers 400 --max-hours 8.5 --settings plain,plain+tree63,plain+reanchor,plain+reanchorct5b7,plain+tree63_reanchorwct5b7,plain+tree63_echo4r4,plain+restart4pxmc3r12st3b5@pub-m0
+live-reanchor-opd-0: layer_probe.py --draft opd --predictor opd-m0 --data-dir ~/specdec-data/long1 --part validation --max-answers 12 --max-hours 1.5 --time-rounds 300
+live-reanchor-pub-0: layer_probe.py --predictor pub-m0 --data-dir ~/specdec-data/long1 --part validation --max-answers 12 --max-hours 1.5 --time-rounds 300
+bench-opd-0: tree_ends.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
 bench-pub-0: tree_ends.py --data-dir ~/specdec-data/long1 --part validation --max-answers 30 --max-hours 2
