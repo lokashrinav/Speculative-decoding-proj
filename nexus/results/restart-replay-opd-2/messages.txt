@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/fs/classhomes/sloka/specdec-code/restart-replay-opd-2-8456954/nexus/redraft_long.py", line 527, in <module>
+    main()
+  File "/fs/classhomes/sloka/specdec-code/restart-replay-opd-2-8456954/nexus/redraft_long.py", line 508, in main
+    result = replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=watched,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/fs/classhomes/sloka/specdec-code/restart-replay-opd-2-8456954/dflash/replay.py", line 153, in replay_decode
+    alternative = improver(SimpleNamespace(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/fs/classhomes/sloka/specdec-code/restart-replay-opd-2-8456954/nexus/redraft_long.py", line 238, in __call__
+    drafts = self.improver(s)
+             ^^^^^^^^^^^^^^^^
+--
+    raise ValueError("stand_in='real' needs the answer's states (replay only)")
+ValueError: stand_in='real' needs the answer's states (replay only)
