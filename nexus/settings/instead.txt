@@ -174,3 +174,8 @@ train-depth3b-opd-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1
 # already said, the second run; nexus/results/count-tree-opd-0: two layers trained on long1 + think1, opd-s2x.)
 train-more-opd-1: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.6 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+ctree95,plain+ctree63_echo4r4,plain+ctree39_echo4r4,plain+tree63_echo4r4,plain+cbtree63f40t2n@~opd-s2,plain+btree63f40t2n@~opd-r1,plain+tree63_restart4pxt3@opd-m0,plain:window=4096+ctree63,plain:window=4096+ctree63_echo4r4
 count-tree-opd-0: train_second.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --start-from opd-s2 --states-in-block --save opd-s2x --freeze-predictor --no-states 0.3 --real-share 0.2 --max-hours 3.4 --check-answers 12
+# (Nov 19, 01:00 UTC) The same table for the PUBLIC drafter (z-lab/Qwen3-4B-DFlash-b16): DDTree, DDTree with counts, the
+# whole drafter at every node with no, predicted and real states, each with and without the counts, and the rows of
+# what the target already said. It takes gen-think-0's place; the text's quarter 0 is queued again as gen-think-0b.
+# (Results in nexus/results/gen-think-0: THE SECOND RUN ON TOP OF THE COUNTS, public drafter, replay.)
+gen-think-0: redraft_long.py --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2.5 --count-data ~/specdec-data/think1 --settings plain,tree63,ctree63,tree95,ctree95,btree63f40t2b8n,cbtree63f40t2b8n,btree63f40t2b8p@pub-m0,cbtree63f40t2b8p@pub-m0,btree63f40t2b8r,cbtree63f40t2b8r,tree63_echo4r4,ctree63_echo4r4
