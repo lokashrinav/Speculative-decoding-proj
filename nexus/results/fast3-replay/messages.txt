@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/fast3-replay-8478024/nexus/redraft_long.py", line 722, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/fast3-replay-8478024/nexus/redraft_long.py", line 652, in main
+    methods[name] = (first, make_method(options["method"], args.ckpt_dir, like=draft))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/fast3-replay-8478024/nexus/redraft_long.py", line 319, in make_method
+    method = SecondTree(int(found[2]), None if found[3] is None else int(found[3]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/fast3-replay-8478024/dflash/redraft.py", line 1383, in __init__
+    super().__init__(budget, budget if first is None else first, tail=tail, stand_in="none")
+  File "/tmp/specdec-code-sloka/fast3-replay-8478024/dflash/redraft.py", line 1211, in __init__
+    raise ValueError("the first tree has at least one node and at most the whole budget")
+ValueError: the first tree has at least one node and at most the whole budget
