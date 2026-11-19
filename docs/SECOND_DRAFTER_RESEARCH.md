@@ -360,3 +360,60 @@ the full disk killed: +2.6% and +1.7%, not their result.)
 **The control with a layer from new weights**, 0.9 hours in (training answers seen for the first
 time): right after a fork in 40.8% of the places against 35.4% for the first run with counts;
 ours was at about 44% at that point. Final at about 14:20 UTC.
+
+## The levers, the control and the gate; then the same knowledge without a pass (November 19, 14:40 UTC)
+
+**Trainings queued again after the full disk** (validation; the place after a branch has left the
+first run's first choices; the first run 20.7%, the right token among 32 candidates 81.7%):
+
+| Second drafter (one layer, on the counts) | Counts alone | Second drafter on the counts | Tokens right in a row |
+| --- | --- | --- | --- |
+| ours: 32 candidates, 2 places, about 3,000 answers (`opd-e1c`) | 39.3% | 50.5% | 6.55 |
+| a longer chain: 4 places asked for (`ev1-r4`, `opd-e1cr4`) | 39.5% | 49.8% | 6.52 |
+| 64 candidates (`ev2-k64`, `opd-e1ck64`; right token among them 88.6%) | 40.0% | 52.2% | 6.58 |
+| **control: a layer from NEW weights** (`ev3-fresh`) | 39.5% | 46.9% | 6.58 |
+| 300 answers (`ev4-a300`, `opd-e1c300`; 0.94M tokens counted) | 37.1% | 48.1% | 6.39 |
+| 1,000 answers (`opd-e1c1000`) | 38.1% | 49.3% | 6.58 |
+
+- **The control.** A layer from new weights reaches 46.9% where ours reaches 50.5%: it gets two
+  thirds of our gain over the counts on the same 3,000 answers, and the same number of tokens right
+  in a row. Going on from the drafter's own layer helps (3.6 points), but it is NOT what makes
+  little text enough: the training itself is (every place, the true tokens before it, candidates
+  only, the first run's states as input, on top of the counts). The claim "our layer needs little
+  text because it is the drafter's own" does not stand as it was put; "a corrector of this kind
+  needs about a thousand answers, not hundreds of thousands" does.
+- **Text.** 300 answers give 48.1%, 1,000 give 49.3%, 3,000 give 50.5%. In replay 1,000 answers
+  hold as many tokens as 3,000 (+3.6% and +3.4% over the tree with counts); 100 answers do not help.
+- **64 candidates** add 1.7 points; a longer chain adds nothing at the first place (its further
+  places are right in 58%, 56% and 53% of all places, written without knowing the token before).
+
+**The gate** (job `ev5-full`, real speed, 4 answers; tree with counts 8.22 tokens a round, +27.9%):
+
+| Pass left out in | Tokens per round | Second drafter's part of a round | Speed against plain |
+| --- | --- | --- | --- |
+| no round | 8.46 | 11.7 ms | +18.2% |
+| 22% of the rounds (gate 0.85) | 8.45 | 10.1 ms | +20.0% |
+| 29% (0.70) | 8.42 | 9.7 ms | +20.3% |
+| 39% (0.50) | 8.38 | 8.9 ms | +20.8% |
+| 54% (0.30) | 8.33 | 7.9 ms | +22.0% |
+
+Leaving the pass out where the first run is sure loses about as much of the gain as it saves of the
+cost: the gain is not gathered in the unsure rounds. No gate reaches the tree with counts.
+
+**Where this leaves the pass.** It adds 3.4% tokens to the tree with counts (a second run with the
+target's real states adds 6.7%), and on this machine a pass through one layer with its scoring
+cannot cost less than about 4 ms of a 75 ms round. A second drafter that runs as a pass does not
+pay here, however well it guesses.
+
+**The same knowledge without a pass** (`dflash/pair_scores.py`, `nexus/train_pairs.py`, trees
+`ptree63@NAME` and `cptree63@NAME`). What the second drafter knows is mostly "which token follows
+this token here". That can be read from the first run's own state at a place and the two tokens
+before it, as two small tables per place (candidate before x candidate, candidate two before x
+candidate), by a few matrix products and no pass. The tree with counts is then searched with these
+scores at EVERY depth (the second drafter's tree could only correct the children of a first tree's
+nodes, which is why it held fewer tokens alone than the counts' tree although it guessed better).
+The form is the selector of DFlash 2 and UBTree, which train it with the drafter on 1.3 million
+answers; here the drafter is frozen and the scores are trained like the second drafter, on top of
+the counts. This is the "second drafter, then a small network in its place" that Shrinav asked
+about on the 18th. Jobs `pair1-c` (on the counts, `opd-p1c`) and `pair2-n` (alone, `opd-p1`) train
+for 0.6 hours and then measure tokens per round and real speed, before the 16:45 UTC maintenance.
