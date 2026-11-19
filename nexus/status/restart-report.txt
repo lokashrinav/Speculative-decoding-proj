@@ -1,0 +1,59 @@
+== restart at 2026-11-19T10:24:40Z on nexusclass01.umiacs.umd.edu
+== uptime
+ 05:24:40 up 37 days, 20:09,  1 user,  load average: 1.12, 0.73, 0.32
+== tmux sessions
+specdec: 1 windows (created Thu Nov 19 05:17:35 2026)
+== processes of the runner
+6297 tmux new -d -s specdec bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh 2>&1 | tee -a /fs/classhomes/sloka/specdec-runner.log
+6298 bash -c bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh 2>&1 | tee -a /fs/classhomes/sloka/specdec-runner.log
+6300 bash /fs/classhomes/sloka/specdec-runner/nexus/runner.sh
+== last lines of the runner's own log
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+2026-11-19T07:49:26Z push failed
+Created autostash: 790a34ef
+error: Your local changes to the following files would be overwritten by merge:
+	nexus/results/every-opd-300c/status.json
+Please commit your changes or stash them before you merge.
+Aborting
+hint: Could not execute the todo command
+hint:
+hint:     pick 6d94cadbd80f0cf9b5bea22127526941c417bcd6 # runner: status update
+hint:
+hint: It has been rescheduled; To edit the command before continuing, please
+hint: edit the todo list first:
+hint:
+hint:     git rebase --edit-todo
+hint:     git rebase --continue
+Created autostash: 0204e2e8
+error: Your local changes to the following files would be overwritten by merge:
+	nexus/results/every-opd-2cb/status.json
+Please commit your changes or stash them before you merge.
+Aborting
+hint: Could not execute the todo command
+hint:
+hint:     pick 968d9a44cd7768d4b74fdfceb8ab3c16b73a5482 # runner: status update
+hint:
+hint: It has been rescheduled; To edit the command before continuing, please
+hint: edit the todo list first:
+hint:
+hint:     git rebase --edit-todo
+hint:     git rebase --continue
+== git folder
+## nexus-jobs...origin/nexus-jobs
+?? nexus/results/ev1-r4/
+?? nexus/results/ev2-k64/
+== last commits
+2026-11-19 05:24:21 -0500 runner: status update
+2026-11-19 10:23:25 +0000 Queue again what the full disk killed; job code copies go to the node's own disk
+2026-11-19 05:23:08 -0500 runner: status update
+== jobs
+JOBID NAME STATE TIME TIME_LIMIT NODELIST(REASON)
+8474003 ev6-a100 PENDING 0:00 4:00:00 (QOSMaxGRESPerUser)
+8474002 ev5-full PENDING 0:00 4:00:00 (QOSMaxGRESPerUser)
+8474001 ev4-a300 PENDING 0:00 4:00:00 (QOSMaxGRESPerUser)
+8474000 ev3-fresh PENDING 0:00 4:00:00 (QOSMaxGRESPerUser)
+8473999 ev2-k64 RUNNING 0:20 4:00:00 tron48
+8473998 ev1-r4 RUNNING 0:23 4:00:00 tron50
+8473994 every-speed-1 RUNNING 3:45 1:30:00 tron61
+8473993 every-replay-opd-1 RUNNING 3:47 1:30:00 tron52
+== pull at restart: ok
