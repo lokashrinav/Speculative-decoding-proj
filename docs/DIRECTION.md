@@ -466,7 +466,7 @@ trained layers instead of a whole pass.
    every node, larger trees): `train-depth3b-opd-0`.
 
 Also queued: real decoding with the rewritten second run, the one-layer tree and the tree with
-counts (`count-tree-opd-0`), which measures the cost side of the table above. The three-layer
+counts (`train-more-opd-1`), which measures the cost side of the table above. The three-layer
 training runs in `train-depth3-opd-0`.
 
 **The other depths** (same 12 validation answers; of the 3 checked tokens, how many are right):
@@ -483,70 +483,6 @@ Depth helps, most from one layer to two. No depth uses the states: what a traine
 is the first run's own states and the tokens. The predictor's states are made from those same
 first-run states, so to a layer that goes on from the first run they say nothing new; the frozen
 drafter needs them only because it cannot go on from the first run.
-
-**Two papers of this month mark the same open place.** (DForkTree's main results were read in the
-afternoon, see above; its appendix, with the second pass it tried, and the Google paper were read
-tonight.)
-
-- *DForkTree* (arXiv 2611.12356, November 9) measures what we measured. After a path leaves the
-  drafter's first choices, the first run's top choice is right 18% of the time against 89% on the
-  path of first choices; run again from the alternative token WITH the target's states it is right
-  84% of the time; with the tokens alone only 11 to 16% of that gap closes (ours: 12%). The limit
-  they give for restarts at every kept node is +10.4% and +13.0% tokens at 32 and 64 nodes (ours:
-  +10.0% at 63). Their own method stays outside the drafter: counts of which token follows which
-  two tokens in 100,000 answers written by the target, added to the tree's scores (+8% tokens over
-  DDTree, no training, nothing added to a round). They also tried a whole second pass by a
-  low-rank-tuned drafter given the tokens (+1.4 to +2.9% tokens for 2.5 to 7.7 ms: does not pay)
-  and a small trained head (closes 34 to 38% of the gap). They close with: counts and heads close
-  about half of the gap, the rest "likely requires the target's own representation of the branch",
-  and drafters that condition on the branch they extend are the next step.
-- *Parallel Reconsideration* (arXiv 2611.05724, Google, November 3) gives an EAGLE drafter a
-  second try at the places it is unsure of, and runs the second try in the same pass as the next
-  ordinary step, as more rows (+5 to +10% tokens, +3.5 to +9% speed). It leaves block drafters
-  open: for DFlash it "would require substantial redesign".
-
-Neither paper, nor any other found, runs the second run of a BLOCK drafter inside the drafter's
-own pass. That is point 3 above, and it is the form in which the second run costs under 3 ms.
-What is new on our side next to DForkTree: the states they say are needed can be PREDICTED before
-the check (whole drafter with predicted states: +5.0%, half of the limit, more than their tuned
-second pass without states), and a restart can go on from the first run through one or two
-trained layers instead of a whole pass.
-
-**What is done next, in this order.**
-
-1. *More text from the target* (`nexus/gen_text.py`). Everything trained here has seen 366
-   answers; DForkTree trains on 3,000 and counts over 100,000. The target writes about twenty
-   answers at a time in thinking mode (a target pass costs nearly the same for one answer as for
-   twenty), on prompts of the same kinds as `long1`'s and none of its own. Tonight: about 3,000
-   answers of up to 3,072 tokens (`~/specdec-data/think1`), in four jobs: the place of
-   `train-depth4-opd-0`, then `gen-think-2`, `gen-think-3` and `gen-think-0`.
-2. *The one- and two-layer restarts trained on all of it* (`train-more-opd-0`: one layer, on from
-   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `count-tree-opd-0`: two layers, on from
-   `warm-opd-s2.pt`, saved as `warm-opd-s2x.pt`; `nexus/train_second.py --more-data`), then the
-   replay of the tree above. The aim is the whole drafter's +5.0% through two layers.
-3. *The restart inside the first run's pass* (point 3 above), if 2 reaches about +5%.
-4. *DForkTree's counts as the method to beat and to add to*: they cost nothing in a round, so the
-   second run has to add tokens on top of them. The new text serves the counts as well. Built from
-   the paper (their released code has the counts but not the scoring): `dflash/follow.py` counts
-   which token the target writes after which two, `CountTree` in `dflash/redraft.py` is DDTree with
-   those scores (`ctree63`), and the tree in which the second run writes after every node can take
-   it as its first tree (`cbtree63...`). The first replay, with counts from `long1`'s training
-   answers and the new text written so far: `live-lean-opd-0`. What adds to the tree with counts
-   (the rows of what the target already said in this answer, two and three trained layers at
-   every node, larger trees): `train-depth3b-opd-0`.
-
-Also queued: real decoding with the rewritten second run, the one-layer tree and the tree with
-counts (`count-tree-opd-0`), which measures the cost side of the table above. The three-layer
-training runs in `train-depth3-opd-0`.
-
-**The other depths** (same 12 validation answers). Five layers (`warm-opd-s5.pt`, rank 64, 268 of
-the 366 answers in its two hours): 0.83 with predicted states, 0.83 with real ones, 0.85 with none,
-as one layer. Two layers were at 1.08 on new training answers near the end of their pass, where
-one layer was at 0.95; three layers (rank 128) follow two layers answer for answer. No depth uses
-the states: what a trained restart reads is the first run's own states and the tokens. The
-predictor's states are made from those same first-run states, so to a layer that goes on from the
-first run they say nothing new; the frozen drafter needs them only because it cannot go on from
-the first run.
 
 ### The second run on top of DForkTree's counts (November 19, 00:50 UTC)
 
