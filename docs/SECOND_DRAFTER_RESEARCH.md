@@ -229,3 +229,65 @@ and values only (once per node, shared by the rows below it), and only the 2 pla
 node run through the layer: about 126 places in place of up to 1,000. A test checks that the scores
 are the same numbers either way. What it costs in real decoding is measured after the replay; until
 then the "about 2 ms" for one layer is an estimate, and the old passes show such estimates were low.
+
+## First results of the retrained second drafter (November 19, 06:00 UTC)
+
+Trainings: one layer, rank 256, about 3,000 answers (long1 and think1) gone through twice in 3.2
+hours (50,000 updates, 6.4 million rows), Draft-OPD. `opd-e1c` on top of the counts (9.3 million
+tokens counted), `opd-e1` without counts.
+
+**On 12 validation answers, every depth: how often the first choice is right at the place after
+the true tokens.**
+
+| | all places | on the first run's path | after the path left it ("off", 56% of the places) | tokens right in a row |
+| --- | --- | --- | --- | --- |
+| First run | 50.2% | 87.4% | 20.7% | 6.32 |
+| First run with counts | 60.8% | 87.9% | 39.3% | 6.32 |
+| Second drafter trained without counts (`opd-e1`) | 66.6% | 88.7% | 49.1% | 6.61 |
+| Second drafter on top of the counts (`opd-e1c`) | 67.4% | 88.6% | 50.5% | 6.55 |
+| Right token among the 32 candidates | 89.7% | 99.8% | 81.7% | |
+
+DForkTree measured 18% for the first run at such places and 84 to 89% with the target's real states.
+The second drafter alone is 10 points above the counts; the counts add 1.4 points to it.
+
+**Replay, the 8 validation answers of the earlier replays (job `every-replay-opd-0`), tokens per round.**
+
+| Tree, 63 nodes unless said | Tokens per round | Against DDTree | Against the tree with counts |
+| --- | --- | --- | --- |
+| No tree | 5.720 | | |
+| DDTree (`tree63`) | 7.561 | | |
+| Tree with counts (`ctree63`) | 8.308 | +9.9% | |
+| Second drafter alone, no counts (`stree63@opd-e1`) | 8.207 | +8.5% | -1.2% |
+| **Second drafter on the tree with counts (`cstree63@opd-e1c`)** | **8.590** | **+13.6%** | **+3.4%** |
+| ... trained without counts, used with them (`cstree63@opd-e1`) | 8.474 | +12.1% | +2.0% |
+| ... rows for 40 nodes only (`cstree63f40`) | 8.541 | +13.0% | +2.8% |
+| ... one place asked for after a node, no chain (`cstree63t1`) | 8.529 | +12.8% | +2.7% |
+| Tree with counts, 95 nodes (`ctree95`) | 8.592 | +13.6% | +3.4% |
+| Second drafter on it, 95 nodes (`cstree95@opd-e1c`) | 8.885 | +17.5% | +6.9% |
+| Second run of the WHOLE drafter with the target's REAL states (`cbtree63f40t2b8r`) | 8.868 | +17.3% | +6.7% |
+
+What this says.
+
+1. The retraining worked: the old layers added nothing to the tree with counts, this one adds 3.4%,
+   which is half of what a second run with the target's real states adds (6.7%).
+2. Training on top of the counts is worth 1.4 of the 3.4 points (2.0% when trained without them).
+3. The accuracy after a fork rose far more (39% to 50%) than the tokens per round (3.4%). The tree
+   with real states (about 85% right at the next place) also adds only 6.7%. So at 63 nodes the
+   next place after a fork is not what limits a tree; what follows it is. The second drafter gives a
+   node's children their corrected probabilities, but a NEW child has no row of its own: it gets one
+   chain token. Levers, cheapest first: a longer chain per row (`--reach 4`, job `every-opd-300c`,
+   saved `opd-e1cr4`), 64 candidates (job `every-opd-2cb`, `opd-e1ck64`), a second pass for the new
+   nodes, two layers (`every-opd-2cc`).
+4. Used alone, the second drafter gives a tree about as good as the counts' tree (+8.5% against
+   +9.9%) without any table. Its tree is searched less deeply than the counts' tree (one pass over a
+   first tree against a search at every depth), which is the same limit as in point 3.
+5. Not known yet: what the pass costs in a round. The real-speed test is the job `every-opd-2c`
+   (`plain+cstree63@opd-e1c` against `plain+ctree63` and `plain+tree63`).
+
+Jobs after the reordering of 06:05 UTC: `every-opd-2c` real speed; `every-opd-300c` longer chain;
+`every-opd-2cb` 64 candidates; `every-opd-full` the control with a layer from new weights;
+`every-opd-300cb` the control with the drafter's layer fully trained; `every-opd-100c` 100 answers;
+`every-opd-100cb` 300 answers; `every-opd-1000c` 1,000 answers; `every-opd-2cc` two layers.
+`train-more-opd-0` (the old recipe on more text) has hung since about 02:27 UTC at 1,042 answers
+and holds a GPU until its limit at 10:21 UTC; its last numbers were no better than on 366 answers
+(0.98 of 3 tokens).
