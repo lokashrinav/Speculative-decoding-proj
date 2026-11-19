@@ -225,3 +225,10 @@ every-opd-full: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part
 every-opd-100cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --fresh --rate 5e-4 --passes 3 --save control-fresh --max-hours 3.2 --check-answers 12
 every-opd-300cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --max-answers 300 --passes 20 --save opd-e1c300 --max-hours 2.0 --check-answers 12
 every-opd-2cc: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --full --rate 5e-5 --passes 3 --save control-full --max-hours 3.2 --check-answers 12
+
+# (November 19, 10:25 UTC) The home folder was full from about 07:50 UTC: every job that ran or started after that died
+# (the longer chain and the 64 candidates after half an hour, the control with a layer from new weights at its start,
+# the speed test after 6 of 8 answers), and the layers saved in those minutes (opd-e1cr4, opd-e1ck64, opd-e1c100) may be
+# cut off. The replay that was queued for them uses the layers that were finished before: what the tree holds with the
+# scoring as rewritten (the first tree with 32 candidates), and with the second drafter trained on 1,000 answers.
+every-replay-opd-1: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 1.2 --count-data ~/specdec-data/think1 --settings plain,tree63,ctree63,cstree63@opd-e1c,cstree63@opd-e1c1000,cstree63f40@opd-e1c,cstree63t1@opd-e1c,cstree95@opd-e1c,stree63@opd-e1
