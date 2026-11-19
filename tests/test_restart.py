@@ -2173,6 +2173,19 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
             checked += 1
     assert checked >= 3
     method.close()
+    # Run through the layer in full (every row its whole block), the pass gives the same numbers.
+    whole_rows = SecondTree(12, 8, tail=2, top=8)
+    whole_rows.second, whole_rows.keep_last, whole_rows.lean = second, True, False
+    in_full = Kept(whole_rows)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=in_full, block_size=BLOCK)
+    compared = 0
+    for (_, mine, _, last), (_, theirs, _, full) in zip(kept.rounds, in_full.rounds):
+        assert prefixes(mine) == prefixes(theirs) and set(last["order"]) == set(full["order"])
+        for ranks, (values, indices) in last["order"].items():
+            assert torch.allclose(torch.tensor(values), torch.tensor(full["order"][ranks][0]), atol=2e-4)
+            compared += 1
+    assert compared > 100
+    whole_rows.close()
 
     # In real decoding the text is the plain text; with the counts in the first tree and in the scores too.
     follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)

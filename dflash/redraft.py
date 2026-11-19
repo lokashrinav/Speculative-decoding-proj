@@ -1329,6 +1329,7 @@ class SecondTree(BranchTree):
     def __init__(self, budget: int, first: int | None = None, tail: int = 2, top: int = 32):
         super().__init__(budget, budget if first is None else first, tail=tail, stand_in="none")
         self.top, self.follow = top, None
+        self.lean = True                               # one layer: only the places that are asked for run through it (see below)
         self.keep_last, self.last = False, None        # for tests: what the last round's pass gave every node
         self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0, "rows_of_the_pass": 0,
                        "first_tree_nodes_dropped": 0}
@@ -1353,19 +1354,39 @@ class SecondTree(BranchTree):
         order, chain = {}, {}                          # a node's children, best first: (log-probabilities, candidates)
         if nodes:
             tail = min(self.tail, width - 2)
-            lengths = [min(len(ranks) + 1 + tail, width) for ranks in nodes]
-            wide, mask_token = max(lengths), s.first_drafter.mask_token_id
-            written_in = [[first_token] + path[ranks] + [mask_token] * (wide - len(ranks) - 1) for ranks in nodes]
-            known = [[0 < slot <= len(ranks) for slot in range(wide)] for ranks in nodes]
+            mask_token = s.first_drafter.mask_token_id
             scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
-            embedded = _raw_input_embeddings(s.target, torch.tensor(written_in + [[mask_token] * wide], dtype=s.block_ids.dtype, device=device), scale)
-            entering = second.enter_blocks(_gone_on_from(s, second, self._first_run, width)[:wide], embedded[:-1], embedded[-1, 0],
-                                           torch.tensor(known, device=device))
-            states = _restart_pass(s, [path[ranks][-1] for ranks in nodes], [s.start] * len(nodes), None, [], [], wide,
-                                   layers=list(second.layers), entering=entering, lengths=lengths, shared=[[] for _ in nodes],
-                                   wanted=([len(ranks) + 1 for ranks in nodes], tail), states_only=True)       # [nodes, tail, size]
-            self.counts["rows_of_the_pass"] += len(nodes)
             depth = torch.tensor([len(ranks) for ranks in nodes], device=device)
+            gone = _gone_on_from(s, second, self._first_run, width)
+            if self.lean and len(second.layers) == 1 and getattr(second.layers[0], "attention_conv", None) is None:
+                # A row's places with tokens written in are only LOOKED AT by the places that are asked for; with one
+                # layer nothing reads what the layer would make of them. So they are given as what the layer looks at
+                # (its keys and values: its own first norm, then its projections, exactly as for a place of the
+                # block), once for every node and shared by the rows below it, and only the places asked for run
+                # through the layer: 2 a node in place of the node's whole block. Number for number the same scores,
+                # at a fraction of the pass (a pass costs by the places that run through it).
+                layer = second.layers[0]
+                given = torch.tensor([[path[ranks][-1] for ranks in nodes] + [mask_token]], dtype=s.block_ids.dtype, device=device)
+                embedded = _raw_input_embeddings(s.target, given, scale)[0]
+                written = second._written(gone[depth], embedded[:-1], embedded[-1])
+                looked_at = layer.input_layernorm(torch.cat((gone[:1], written), dim=0))
+                asked = (depth[:, None] + 1 + torch.arange(tail, device=device)[None, :]).clamp(max=width - 1)
+                states = _restart_pass(s, [], [s.start + len(ranks) + 1 for ranks in nodes], looked_at, [],
+                                       [s.start] + [s.start + len(ranks) for ranks in nodes], tail, layers=list(second.layers),
+                                       entering=gone[asked], lengths=[min(tail, width - 1 - len(ranks)) for ranks in nodes],
+                                       shared=[[0] + [1 + row_of[ranks[:upto]] for upto in range(1, len(ranks) + 1)] for ranks in nodes],
+                                       wanted=([0] * len(nodes), tail), states_only=True)                      # [nodes, tail, size]
+            else:
+                lengths = [min(len(ranks) + 1 + tail, width) for ranks in nodes]
+                wide = max(lengths)
+                written_in = [[first_token] + path[ranks] + [mask_token] * (wide - len(ranks) - 1) for ranks in nodes]
+                known = [[0 < slot <= len(ranks) for slot in range(wide)] for ranks in nodes]
+                embedded = _raw_input_embeddings(s.target, torch.tensor(written_in + [[mask_token] * wide], dtype=s.block_ids.dtype, device=device), scale)
+                entering = second.enter_blocks(gone[:wide], embedded[:-1], embedded[-1, 0], torch.tensor(known, device=device))
+                states = _restart_pass(s, [path[ranks][-1] for ranks in nodes], [s.start] * len(nodes), None, [], [], wide,
+                                       layers=list(second.layers), entering=entering, lengths=lengths, shared=[[] for _ in nodes],
+                                       wanted=([len(ranks) + 1 for ranks in nodes], tail), states_only=True)   # [nodes, tail, size]
+            self.counts["rows_of_the_pass"] += len(nodes)
             at = (depth[:, None] + torch.arange(tail, device=device)[None, :]).clamp(max=width - 2)   # the places, as rows of `best`
             candidates = best.indices[:, :top][at]                                                   # [nodes, tail, top]
             first_log, first_scores = best.values[:, :top][at], logits.gather(-1, best.indices[:, :top])[at]

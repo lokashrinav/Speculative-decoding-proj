@@ -200,3 +200,32 @@ First numbers of the trainings, on answers seen for the first time (means over 2
 next place is right for the first run in 18% of the places, with counts in 35%, for the second
 drafter trained without counts in 36%, and for the second drafter on top of the counts in 43%.
 The right token is among the 32 candidates in 72% of these places.
+
+## What a pass really costs, and the lean pass (November 19, 03:00 UTC)
+
+The real-speed test with the counts (job `train-more-opd-1`, Draft-OPD, 4 of 8 answers so far; plain
+decoding 82.3 tokens a second, a round 69 ms):
+
+| Method | Tokens per round | Time of the tree or second run | Speed against plain |
+| --- | --- | --- | --- |
+| DDTree, 63 nodes | +31.3% | 0.8 ms | +20.8% |
+| Tree with counts, 63 nodes | +43.5% | 3.2 ms | +28.2% |
+| Tree with counts, 95 nodes | +48.3% | 4.0 ms | +29.0% |
+| Tree with counts and in-answer rows | +49.4% | 5.0 ms | +27.8% |
+| Old one-layer second run after every node (`opd-r1`) | +35.5% | 10.0 ms | +10.7% |
+| Old two-layer second run on the tree with counts (`opd-s2`) | +44.2% | 17.0 ms | +8.8% |
+| Tree with counts, drafter reading 4,096 tokens | +51.6% | 3.2 ms | +36.8% |
+
+Two things follow. The counts are worth about 6% in real speed over DDTree here (their lookup and
+search cost 2.4 ms in our code). And the old second runs through one and two layers cost 10 and
+17 ms, not the 2 to 3.5 ms a layer was estimated at: a pass costs by the PLACES that run through
+it, and every node's row held its whole block (up to 16 places a node, 40 nodes), then the whole
+vocabulary's output head.
+
+The new tree avoids both. Its scores read 32 rows of the output head a place, not the vocabulary.
+And with one layer, the places with tokens written in are only looked at by the places that are
+asked for; nothing reads what the layer would make of them. So they are given to the layer as keys
+and values only (once per node, shared by the rows below it), and only the 2 places asked for per
+node run through the layer: about 126 places in place of up to 1,000. A test checks that the scores
+are the same numbers either way. What it costs in real decoding is measured after the replay; until
+then the "about 2 ms" for one layer is an estimate, and the old passes show such estimates were low.
