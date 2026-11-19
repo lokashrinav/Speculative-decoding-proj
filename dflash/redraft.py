@@ -13,6 +13,7 @@ only add accepted tokens, never remove them. Greedy decoding only.
 """
 
 import heapq
+import math
 from types import SimpleNamespace
 
 import numpy
@@ -1333,6 +1334,11 @@ class SecondTree(BranchTree):
         self.top, self.follow = top, None
         self.lean = True                               # one layer: only the places that are asked for run through it (see below)
         self.timed = False                             # count the milliseconds of each part (waits for the GPU between them)
+        # gate: the pass is left out in rounds where the first run is sure of itself: where the product of the
+        # probabilities of its first choices at the first `gate_places` places is above `gate` (None: never left
+        # out). The tree of such a round is the first tree. A pass costs the same whatever it finds, and what it
+        # corrects are the branches off the first run's own path, which matter when that path is likely to break.
+        self.gate, self.gate_places = None, 4
         self.keep_last, self.last = False, None        # for tests: what the last round's pass gave every node
         self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0, "rows_of_the_pass": 0,
                        "first_tree_nodes_dropped": 0}
@@ -1361,6 +1367,9 @@ class SecondTree(BranchTree):
         self.counts["rounds"] += 1
         if self.timed:
             clock = self._lap("ms_first_tree", clock)
+        if self.gate is not None and sum(scores[place][0] for place in range(min(self.gate_places, width - 1))) > math.log(max(self.gate, 1e-30)):
+            nodes = []                                 # sure of itself: no pass, the first tree as it is
+            self.counts["rounds_without_the_pass"] = self.counts.get("rounds_without_the_pass", 0) + 1
         row_of = {ranks: number for number, ranks in enumerate(nodes)}
         order, chain = {}, {}                          # a node's children, best first: (log-probabilities, candidates)
         if nodes:
@@ -1452,6 +1461,9 @@ class SecondTree(BranchTree):
         if self.keep_last:
             self.last = {"order": dict(order), "tokens": tokens, "start": s.start}
         final, heap, counter, link = {(): 0.0}, [(-scores[0][0], 0, (), 0)], 1, {}
+        if not nodes and chosen:                       # no pass this round: the first tree is the tree
+            final.update(dict.fromkeys(chosen[: self.budget], 0.0))
+            heap = []
         while heap and len(final) - 1 < self.budget:
             negative, _, parent, which = heapq.heappop(heap)
             values, indices = order[parent]

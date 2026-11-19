@@ -232,3 +232,10 @@ every-opd-2cc: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more
 # cut off. The replay that was queued for them uses the layers that were finished before: what the tree holds with the
 # scoring as rewritten (the first tree with 32 candidates), and with the second drafter trained on 1,000 answers.
 every-replay-opd-1: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 1.2 --count-data ~/specdec-data/think1 --settings plain,tree63,ctree63,cstree63@opd-e1c,cstree63@opd-e1c1000,cstree63f40@opd-e1c,cstree63t1@opd-e1c,cstree95@opd-e1c,stree63@opd-e1
+
+# (November 19, 11:55 UTC) The pass only where it can matter. Timed (every-speed-1): the second drafter's part of a round
+# is 11 ms (first tree with counts 3.9, pass 3.5, scores 2.2, rest 1.3) for 3% more tokens than the tree with counts,
+# whose part is 3.1 ms. With a gate the pass is left out in rounds where the first run is sure of its first four
+# tokens (gG: product of their probabilities above G hundredths). This run measures real speed for four gates
+# (ev5-full was the control with the drafter's layer fully trained; that waits until after the maintenance).
+ev5-full: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 4 --max-hours 1.3 --count-data ~/specdec-data/think1 --settings plain,plain+ctree63,plain+cstree63@opd-e1c,plain+cstree63g30@opd-e1c,plain+cstree63g50@opd-e1c,plain+cstree63g70@opd-e1c,plain+cstree63g85@opd-e1c

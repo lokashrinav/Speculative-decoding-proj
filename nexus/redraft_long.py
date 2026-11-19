@@ -290,7 +290,7 @@ def make_method(name, ckpt_dir, like=None):
 
             method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
         return method
-    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(x?)@(.+)", name)
+    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(x?)@(.+)", name)
     if found:
         # streeB@SECOND: a tree of B nodes in which the second drafter warm-SECOND.pt (trained at every place,
         # nexus/train_every.py) scores every edge (dflash/redraft.py: SecondTree); fF: rows for a first tree of F
@@ -299,10 +299,13 @@ def make_method(name, ckpt_dir, like=None):
         from dflash.redraft import CountTree, SecondTree
         from dflash.restart_layers import load_restart_layers
 
-        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[6]}.pt"), like)
+        # gG: no pass in rounds where the product of the first run's first four first-choice probabilities is above
+        # G hundredths (the first tree is used as it is there).
+        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[7]}.pt"), like)
         method = SecondTree(int(found[2]), None if found[3] is None else int(found[3]),
                             tail=int(found[4] or notes.get("reach", 2)), top=int(notes.get("candidates", 32)))
-        method.second, method.timed = second.merge(), bool(found[5])        # x: the milliseconds of each part are counted
+        method.second, method.timed = second.merge(), bool(found[6])        # x: the milliseconds of each part are counted
+        method.gate = None if found[5] is None else int(found[5]) / 100.0
         if found[1]:                                   # (the first tree scores as many candidates as the second drafter: one lookup for both)
             method.tree, method.follow = CountTree(method.first, FOLLOW.get("counts"), candidates=method.top), FOLLOW.get("counts")
         return method

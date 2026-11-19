@@ -2187,6 +2187,22 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
     assert compared > 100
     whole_rows.close()
 
+    # With a gate the pass is left out where the first run is sure: a gate nothing passes gives DDTree's tree in
+    # every round, a gate everything passes changes nothing.
+    never = SecondTree(12, top=16)
+    never.second, never.gate = second, 0.0
+    skipped = Kept(never)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=skipped, block_size=BLOCK)
+    assert all(prefixes(mine) == prefixes(theirs) for (_, mine, _, _), (_, theirs, _, _) in zip(skipped.rounds, tree.rounds))
+    assert never.counts["rounds_without_the_pass"] == never.counts["rounds"] and never.counts["rows_of_the_pass"] == 0
+    always = SecondTree(12, 8, tail=2, top=8)
+    always.second, always.gate = second, 1.0
+    passed = Kept(always)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=passed, block_size=BLOCK)
+    assert all(prefixes(mine) == prefixes(theirs) for (_, mine, _, _), (_, theirs, _, _) in zip(passed.rounds, kept.rounds))
+    assert "rounds_without_the_pass" not in always.counts
+    never.close(), always.close()
+
     # In real decoding the text is the plain text; with the counts in the first tree and in the scores too.
     follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
     looked_up = SecondTree(14, 10, tail=2, top=8)                    # (a first tree with fewer candidates: the lifts are looked up)
@@ -2230,6 +2246,8 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
         named = make_method("cstree63f40@tiny", str(tmp_path), draft)
         assert (named.budget, named.first, named.tail, named.top) == (63, 40, 2, 8) and named.follow is follow
         assert named.tree.candidates == 8 and not named.timed and make_method("cstree63x@tiny", str(tmp_path), draft).timed
+        gated = make_method("cstree63f40t1g70x@tiny", str(tmp_path), draft)
+        assert (gated.first, gated.tail, gated.gate, gated.timed) == (40, 1, 0.7, True) and named.gate is None
         assert isinstance(named.tree, CountTree) and named.second.scores is not None and not named.second.adapters
         bare = make_method("stree31t1@tiny", str(tmp_path), draft)
         assert (bare.budget, bare.first, bare.tail) == (31, 31, 1) and bare.follow is None and isinstance(bare.tree, DraftTree)

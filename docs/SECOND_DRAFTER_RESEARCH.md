@@ -323,3 +323,40 @@ How much text (validation, the place after a branch has left the first run's fir
 With a third of the text the second drafter is where it is with all of it. The runs on 100 and on
 300 answers, the control with a layer from new weights, the longer chain and the 64 candidates
 were running or waiting when the runner stopped reporting.
+
+## Where the milliseconds go, the text it needs, and the full disk (November 19, 11:55 UTC)
+
+The home folder was full from about 07:50 to 10:20 UTC (199 copies of the code that jobs ran from,
+1.5 GB; new jobs keep their copy on the node's own disk). Every job that ran or started in that
+time died: the speed test after 6 of 8 answers, the trainings with a longer chain and with 64
+candidates after half an hour, the control with a layer from new weights at its start. They were
+queued again at 10:30 UTC (`ev1-r4`, `ev2-k64`, `ev3-fresh`, `ev4-a300`, `ev6-a100`).
+
+**Timed parts of the second drafter's tree** (job `every-speed-1`, 3 answers, milliseconds a round):
+
+| Tree | First tree | Rows | Pass | Scores | Choice | Whole part | Tokens per round | Speed against plain |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tree with counts (`ctree63`) | | | | | | 3.1 | 8.34 | +29.9% |
+| Second drafter on it (`cstree63`) | 3.9 | 0.8 | 3.5 | 2.2 | 0.4 | 11.3 | 8.59 | +19.3% |
+| ... one place asked for | 3.9 | 0.8 | 3.3 | 1.5 | 0.4 | 10.5 | 8.57 | +19.9% |
+| ... rows for 40 nodes | 3.1 | 0.8 | 3.3 | 1.9 | 0.4 | 10.0 | 8.59 | +20.8% |
+| Second drafter alone, DDTree first (`stree63@opd-e1`) | 0.3 | 0.7 | 3.3 | 1.6 | 0.4 | 6.9 | 8.29 | +21.4% |
+
+The pass through one layer costs 3.3 to 3.5 ms whatever the number of rows (the first run's five
+layers cost 8.7 ms, so a layer is about 1.7 ms here before anything else), the scores 1.5 to 2.2 ms.
+The rewrite of the scoring did not make the whole faster: the first tree with 32 candidates costs
+0.8 ms more than with 16. For 3% more tokens the whole part may cost about 2 ms more than the tree
+with counts; it costs 8 ms more. Two things are needed together: more tokens (the longer chain and
+the 64 candidates), and the pass only in rounds where it can matter (`gG` in a name: no pass where
+the product of the first run's first four first-choice probabilities is above G hundredths; job
+`ev5-full` measures four gates in real speed).
+
+**Replay with the rewritten scoring** (job `every-replay-opd-1`, the same 8 answers; tree with
+counts 8.305): second drafter trained on about 3,000 answers 8.587 (+3.4%), on 1,000 answers
+8.603 (+3.6%), on 100 answers 8.222 (-1.0%). About 1,000 answers are enough; 100 are not. (The
+layers with a longer chain and with 64 candidates in that replay were the half-hour saves of runs
+the full disk killed: +2.6% and +1.7%, not their result.)
+
+**The control with a layer from new weights**, 0.9 hours in (training answers seen for the first
+time): right after a fork in 40.8% of the places against 35.4% for the first run with counts;
+ours was at about 44% at that point. Final at about 14:20 UTC.
