@@ -1971,3 +1971,205 @@ def test_names_of_trees_with_counts():
         assert redraft_long.with_counts("ctree39_echo4r4") and redraft_long.with_counts("plain:window=4096+ctree63_echo4r4")
     finally:
         redraft_long.FOLLOW.clear()
+
+
+def test_the_second_drafter_trained_at_every_place(tmp_path):
+    """nexus/train_every.py: many rounds of an answer in one pass, the answer's own tokens written in up to a
+    depth, and the second drafter's correction of the first run's candidates after them."""
+    from dflash.follow import FollowCounts
+    from dflash.replay import target_features
+    from dflash.restart_layers import CandidateScores, RestartLayers, candidate_scores, load_restart_layers, save_restart_layers
+    from dflash.model import _output_head
+    from nexus.train_every import TeachEvery, first_runs, halves, second_rows
+    from nexus.train_second import first_run, second_states
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    second = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True)
+    assert second.sizes["scores"] and "scores" not in RestartLayers(draft, count=1, rank=4, reveal=True).sizes
+
+    # Several rounds in one pass are the rounds one by one: each sees the context before its own start only.
+    starts = torch.tensor([length + 30, length + 4, length + 17])
+    with torch.no_grad():
+        final, kept = first_runs(draft, target, features, ids, starts, 0, keep=1, width=BLOCK)
+        for at, start in enumerate(starts.tolist()):
+            one, one_kept = first_run(draft, target, features, ids, start, 0, BLOCK, keep=1)
+            assert torch.allclose(final[at], one, atol=1e-4) and torch.allclose(kept[at], one_kept, atol=1e-4)
+
+        # A row with the whole block in sight is the layers' pass with the tokens written in (train_second.py).
+        depths = torch.tensor([3, 1, 6])
+        rows, inside = second_rows(draft, second, target, features, ids, starts, depths, kept, 0, reach=BLOCK, width=BLOCK)
+        for at, (start, depth) in enumerate(zip(starts.tolist(), depths.tolist())):
+            one = second_states(draft, second, target, features, ids, start, depth, features.new_zeros(0, 16), kept[at])
+            assert torch.allclose(rows[at, : BLOCK - 1 - depth], one, atol=1e-4)
+            assert inside[at].tolist() == [slot < BLOCK - 1 - depth for slot in range(BLOCK)]
+        # With a reach of 2 a row sees its places up to two after the tokens, as a node's block in a tree does.
+        near, inside = second_rows(draft, second, target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+        assert near.shape == (3, 2, 16) and inside.tolist() == [[depth + 1 + slot <= BLOCK - 1 for slot in range(2)] for depth in depths.tolist()]
+        assert not torch.allclose(near[0], rows[0, :2], atol=1e-4)
+
+    # The scores: with nothing changed by the second run they are the first run's own probabilities of the
+    # candidates and of "another token"; the counts move a candidate, more so off the first run's path.
+    scorer = CandidateScores(16)
+    first_log = torch.tensor([[0.5, 0.2, 0.1]]).log()
+    plain_scores = scorer(first_log, torch.zeros(1, 3), torch.zeros(1, 3), torch.zeros(1, 16))
+    assert torch.allclose(plain_scores.exp(), torch.tensor([[0.5, 0.2, 0.1, 0.2]]), atol=1e-5)
+    lift = torch.tensor([[0.0, 2.0, 0.0]])
+    on = scorer(first_log, torch.zeros(1, 3), torch.zeros(1, 3), torch.zeros(1, 16), lift, torch.tensor([False]))
+    off = scorer(first_log, torch.zeros(1, 3), torch.zeros(1, 3), torch.zeros(1, 16), lift, torch.tensor([True]))
+    assert plain_scores[0, 1] < on[0, 1] < off[0, 1] and torch.allclose(on.exp().sum(), torch.tensor(1.0), atol=1e-5)
+    better = scorer(first_log, torch.zeros(1, 3), torch.tensor([[0.0, 0.0, 3.0]]), torch.zeros(1, 16))
+    assert better[0, 2] > plain_scores[0, 2] and better[0, 3] < plain_scores[0, 3]
+    head = _output_head(target)
+    some = torch.tensor([[1, 5, 9]])
+    assert torch.allclose(candidate_scores(draft, head, final[:1, 2], some), draft.compute_logits(final[:1, 2], head)[0, some[0]][None], atol=1e-4)
+
+    # Training: the loss falls on the rounds it has seen, only the layers and the scores' numbers change.
+    kept_as = {name: value.clone() for name, value in draft.state_dict().items()}
+    follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+    optimizer = torch.optim.AdamW(second.trained(), lr=3e-3)
+    teach = TeachEvery(second, optimizer, draft, target, candidates=5, reach=2, group=6, depths=3, window=64, width=BLOCK, warm=1)
+    losses = []
+    for _ in range(12):
+        teach.generator.manual_seed(0)                                # the same rounds and depths every time
+        teach.learn_from(ids, features, said, length, 12, follow)
+        losses.append(teach.progress()["loss"])
+    assert losses[-1] < losses[0] and teach.updates == 24 and teach.rows_seen == 24 * 6 * 3
+    assert all(torch.equal(kept_as[name], value) for name, value in draft.state_dict().items())
+    teach.learn_from(ids, features, said, length, 0, follow, learn=False, every=7)
+    point = teach.progress()
+    assert teach.updates == 24 and {"first", "first_counts", "second", "second_counts", "covered", "second_counts_walk", "first_walk"} <= set(point)
+    assert 0.0 <= point["second_counts"] <= point["covered"] <= 1.0 and 0.0 <= point["first_walk"] <= BLOCK - 1
+    without = TeachEvery(second, None, draft, target, candidates=5, reach=2, group=6, width=BLOCK, window=64)
+    without.learn_from(ids, features, said, length, 0, None, learn=False, every=7)
+    assert "first_counts" not in without.progress()
+
+    # Saved and read again, the layers and the scores are the same.
+    path = str(tmp_path / "warm-every.pt")
+    save_restart_layers(path, second, {"trained_by": "train_every"})
+    again, notes = load_restart_layers(path, draft)
+    assert again.scores is not None and notes["trained_by"] == "train_every"
+    assert torch.allclose(again.scores.rest.weight, second.scores.rest.weight) and torch.allclose(again.scores.on_path, second.scores.on_path)
+    with torch.no_grad():
+        mine, _ = second_rows(draft, second.eval(), target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+        theirs, _ = second_rows(draft, again, target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+    assert torch.allclose(mine, theirs, atol=2e-2)                    # (saved in 16-bit numbers)
+    assert halves([("a", 0, torch.tensor([1, 2, 3, 9]), 3, ""), ("a", 1, torch.tensor([1, 2, 4, 9]), 3, "")]) == [0, 1]
+
+
+def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
+    """dflash/redraft.py: SecondTree. One pass of the second drafter over a first tree, then the tree chosen
+    anew by the corrected probabilities; what the pass gives a node is what the training asked for there."""
+    from dflash.follow import FollowCounts
+    from dflash.model import _output_head
+    from dflash.redraft import CountTree, DraftTree, SecondTree, dflash_generate_redraft
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers, candidate_scores, save_restart_layers
+    from nexus.redraft_long import FOLLOW, make_method, with_counts
+    from nexus.train_every import first_runs, second_rows
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    second = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True).eval()
+    with torch.no_grad():
+        for adapter in second.adapters:
+            adapter.up.normal_(std=0.3)
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, rows.clone(), self.inner.nodes, getattr(self.inner, "last", None)))
+            return rows
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    with pytest.raises(ValueError):
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=SecondTree(12), block_size=BLOCK)
+    # A second drafter whose change counts for nothing leaves the first run's probabilities: the tree is DDTree.
+    with torch.no_grad():
+        second.scores.strength.zero_()
+    neutral = SecondTree(12, top=16)                                  # (every token DDTree may pick is a candidate)
+    neutral.second = second
+    same, tree = Kept(neutral), Kept(DraftTree(12))
+    first = replay_decode(draft, target, ids, length, ended=False, features=features, improver=same, block_size=BLOCK)
+    other = replay_decode(draft, target, ids, length, ended=False, features=features, improver=tree, block_size=BLOCK)
+    alike = sum(int(prefixes(mine) == prefixes(theirs)) for (_, mine, _, _), (_, theirs, _, _) in zip(same.rounds, tree.rounds))
+    assert alike > 0.9 * len(tree.rounds) and abs(sum(first.acceptance_lengths) - sum(other.acceptance_lengths)) <= 2
+    assert neutral.counts["rounds"] == len(same.rounds) and neutral.counts["rows_of_the_pass"] > 0
+    neutral.close()
+
+    # With its change counted the tree differs, has at most the budget's nodes, and every node's parent is in it.
+    with torch.no_grad():
+        second.scores.strength.fill_(1.0)
+    method = SecondTree(12, 8, tail=2, top=8)
+    method.second, method.keep_last = second, True
+    kept = Kept(method)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+    assert all(nodes <= 12 and len(prefixes(rows)) == nodes for _, rows, nodes, _ in kept.rounds)
+    assert sum(int(prefixes(mine) != prefixes(theirs)) for (_, mine, _, _), (_, theirs, _, _) in zip(kept.rounds, tree.rounds)) > 0
+    assert method.counts["nodes_from_the_second_run"] > 0 and method.counts["first_tree_nodes_dropped"] >= 0
+
+    # What the pass gave a node on the answer's own path is what the training computes for that round and depth.
+    head, checked = _output_head(target), 0
+    for start, rows, nodes, last in kept.rounds:
+        for ranks, (values, indices) in last["order"].items():
+            depth = len(ranks)
+            if checked >= 6:
+                break
+            wrote = [last["tokens"][place][rank] for place, rank in enumerate(ranks)]
+            if not depth or wrote != ids[0, start + 1 : start + 1 + depth].tolist() or start + BLOCK >= ids.shape[1] or len(values) < 8:
+                continue
+            with torch.no_grad():
+                starts, depths = torch.tensor([start]), torch.tensor([depth])
+                final, entered = first_runs(draft, target, features, ids, starts, 0, keep=1, width=BLOCK)
+                scores = draft.compute_logits(final[:, 1:], head).float()
+                best = scores.log_softmax(dim=-1).topk(8, dim=-1)
+                states, _ = second_rows(draft, second, target, features, ids, starts, depths, entered, 0, reach=2, width=BLOCK)
+                candidates = best.indices[0, depth][None]
+                mine = second.scores(best.values[0, depth][None], scores[0, depth].gather(-1, candidates[0])[None],
+                                     candidate_scores(draft, head, states[:, 0], candidates), states[:, 0], None,
+                                     torch.tensor([any(ranks)]))[0, :8]
+            assert torch.allclose(mine.sort(descending=True).values, torch.tensor(values), atol=2e-3)
+            checked += 1
+    assert checked >= 3
+    method.close()
+
+    # In real decoding the text is the plain text; with the counts in the first tree and in the scores too.
+    follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+    for counted in (False, True):
+        method = SecondTree(14, 10, tail=2, top=8)
+        method.second = second
+        if counted:
+            method.tree, method.follow = CountTree(10, follow, candidates=8), follow
+        with_it = dflash_generate_redraft(draft, target, torch.tensor([[1, 2, 3, 4, 5]]), 200, None, improver=method,
+                                          block_size=BLOCK, return_stats=True)
+        assert torch.equal(with_it.output_ids, ids) and len(with_it.acceptance_lengths) <= len(plain.acceptance_lengths)
+        method.close()
+    assert not any(layer._forward_hooks for layer in draft.layers)
+
+    # By name.
+    save_restart_layers(str(tmp_path / "warm-tiny.pt"), second, {"candidates": 8, "reach": 2})
+    FOLLOW["counts"] = follow
+    try:
+        named = make_method("cstree63f40@tiny", str(tmp_path), draft)
+        assert (named.budget, named.first, named.tail, named.top) == (63, 40, 2, 8) and named.follow is follow
+        assert isinstance(named.tree, CountTree) and named.second.scores is not None and not named.second.adapters
+        bare = make_method("stree31t1@tiny", str(tmp_path), draft)
+        assert (bare.budget, bare.first, bare.tail) == (31, 31, 1) and bare.follow is None and isinstance(bare.tree, DraftTree)
+    finally:
+        FOLLOW.clear()
+    assert with_counts("cstree63@x") and with_counts("plain+cstree63f40@x") and not with_counts("stree63@x")

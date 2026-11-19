@@ -27,9 +27,75 @@ from torch import nn
 from .adapt import ADAPTED, LowRank
 
 
+class CandidateScores(nn.Module):
+    """A second run's probabilities of a place's CANDIDATES, as a correction of the first run's.
+
+    The first run gave every place of the block a probability for every token. A second run that knows
+    the tokens before a place (the branch of a tree the place lies on) does not start over: for the
+    place's candidates (the first run's K most probable tokens there) it changes the first run's
+    log-probability by how much its own score of the token differs from the first run's score, and,
+    where counts of the target's text are given (dflash/follow.py), by their lift, weighted as
+    DForkTree weights it (more after a branch has left the first run's first choices). All other
+    tokens together keep the first run's probability, moved by a trained number read from the second
+    run's state: if the second run finds no candidate likely, "another token" gains, and the branch is
+    worth less in a tree. The result is normalized over the K candidates and "another token".
+
+    The published correctors score candidates only as well (Weaver, arXiv 2607.06763: 512 of them;
+    UBTree, arXiv 2609.39972: 64), and DForkTree (arXiv 2611.12356, eq. 4) keeps the first run's rest
+    in the same way. Nothing here reads the whole vocabulary."""
+
+    def __init__(self, size: int, on_path: float = 0.3, off_path: float = 0.6):
+        super().__init__()
+        self.rest = nn.Linear(size, 1)
+        nn.init.zeros_(self.rest.weight)
+        nn.init.zeros_(self.rest.bias)
+        self.strength = nn.Parameter(torch.ones(()))                  # of the second run's change of the scores
+        self.on_path = nn.Parameter(torch.tensor(float(on_path)))     # of the counts while the branch is the first run's first choices
+        self.off_path = nn.Parameter(torch.tensor(float(off_path)))   # ... and after it has left them
+
+    def forward(self, first_log, first_scores, second_scores, state, lift=None, off=None):
+        """first_log [..., K]: the first run's log-probabilities of the candidates (over the whole vocabulary);
+        first_scores, second_scores [..., K]: the two runs' scores of them before any softmax; state [..., size]:
+        the second run's state at the place; lift [..., K]: the counts' lift of each candidate after the two
+        tokens before the place (None: no counts); off [...]: whether the branch has left the first run's first
+        choices. Returns log-probabilities [..., K + 1]: the candidates, then "another token"."""
+        first_log = first_log.float()
+        raised = first_log + self.strength * (second_scores.float() - first_scores.float())
+        if lift is not None:
+            raised = raised + torch.where(off[..., None], self.off_path, self.on_path) * lift.float()
+        rest = torch.log1p(-first_log.exp().sum(dim=-1).clamp(max=1.0 - 1e-6)) + self.rest(state.to(self.rest.weight.dtype))[..., 0].float()
+        return torch.cat((raised, rest[..., None]), dim=-1).log_softmax(dim=-1)
+
+
+def candidate_scores(drafter: nn.Module, output_head: nn.Module, states: torch.Tensor, candidates: torch.Tensor) -> torch.Tensor:
+    """The scores (before any softmax) the output head gives the tokens `candidates` ([..., K]) at `states`
+    ([..., size]), as drafter.compute_logits would, without the rest of the vocabulary: [..., K]."""
+    if _capped(drafter):
+        raise ValueError("a drafter that caps its scores needs the whole output head")
+    scores = torch.einsum("...d,...kd->...k", states.to(output_head.weight.dtype), output_head.weight[candidates])
+    if getattr(output_head, "bias", None) is not None:
+        scores = scores + output_head.bias[candidates]
+    return scores * _multiplier(drafter)
+
+
+def _draft_setting(drafter, name, default=None):
+    from .model import _draft_value
+
+    return _draft_value(drafter.config, name, default)
+
+
+def _capped(drafter) -> bool:
+    cap = _draft_setting(drafter, "final_logit_softcapping")
+    return cap is not None and float(cap) > 0
+
+
+def _multiplier(drafter) -> float:
+    return float(_draft_setting(drafter, "output_multiplier", 1.0))
+
+
 class RestartLayers(nn.Module):
     def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0, reveal: bool = False,
-                 states_in_block: bool = False):
+                 states_in_block: bool = False, scores: bool = False):
         super().__init__()
         total = len(drafter.layers)
         if not 1 <= count <= total or (count == total and not reveal):
@@ -48,7 +114,11 @@ class RestartLayers(nn.Module):
         # the drafter's FIRST layers pick them up; its last layer alone hardly looks there, trained or not), but
         # written into the block itself: the state of a known token is added, through a trained map, at that
         # token's place, next to the token. The block's places look at each other in every layer.
+        # scores: the layers do not give probabilities over the whole vocabulary but CORRECT the first run's
+        # probabilities of its own candidates at a place (CandidateScores below; trained in nexus/train_every.py).
         self.sizes = {"count": count, "rank": rank, "reveal": bool(reveal), "states_in_block": bool(states_in_block)}
+        if scores:                                     # (not among the sizes of layers saved before the option existed)
+            self.sizes["scores"] = True
         self.reveal, self.states_in_block = bool(reveal), bool(states_in_block)
         self.first = total - count                     # the first of the drafter's layers a copy stands in for
         self.layers = nn.ModuleList(copy.deepcopy(layer) for layer in drafter.layers[self.first :])
@@ -73,6 +143,7 @@ class RestartLayers(nn.Module):
         self.state_up = nn.Linear(rank, size, bias=False) if states_in_block else None
         if states_in_block:
             nn.init.zeros_(self.state_up.weight)
+        self.scores = CandidateScores(size) if scores else None
         self.to(drafter.fc.weight.device)
 
     def float_parameters(self):
@@ -156,6 +227,8 @@ def save_restart_layers(path: str, layers: RestartLayers, notes: dict | None = N
              "token_up": layers.token_up.weight.detach().half().cpu()}
     if layers.states_in_block:
         state.update(state_down=layers.state_down.weight.detach().half().cpu(), state_up=layers.state_up.weight.detach().half().cpu())
+    if layers.scores is not None:
+        state["scores"] = {name: value.detach().float().cpu() for name, value in layers.scores.state_dict().items()}
     torch.save({"sizes": layers.sizes, "notes": notes or {}, "state": state}, path + ".tmp")
     os.replace(path + ".tmp", path)
 
@@ -175,4 +248,6 @@ def load_restart_layers(path: str, drafter: nn.Module, **more) -> tuple[RestartL
         if layers.states_in_block and "state_down" in saved["state"]:
             layers.state_down.weight.copy_(saved["state"]["state_down"].to(layers.state_down.weight))
             layers.state_up.weight.copy_(saved["state"]["state_up"].to(layers.state_up.weight))
+        if layers.scores is not None and "scores" in saved["state"]:
+            layers.scores.load_state_dict({name: value.to(layers.scores.rest.weight.device) for name, value in saved["state"]["scores"].items()})
     return layers.eval(), saved.get("notes", {})

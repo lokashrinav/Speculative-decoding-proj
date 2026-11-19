@@ -221,7 +221,7 @@ def follow_counts(data_dir, more, vocabulary, device):
 
 def with_counts(name):
     """Whether a method's name has a tree with counts in it."""
-    return re.search(r"(?:^|[+_])c(?:b)?tree\d", name) is not None
+    return re.search(r"(?:^|[+_])c(?:b|s)?tree\d", name) is not None
 
 
 def make_method(name, ckpt_dir, like=None):
@@ -289,6 +289,22 @@ def make_method(name, ckpt_dir, like=None):
             from dflash.restart_layers import load_restart_layers
 
             method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
+        return method
+    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?@(.+)", name)
+    if found:
+        # streeB@SECOND: a tree of B nodes in which the second drafter warm-SECOND.pt (trained at every place,
+        # nexus/train_every.py) scores every edge (dflash/redraft.py: SecondTree); fF: rows for a first tree of F
+        # nodes (B); tT: places asked after a node (as trained); cstree...: the first tree is the tree with counts
+        # and the counts' lift is in the second drafter's scores, as it was while it trained.
+        from dflash.redraft import CountTree, SecondTree
+        from dflash.restart_layers import load_restart_layers
+
+        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[5]}.pt"), like)
+        method = SecondTree(int(found[2]), None if found[3] is None else int(found[3]),
+                            tail=int(found[4] or notes.get("reach", 2)), top=int(notes.get("candidates", 32)))
+        method.second = second.merge()
+        if found[1]:
+            method.tree, method.follow = CountTree(method.first, FOLLOW.get("counts")), FOLLOW.get("counts")
         return method
     found = re.fullmatch(r"(c?)tree(\d+)_((?:restart|echo|reanchor).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check
