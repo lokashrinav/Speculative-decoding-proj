@@ -50,10 +50,18 @@ class TeachPairs(TeachEvery):
         low = max(int(starts.max()) - self.window, 0)
         with torch.no_grad():
             final, _ = first_runs(drafter, target, features, ids, starts, low, 0, width)
-            scores = drafter.compute_logits(final[:, 1:], head).float()
-            best = scores.log_softmax(dim=-1).topk(top, dim=-1)
-            del scores
             answer = ids[0][starts[:, None] + torch.arange(1, width, device=device)[None, :]]        # the tokens of the places 1 .. width - 1
+            likely = drafter.compute_logits(final[:, 1:], head).float().log_softmax(dim=-1)
+            best = likely.topk(top, dim=-1)
+            before_sure = two_sure = None
+            if pairs.sure_before is not None:
+                # How the first run stood to the answer's token of every place: its log-probability of it, whether it
+                # was its first choice, the log-probability of its first choice. The block's first token was given.
+                sure = torch.stack((likely.gather(-1, answer[..., None])[..., 0], (best.indices[..., 0] == answer).float(),
+                                    best.values[..., 0]), dim=-1)                                    # [anchors, width - 1, 3]
+                given = torch.tensor([0.0, 1.0, 0.0], device=device)[None, None].expand(sure.shape[0], 1, 3)
+                before_sure, two_sure = sure[:, :-1], torch.cat((given, sure[:, :-2]), dim=1)
+            del likely
             wrong = (best.indices[..., 0] != answer).long().cumsum(dim=1)
             # The places 2 .. width - 1: their candidates, the two tokens before them, their state.
             candidates, first_log, states = best.indices[:, 1:], best.values[:, 1:], final[:, 2:]
@@ -71,7 +79,7 @@ class TeachPairs(TeachEvery):
             share = torch.cat((share, (1.0 - share.sum(dim=-1, keepdim=True)).clamp_min(0.0)), dim=-1)
             weight = torch.exp(-torch.arange(width - 2, device=device, dtype=torch.float) / self.depth_decay)[None, :].expand_as(label)
         with torch.set_grad_enabled(learn):
-            log_with = pairs(first_log, states, embedded[0], embedded[1], rows, lift, off)
+            log_with = pairs(first_log, states, embedded[0], embedded[1], rows, lift, off, before_sure, two_sure)
             hard = -log_with.gather(-1, index[..., None])[..., 0]
             soft = -(share * log_with).sum(dim=-1)
             loss = (((1.0 - self.soft) * hard + self.soft * soft) * weight).sum() / weight.sum()
@@ -92,7 +100,7 @@ class TeachPairs(TeachEvery):
                 fixed = first_log + torch.where(off[..., None], 0.6, 0.3) * lift.float()
                 arms["first_counts"] = torch.cat((fixed, rest), dim=-1).log_softmax(dim=-1)
                 arms["second_counts"] = log_with
-                arms["second"] = pairs(first_log, states, embedded[0], embedded[1], rows, None, off)
+                arms["second"] = pairs(first_log, states, embedded[0], embedded[1], rows, None, off, before_sure, two_sure)
             else:
                 arms["second"] = log_with
             covered = index < top
@@ -124,6 +132,8 @@ def main():
     parser.add_argument("--candidates", type=int, default=32)
     parser.add_argument("--rank", type=int, default=256)
     parser.add_argument("--hidden", type=int, default=1024)
+    parser.add_argument("--sure", action="store_true",
+                        help="tell the scores how sure the first run was of the tokens before a place (dflash/pair_scores.py)")
     parser.add_argument("--anchors", type=int, default=256, help="rounds per answer")
     parser.add_argument("--group", type=int, default=32, help="rounds per update")
     parser.add_argument("--soft", type=float, default=0.5)
@@ -157,7 +167,7 @@ def main():
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(False)
     with torch.inference_mode(False):
-        pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden).to(device).train()
+        pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden, sure=args.sure).to(device).train()
         optimizer = torch.optim.AdamW(pairs.parameters(), lr=args.rate, weight_decay=0.0)
     teach = TeachPairs(pairs, optimizer, draft, target, args.candidates, args.group, soft=args.soft, window=args.window, seed=args.seed)
     follow, half_of, parts, tokens_counted = None, {}, None, 0
@@ -172,7 +182,8 @@ def main():
     def report(done, learned, measured=None):
         write_json(status_path, {
             "done": done, "answers": learned, "answers_to_learn_from": len(answers), "updates": teach.updates, "rows": teach.rows_seen,
-            "draft": args.draft, "what": "pair scores", "rank": args.rank, "hidden": args.hidden, "saved_as": args.save,
+            "draft": args.draft, "what": "pair scores", "rank": args.rank, "hidden": args.hidden, "sure": bool(args.sure),
+            "saved_as": args.save,
             "candidates": args.candidates, "soft": args.soft, "counts": bool(args.counts), "tokens_counted": tokens_counted,
             "trained_numbers": sum(value.numel() for value in pairs.parameters()),
             "scores": {"on_path": round(float(pairs.on_path), 4), "off_path": round(float(pairs.off_path), 4)},

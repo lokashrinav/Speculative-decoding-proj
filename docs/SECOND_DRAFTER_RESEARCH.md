@@ -540,7 +540,7 @@ own rounds), `fast4-two` (two layers, one hour).
 In the one-pass tree 43% of the rounds end at a node without a correction (30% nothing proposed
 after it, 13% only the chain's token, and it is wrong); in 62% of the first kind a row would have
 put the answer's token first. Giving every node its row moves those stops to the next failure of
-the scores, three quarters of a token later on average: 8.21 becomes 8.39.
+the scores, about 0.6 of a token later on average (8.145 to 8.399 on the same rounds; 8.21 to 8.39 each on its own).
 
 **2. The accuracy was the wrong measure.** "Right at 49% of the places after a fork against 39%"
 counts all places of a block after the true tokens; a round does not get to most of them.

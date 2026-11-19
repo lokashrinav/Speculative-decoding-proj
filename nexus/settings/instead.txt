@@ -249,9 +249,16 @@ ev5-full: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part valid
 # nearly enough, the pair scores' 40% (they see two tokens and the place's state) is a matter of what computes the
 # answer, not of what it is given. diag5's trace part (rows for a larger first tree) runs as planned before it.
 diag2-replay: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --reveal-last 1 --passes 3 --save opd-e1m1 --max-hours 2.4 --check-answers 12
-diag5-rows: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --reveal-last 2 --passes 3 --save opd-e1m2 --max-hours 2.0 --check-answers 12
 
 # (November 19, 21:20 UTC) The trace is done (fast5-trace, 8 answers, 7,900 rounds of DDTree; docs/SECOND_DRAFTER_RESEARCH.md).
 # diag1-trace would repeat it. It trains the pair scores for as long as the second drafter was trained instead (they
 # had 0.6 hours and 1,600 answers against 3.2 hours and 6,400): the comparison of the two was not at equal training.
-diag1-trace: train_pairs.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --save opd-p2 --passes 2 --max-hours 2.5 --check-answers 12
+diag1-trace: train_pairs.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --save opd-p2 --passes 2 --max-hours 2.0 --check-answers 12
+
+# (November 19, 21:30 UTC) The trace: the pair scores get less far than DDTree in 13% of the rounds and shorten the
+# chain of first choices (5.92 tokens against the first run's 6.03): they move the first run's right choices down. They
+# are not told whether the token before a place was the first run's own sure choice (then its states already expect
+# that token and there is nothing to correct). train_pairs.py --sure tells them (dflash/pair_scores.py). diag5-rows,
+# after its trace, trains that for the same two hours as diag1 trains the scores as they were (opd-p2s against opd-p2),
+# in place of the training with the last two tokens written in (the one with the last token alone, diag2, stays).
+diag5-rows: train_pairs.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --sure --save opd-p2s --passes 2 --max-hours 2.0 --check-answers 12

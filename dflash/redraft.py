@@ -1074,7 +1074,7 @@ class CountTree(DraftTree):
         # or used without counts (follow None). Set by nexus/redraft_long.py for the trees named ptree / cptree.
         self.pairs = None
 
-    def _pair_tables(self, s: SimpleNamespace, tokens: torch.Tensor):
+    def _pair_tables(self, s: SimpleNamespace, tokens: torch.Tensor, values: torch.Tensor):
         """The pair scores of all candidates of all places after the first: [places - 1, before, here],
         [places - 1, two before, here], the factor on "another token" [places - 1], as numpy arrays."""
         pairs, target, drafter = self.pairs, s.target, s.first_drafter
@@ -1082,7 +1082,17 @@ class CountTree(DraftTree):
         first = s.block_ids[0, :1].to(tokens.device).expand(tokens.shape[1])[None]
         embedded = _raw_input_embeddings(target, torch.cat((first, tokens[:-1])), scale)       # of the block's first token and of every place's candidates
         states = self._final_states(s)[2 : tokens.shape[0] + 1]                                 # the first run's states at the block's places 2 ..
-        pair, skip, rest = pairs.tables(states, embedded[1:], embedded[:-1], _output_head(target).weight[tokens[1:]])
+        sure_before = sure_two = None
+        if pairs.sure_before is not None:
+            # How the first run stood to every place's candidates (values: their log-probabilities, most probable
+            # first): the log-probability, first choice or not, the first choice's log-probability.
+            values = values.float()
+            first = torch.zeros_like(values)
+            first[:, 0] = 1.0
+            sure = torch.stack((values, first, values[:, :1].expand_as(values)), dim=-1)            # [places, candidates, 3]
+            given = torch.tensor([0.0, 1.0, 0.0], device=values.device).expand(1, values.shape[1], 3)   # the block's first token
+            sure_before, sure_two = sure[:-1], torch.cat((given, sure[:-2]))
+        pair, skip, rest = pairs.tables(states, embedded[1:], embedded[:-1], _output_head(target).weight[tokens[1:]], sure_before, sure_two)
         return (pair.double().cpu().numpy(), skip.double().cpu().numpy(), rest.double().exp().cpu().numpy(),
                 float(pairs.on_path), float(pairs.off_path))
 
@@ -1120,7 +1130,7 @@ class CountTree(DraftTree):
         rest = numpy.clip(1.0 - numpy.exp(likely).sum(axis=-1), 0.0, None)      # what the other tokens of a place have
         lift, extra, on_weight, off_weight = None, None, self.on_path, self.off_path
         if places > 1 and self.pairs is not None:
-            *extra, on_weight, off_weight = self._pair_tables(s, tokens)
+            *extra, on_weight, off_weight = self._pair_tables(s, tokens, best.values[:, :many])
             if getattr(self, "keep_last", False):      # for tests
                 self.last = {"extra": extra, "likely": likely, "rest": rest, "tokens": tokens.tolist(), "start": s.start}
         if places > 1 and self.follow is not None:

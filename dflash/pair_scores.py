@@ -26,7 +26,8 @@ from torch import nn
 
 
 class PairScores(nn.Module):
-    def __init__(self, size: int, rank: int = 256, hidden: int = 1024, on_path: float = 0.3, off_path: float = 0.6):
+    def __init__(self, size: int, rank: int = 256, hidden: int = 1024, on_path: float = 0.3, off_path: float = 0.6,
+                 sure: bool = False):
         super().__init__()
 
         def code(last_zero: bool = False):
@@ -36,6 +37,24 @@ class PairScores(nn.Module):
             return layers
 
         self.sizes = {"size": size, "rank": rank, "hidden": hidden}
+        # sure: the scores are told how the first run stood to the token before a place and to the one two before:
+        # its log-probability of that token, whether the token was its first choice, and the log-probability of its
+        # first choice there. Without it the scores cannot tell a token the first run was sure of (nothing to
+        # correct: its states were made expecting it) from one it did not expect; on the same rounds they got less
+        # far than DDTree in 13% of the rounds and shortened the chain of first choices
+        # (docs/SECOND_DRAFTER_RESEARCH.md, the diagnosis). The three numbers scale the token's code, by 1 at the
+        # start; they are numbers of a place's candidate, so the tables keep their form.
+        self.sure_before = self.sure_two = None
+        if sure:
+            self.sizes["sure"] = True
+
+            def scale():
+                layers = nn.Sequential(nn.Linear(3, 32), nn.SiLU(), nn.Linear(32, rank))
+                nn.init.zeros_(layers[2].weight)
+                nn.init.zeros_(layers[2].bias)
+                return layers
+
+            self.sure_before, self.sure_two = scale(), scale()
         self.before, self.two_before = code(), code()     # phi, phi2: of the token before, of the token two before
         self.here = code(last_zero=True)                  # psi: of a candidate; starts at nothing, so the scores start as the first run's
         self.state, self.state_two = nn.Linear(size, rank), nn.Linear(size, rank)
@@ -49,23 +68,33 @@ class PairScores(nn.Module):
         vectors = vectors.float()
         return vectors * torch.rsqrt(vectors.pow(2).mean(dim=-1, keepdim=True) + 1e-6)
 
-    def tables(self, states, before, two_before, here):
+    def tables(self, states, before, two_before, here, before_sure=None, two_before_sure=None):
         """states [..., size]: the first run's states at places; before [..., B, size], two_before [..., A, size]: the
         input embeddings of the candidates of the place before and of the place two before; here [..., C, size]: the
         output-head rows of the place's candidates. Returns the change of every candidate's score after every
         candidate before ([..., B, C]) and after every candidate two before ([..., A, C]), and the change of the
-        score of "another token" ([...])."""
+        score of "another token" ([...]). before_sure [..., B, 3], two_before_sure [..., A, 3]: for scores made with
+        `sure`, how the first run stood to each of those candidates (log-probability, first choice or not, the
+        log-probability of the first choice of its place; for the block's first token 0, 1, 0)."""
         states = self._unit(states)
         coded = self.here(self._unit(here))                                              # [..., C, rank]
-        pair = torch.einsum("...br,...cr->...bc", self.before(self._unit(before)) * self.state(states)[..., None, :], coded)
-        skip = torch.einsum("...ar,...cr->...ac", self.two_before(self._unit(two_before)) * self.state_two(states)[..., None, :], coded)
+        code_before, code_two = self.before(self._unit(before)), self.two_before(self._unit(two_before))
+        if self.sure_before is not None:
+            if before_sure is None or two_before_sure is None:
+                raise ValueError("these scores need to be told how sure the first run was of the tokens before a place")
+            code_before = code_before * (1.0 + torch.tanh(self.sure_before(before_sure.float().clamp(min=-20.0))))
+            code_two = code_two * (1.0 + torch.tanh(self.sure_two(two_before_sure.float().clamp(min=-20.0))))
+        pair = torch.einsum("...br,...cr->...bc", code_before * self.state(states)[..., None, :], coded)
+        skip = torch.einsum("...ar,...cr->...ac", code_two * self.state_two(states)[..., None, :], coded)
         return pair, skip, self.rest(states)[..., 0]
 
-    def forward(self, first_log, states, before, two_before, here, lift=None, off=None):
+    def forward(self, first_log, states, before, two_before, here, lift=None, off=None, before_sure=None, two_before_sure=None):
         """For places whose two tokens before are KNOWN (training, and measuring): first_log [..., C]: the first
         run's log-probabilities of the candidates; before, two_before [..., size]: the input embeddings of the two
         tokens; here [..., C, size]; lift [..., C], off [...] as in CandidateScores. Log-probabilities [..., C + 1]."""
-        pair, skip, rest = self.tables(states, before[..., None, :], two_before[..., None, :], here)
+        pair, skip, rest = self.tables(states, before[..., None, :], two_before[..., None, :], here,
+                                       None if before_sure is None else before_sure[..., None, :],
+                                       None if two_before_sure is None else two_before_sure[..., None, :])
         raised = first_log.float() + pair[..., 0, :] + skip[..., 0, :]
         if lift is not None:
             raised = raised + torch.where(off[..., None], self.off_path, self.on_path) * lift.float()

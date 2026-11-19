@@ -2380,6 +2380,97 @@ def test_scores_of_pairs_of_neighbouring_tokens(tmp_path):
     assert with_counts("cptree63@x") and not with_counts("ptree63@x")
 
 
+def test_pair_scores_told_how_sure_the_first_run_was(tmp_path):
+    """dflash/pair_scores.py with `sure`: the code of the token before a place is scaled by how the first run stood to
+    that token. At the start nothing changes; it trains; the tree's tables are what the training computes."""
+    import numpy
+    from dflash.model import _draft_value, _output_head, _raw_input_embeddings
+    from dflash.pair_scores import PairScores, load_pair_scores, save_pair_scores
+    from dflash.redraft import CountTree, dflash_generate_redraft
+    from dflash.replay import target_features
+    from nexus.redraft_long import make_method
+    from nexus.train_every import first_runs
+    from nexus.train_pairs import TeachPairs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    torch.manual_seed(0)
+    pairs = PairScores(16, rank=8, hidden=12, sure=True)
+    assert pairs.sizes["sure"] and PairScores(16, rank=8, hidden=12).sure_before is None
+
+    # At the start the three numbers scale by 1: the tables are those of the same scores that are not told them.
+    with torch.no_grad():
+        pairs.here[2].weight.normal_(std=0.3)
+    given = (torch.randn(2, 16), torch.randn(2, 5, 16), torch.randn(2, 4, 16), torch.randn(2, 3, 16))
+    how = (torch.randn(2, 5, 3), torch.randn(2, 4, 3))
+    told = pairs.tables(*given, *how)
+    kept_scales, pairs.sure_before = (pairs.sure_before, pairs.sure_two), None
+    untold = pairs.tables(*given)
+    pairs.sure_before = kept_scales[0]
+    assert all(torch.allclose(mine, theirs, atol=1e-6) for mine, theirs in zip(told, untold))
+    with pytest.raises(ValueError):
+        pairs.tables(*given)
+
+    teach = TeachPairs(pairs, torch.optim.AdamW(pairs.parameters(), lr=3e-3), draft, target, candidates=5, group=6, window=64, width=BLOCK, warm=1)
+    losses = []
+    for _ in range(12):
+        teach.generator.manual_seed(0)
+        teach.learn_from(ids, features, said, length, 12, None)
+        losses.append(teach.progress()["loss"])
+    assert losses[-1] < losses[0] and float(pairs.sure_before[2].weight.detach().abs().sum()) > 0       # the scales learned something
+    pairs.eval()
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, getattr(self.inner, "last", None)))
+            return rows
+
+    method = CountTree(12, None, candidates=8)
+    method.pairs, method.keep_last = pairs, True
+    kept = Kept(method)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+    head, checked, off_first = _output_head(target), 0, 0
+    scale = float(_draft_value(draft.config, "input_embedding_scale", 1.0))
+    for start, last in kept.rounds:
+        if checked >= 8 or last is None or start + BLOCK >= ids.shape[1]:
+            continue
+        tokens, likely = last["tokens"], last["likely"]
+        for place in range(1, 4):                                     # the block's places 2, 3, 4
+            truth = ids[0, start + 1 : start + place + 2].tolist()
+            if truth[place - 1] not in tokens[place - 1] or (place > 1 and truth[place - 2] not in tokens[place - 2]):
+                continue
+            b = tokens[place - 1].index(truth[place - 1])
+            a = tokens[place - 2].index(truth[place - 2]) if place > 1 else 0
+            before_sure = torch.tensor([[likely[place - 1][b], float(b == 0), likely[place - 1][0]]], dtype=torch.float)
+            two_sure = torch.tensor([[likely[place - 2][a], float(a == 0), likely[place - 2][0]] if place > 1 else [0.0, 1.0, 0.0]], dtype=torch.float)
+            with torch.no_grad():
+                final, _ = first_runs(draft, target, features, ids, torch.tensor([start]), 0, 0, BLOCK)
+                two = ids[0, start + place - 1 : start + place]
+                embedded = _raw_input_embeddings(target, torch.stack((ids[0, start + place : start + place + 1], two)), scale)
+                mine = pairs(torch.tensor(likely[place], dtype=torch.float)[None], final[0, place + 1][None], embedded[0], embedded[1],
+                             head.weight[torch.tensor(tokens[place])][None], None, None, before_sure, two_sure)[0]
+            raised = likely[place] + last["extra"][0][place - 1][b] + last["extra"][1][place - 1][a]
+            given_here = raised - numpy.log(last["rest"][place] * last["extra"][2][place - 1] + numpy.exp(raised).sum())
+            assert numpy.allclose(given_here, mine[:-1].double().numpy(), atol=2e-3)
+            checked += 1
+            off_first += int(b != 0)
+    assert checked >= 3
+
+    # Real decoding gives the plain text; saved and read again, the scores are told the same numbers.
+    with_it = dflash_generate_redraft(draft, target, torch.tensor([[1, 2, 3, 4, 5]]), 200, None, improver=method, block_size=BLOCK, return_stats=True)
+    assert torch.equal(with_it.output_ids, ids)
+    save_pair_scores(str(tmp_path / "pairs-sure.pt"), pairs, {"candidates": 8})
+    again, _ = load_pair_scores(str(tmp_path / "pairs-sure.pt"), torch.device("cpu"))
+    assert again.sure_before is not None and torch.allclose(again.sure_before[2].weight, pairs.sure_before[2].weight, atol=1e-3)
+    assert make_method("ptree31@sure", str(tmp_path), draft).pairs.sure_two is not None
+
+
 def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
     """nexus/trace_trees.py: several trees built in the same rounds, with why the answer's path stops in each;
     SecondTree with more passes (every node of the tree gets a row); CountTree.children (its scores for one node)."""
