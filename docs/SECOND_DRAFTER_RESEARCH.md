@@ -106,3 +106,24 @@ again on the same block, with a prefix of the draft written in as tokens.
    amount of training text. D2SD, D-Loop and DLoop pay a whole pass and retrain on 1.3M prompts;
    Weaver adds a new layer with 300,000 answers; DForkTree's second pass was trained on 3,000
    answers and did not pay.
+
+## Which loss, when the training text is the target's own greedy text (read November 19, 02:00 UTC)
+
+"Target Regeneration Shrinks the Gains of Draft-Training Objectives" (2610.29013) trains the same
+block drafter with three losses on text written by others and on text the target wrote greedily.
+On the target's own greedy text, distilling the target's probabilities (its 8 likeliest tokens and
+"the rest") adds only +3.7% tokens per round over plain cross-entropy with a tree of 63, +1.0% with
+a chain, and +1.0% in its text-only test on Qwen3-4B. A gate that drops places after a token the
+target would not write adds nothing there. What is left of the gain "lies in how the other tree
+candidates are ranked". The same loss looked worth +14% on text written by others.
+
+For us: our training text is the target's greedy text, so the loss is not the main lever. The
+target's probabilities come from the pass that also gives the drafter its context, so distilling
+them costs nothing and helps the ranking of second-best branches a little; we use both terms and
+do not expect more than a few percent from it. The levers are the ones the working second passes
+share: every place with the true tokens before it, enough text, scores over the candidates only.
+
+Also read and set aside: HyFlash (2611.07263) gives a small drafter a recurrent memory of the
+target's states of the whole text; DNeo (2611.21925) and DynaDFlash (2611.19085) change how the
+target's states are fed to the first drafter; Multi-Future Drafting (2611.13017) lets the first
+drafter write several whole futures. All three change the first drafter, not a second one.
