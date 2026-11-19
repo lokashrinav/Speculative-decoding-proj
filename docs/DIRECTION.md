@@ -484,7 +484,28 @@ is the first run's own states and the tokens. The predictor's states are made fr
 first-run states, so to a layer that goes on from the first run they say nothing new; the frozen
 drafter needs them only because it cannot go on from the first run.
 
-### The second run on top of DForkTree's counts (November 19, 00:50 UTC)
+### The second drafter, trained the way the published ones are (November 19, 02:00 UTC)
+
+This section replaces the conclusion of the section below ("stop making the second run faster").
+The small trained layers added nothing to the tree with counts, and the whole drafter with
+predicted states added 2 points. Shrinav's reading of this was that the second drafter itself is
+not good enough yet, and that it should be distilled from the target. The reading of the published
+second drafters and correctors (docs/SECOND_DRAFTER_RESEARCH.md) supports that: every one that
+works is trained at every place with the true tokens before it, against the target's
+probabilities, over candidates only, on 300,000 to 1.4 million answers. Ours was trained only where
+the first draft broke, on 366 answers. Weaver, the one closest to ours (one new layer on a frozen
+drafter), gains about twice what the counts gain.
+
+The direction stays the small second drafter. It is retrained along those lines
+(nexus/train_every.py), on top of the counts, and used to score every edge of a tree in one pass
+(dflash/redraft.py: SecondTree). What can be ours next to Weaver: the layer is the drafter's own
+last layer going on from the first run, the whole tree is scored in one pass, the counts carry
+what plain memory can carry, and we measure how the gain grows with the amount of text. The design,
+the jobs and what is measured are at the end of docs/SECOND_DRAFTER_RESEARCH.md. Text is written
+in the background (~/specdec-data/think1: about 2,600 new answers so far); both the counts and the
+second drafter use it.
+
+## The second run on top of DForkTree's counts (November 19, 00:50 UTC)
 
 DForkTree's scores were built into our replay (`dflash/follow.py`, `CountTree`) and measured on the
 same 8 validation answers as the tree above (7,915 rounds with DDTree, Draft-OPD, 63 checked tokens

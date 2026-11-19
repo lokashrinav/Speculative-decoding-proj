@@ -127,3 +127,53 @@ Also read and set aside: HyFlash (2611.07263) gives a small drafter a recurrent 
 target's states of the whole text; DNeo (2611.21925) and DynaDFlash (2611.19085) change how the
 target's states are fed to the first drafter; Multi-Future Drafting (2611.13017) lets the first
 drafter write several whole futures. All three change the first drafter, not a second one.
+
+## Our second drafter after this reading (built November 19, 02:00 UTC)
+
+What it is. A copy of the drafter's LAST layer with low-rank updates (`dflash/restart_layers.py`).
+It does not start over: every place of the block enters with the state the first run had there
+before its last layer, and the tokens of a branch are written in at their places. It then gives,
+for the place after the branch, a correction of the first run's probabilities of that place's 32
+most probable tokens (`CandidateScores`): the first run's log-probability, plus how much the
+second drafter's score of the token differs from the first run's, plus the counts' lift with
+DForkTree's weights; all other tokens together keep the first run's probability, moved by a number
+read from the second drafter's state.
+
+How it is trained (`nexus/train_every.py`), following points 1, 2, 6, 7 and 8 above.
+
+- Every place, true tokens before it. For 256 positions of an answer the first run drafts its
+  block; for 4 depths each (shallow ones most often) the answer's own tokens are written in up to
+  the depth and the next two places are asked for. All rows of 32 positions run in one pass.
+- Candidates only, as in use.
+- On top of the counts. The lift is in the scores while it trains. A training answer is scored
+  with counts that do not contain it (the answers are split in two halves, each scored with the
+  other half's counts), so that it does not learn to trust counts that already know the answer.
+- Half of the loss is the target's token, half the target's own probabilities over the same
+  candidates.
+
+How it is used (`dflash/redraft.py`: `SecondTree`, method names `stree63@NAME`, `cstree63@NAME`).
+A first tree of 63 nodes is built as before (with counts for `cstree`). ONE pass of the second
+drafter has a row for every node, with the node's path written in. The tree that the target checks
+is then chosen anew, best first, by the corrected probabilities of all edges; a node of the first
+tree can fall out and a new token can come in. The first place keeps the first run's
+probabilities. Weaver and DARTree walk the tree in several steps one after the other with a new
+head; this is one pass of a layer the drafter already has. A test checks that what the pass gives
+a node is, number for number, what the training asked for at that place.
+
+What is measured.
+
+1. At the end of every training, on 12 validation answers, at every depth: how often the first
+   choice is right at the place after the true tokens, for the first run, the first run with
+   counts, the second drafter, and the second drafter with counts; separately after the branch has
+   left the first run's first choices ("off", where a tree's branches are). DForkTree measured 18%
+   there for the first run and 84 to 89% with the target's real states.
+2. The same after training on 100, 300, 1,000 and all (about 2,970) answers, with the counts of the
+   same answers: gain against text.
+3. Tokens per round in replay for `cstree63` against `ctree63` (the tree with counts, +9.6% over
+   DDTree here) and against the tree whose second run reads the target's real states (+17.5%).
+   A pass through one layer costs about 2.1 ms of a 72 ms round, so the tree has to hold about 3%
+   more tokens than `ctree63` before it is faster.
+
+Jobs (all Draft-OPD): `count-tree-opd-0` trains one layer on top of the counts (saved `opd-e1c`),
+`gen-think-0` one layer without counts (`opd-e1`), `every-opd-2c` two layers (`opd-e2c`),
+`every-opd-100c`, `-300c`, `-1000c` the curve, `every-replay-opd-0` the replay.
