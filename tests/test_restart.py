@@ -2189,6 +2189,29 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
 
     # In real decoding the text is the plain text; with the counts in the first tree and in the scores too.
     follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+    looked_up = SecondTree(14, 10, tail=2, top=8)                    # (a first tree with fewer candidates: the lifts are looked up)
+    looked_up.second, looked_up.keep_last, looked_up.tree, looked_up.follow = second, True, CountTree(10, follow, candidates=8), follow
+    from_table = SecondTree(14, 10, tail=2, top=8)
+    from_table.second, from_table.keep_last, from_table.tree, from_table.follow = second, True, CountTree(10, follow, candidates=8), follow
+    from_table.timed = True
+    looked_up.tree.table = None
+    class NoTable(CountTree):
+        def choose(self, s, best, scores):
+            result = super().choose(s, best, scores)
+            self.table = None
+            return result
+    looked_up.tree = NoTable(10, follow, candidates=8)
+    one_way, other_way = Kept(looked_up), Kept(from_table)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=one_way, block_size=BLOCK)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=other_way, block_size=BLOCK)
+    same_numbers = 0
+    for (_, mine, _, last), (_, theirs, _, table_last) in zip(one_way.rounds, other_way.rounds):
+        assert prefixes(mine) == prefixes(theirs)
+        for ranks, (values, indices) in last["order"].items():
+            assert torch.allclose(torch.tensor(values), torch.tensor(table_last["order"][ranks][0]), atol=2e-4)
+            same_numbers += 1
+    assert same_numbers > 100 and from_table.counts["ms_pass"] > 0 and from_table.counts["ms_scores"] > 0
+    looked_up.close(), from_table.close()
     for counted in (False, True):
         method = SecondTree(14, 10, tail=2, top=8)
         method.second = second
@@ -2206,6 +2229,7 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
     try:
         named = make_method("cstree63f40@tiny", str(tmp_path), draft)
         assert (named.budget, named.first, named.tail, named.top) == (63, 40, 2, 8) and named.follow is follow
+        assert named.tree.candidates == 8 and not named.timed and make_method("cstree63x@tiny", str(tmp_path), draft).timed
         assert isinstance(named.tree, CountTree) and named.second.scores is not None and not named.second.adapters
         bare = make_method("stree31t1@tiny", str(tmp_path), draft)
         assert (bare.budget, bare.first, bare.tail) == (31, 31, 1) and bare.follow is None and isinstance(bare.tree, DraftTree)

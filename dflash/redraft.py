@@ -1068,6 +1068,7 @@ class CountTree(DraftTree):
     def __init__(self, budget: int, follow=None, candidates: int = 16, on_path: float = 0.3, off_path: float = 0.6):
         super().__init__(budget)
         self.follow, self.candidates, self.on_path, self.off_path = follow, candidates, on_path, off_path
+        self.table = None                              # the last round's lifts [places - 1, a, b, c], where they were computed
 
     def choose(self, s: SimpleNamespace, best, scores: list[list[float]]):
         if self.follow is None:
@@ -1084,6 +1085,7 @@ class CountTree(DraftTree):
             first = s.block_ids[0, :1].to(tokens.device).expand(many)[None]
             a = torch.cat((first, tokens[:-2]))[:, :, None, None]
             lift = self.follow.lift_of_places(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :])
+            self.table = lift                                          # (SecondTree scores with the same lookup)
             lift = lift.cpu().numpy().astype(numpy.float64)            # [places - 1, a, b, c]
         # The kept nodes of a depth: their score, the candidate they end in, the candidate before it, whether
         # the branch is still the path of first choices, and which kept node of the depth before is their parent.
@@ -1330,9 +1332,15 @@ class SecondTree(BranchTree):
         super().__init__(budget, budget if first is None else first, tail=tail, stand_in="none")
         self.top, self.follow = top, None
         self.lean = True                               # one layer: only the places that are asked for run through it (see below)
+        self.timed = False                             # count the milliseconds of each part (waits for the GPU between them)
         self.keep_last, self.last = False, None        # for tests: what the last round's pass gave every node
         self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0, "rows_of_the_pass": 0,
                        "first_tree_nodes_dropped": 0}
+
+    def _lap(self, name: str, since: float) -> float:
+        now = _cuda_time()
+        self.counts[name] = self.counts.get(name, 0.0) + (now - since) * 1000.0
+        return now
 
     def __call__(self, s: SimpleNamespace) -> torch.Tensor:
         from .restart_layers import candidate_scores
@@ -1346,10 +1354,13 @@ class SecondTree(BranchTree):
         best = logits.log_softmax(dim=-1).topk(min(max(self.first, top), logits.shape[-1]), dim=-1)
         tokens, scores = best.indices.tolist(), best.values.tolist()
         first_token = int(s.block_ids[0, 0])
+        clock = _cuda_time() if self.timed else None
         chosen, _ = self.tree.choose(s, best, scores)
         path = {ranks: [tokens[at][rank] for at, rank in enumerate(ranks)] for ranks in chosen}
         nodes = [ranks for ranks in chosen if len(ranks) < width - 1 and max(ranks) < top]
         self.counts["rounds"] += 1
+        if self.timed:
+            clock = self._lap("ms_first_tree", clock)
         row_of = {ranks: number for number, ranks in enumerate(nodes)}
         order, chain = {}, {}                          # a node's children, best first: (log-probabilities, candidates)
         if nodes:
@@ -1371,6 +1382,8 @@ class SecondTree(BranchTree):
                 written = second._written(gone[depth], embedded[:-1], embedded[-1])
                 looked_at = layer.input_layernorm(torch.cat((gone[:1], written), dim=0))
                 asked = (depth[:, None] + 1 + torch.arange(tail, device=device)[None, :]).clamp(max=width - 1)
+                if self.timed:
+                    clock = self._lap("ms_rows", clock)
                 states = _restart_pass(s, [], [s.start + len(ranks) + 1 for ranks in nodes], looked_at, [],
                                        [s.start] + [s.start + len(ranks) for ranks in nodes], tail, layers=list(second.layers),
                                        entering=gone[asked], lengths=[min(tail, width - 1 - len(ranks)) for ranks in nodes],
@@ -1387,31 +1400,53 @@ class SecondTree(BranchTree):
                                        layers=list(second.layers), entering=entering, lengths=lengths, shared=[[] for _ in nodes],
                                        wanted=([len(ranks) + 1 for ranks in nodes], tail), states_only=True)   # [nodes, tail, size]
             self.counts["rows_of_the_pass"] += len(nodes)
-            at = (depth[:, None] + torch.arange(tail, device=device)[None, :]).clamp(max=width - 2)   # the places, as rows of `best`
+            if self.timed:
+                clock = self._lap("ms_pass", clock)
+            # The scores, all on the GPU and read back once at the end.
+            steps = torch.arange(tail, device=device)[None, :]
+            at = (depth[:, None] + steps).clamp(max=width - 2)                                       # the places, as rows of `best`
             candidates = best.indices[:, :top][at]                                                   # [nodes, tail, top]
             first_log, first_scores = best.values[:, :top][at], logits.gather(-1, best.indices[:, :top])[at]
             seconds = candidate_scores(s.first_drafter, _output_head(s.target), states, candidates)
-            off = torch.tensor([any(ranks) for ranks in nodes], device=device)
-            two = torch.tensor([([first_token] + path[ranks])[-2] for ranks in nodes], device=device)
-            one = torch.tensor([path[ranks][-1] for ranks in nodes], device=device)
+            about = torch.tensor([[any(ranks), ranks[-2] if len(ranks) > 1 else 0, ranks[-1],
+                                   ([first_token] + path[ranks])[-2], path[ranks][-1]] for ranks in nodes], device=device)
+            off, before, last, two, one = about[:, 0] > 0, about[:, 1], about[:, 2], about[:, 3], about[:, 4]
             follow = self.follow
-            inside = (depth[:, None] + torch.arange(tail, device=device)[None, :] <= width - 2).tolist()
+            # The counts' lifts: from the lookup the tree with counts made this round for the same candidates
+            # ([places - 1, the candidate two before, the candidate before, the candidate]), or looked up here.
+            table = getattr(self.tree, "table", None) if follow is not None else None
+            if table is not None and (table.shape[-1] < top or table.shape[0] < width - 2):
+                table = None
+            results = []
             for step in range(tail):
-                lift = None if follow is None else follow.lift(two[:, None], one[:, None], candidates[:, step])
+                if follow is None:
+                    lift = None
+                elif table is not None:
+                    lift = table[(depth - 1 + step).clamp(max=table.shape[0] - 1), before, last][:, :top]
+                else:
+                    lift = follow.lift(two[:, None], one[:, None], candidates[:, step])
                 likely = second.scores(first_log[:, step], first_scores[:, step], seconds[:, step], states[:, step], lift, off)[:, :top]
-                ranked = likely.sort(dim=-1, descending=True)
                 if step == 0:
-                    values, indices = ranked.values.tolist(), ranked.indices.tolist()
-                    for number, ranks in enumerate(nodes):
-                        order[ranks] = (values[number], indices[number])
+                    ranked = likely.sort(dim=-1, descending=True)
+                    results.append((ranked.values, ranked.indices))
+                    chosen_here = ranked.indices[:, 0]
                 else:                                                     # the chain after a node's best child: one token a place
-                    values, indices = ranked.values[:, 0].tolist(), ranked.indices[:, 0].tolist()
-                    for number, ranks in enumerate(nodes):
-                        if inside[number][step]:
-                            chain[(ranks, step)] = (values[number], indices[number])
-                chosen_here = ranked.indices[:, 0]
+                    most = likely.max(dim=-1)
+                    results.append((most.values, most.indices))
+                    chosen_here = most.indices
+                before, last = last, chosen_here
                 two, one = one, candidates[:, step].gather(-1, chosen_here[:, None])[:, 0]
                 off = off | (chosen_here != 0)
+            inside = (depth[:, None] + steps <= width - 2).tolist()
+            for step, (values, indices) in enumerate(results):
+                values, indices = values.tolist(), indices.tolist()
+                for number, ranks in enumerate(nodes):
+                    if step == 0:
+                        order[ranks] = (values[number], indices[number])
+                    elif inside[number][step]:
+                        chain[(ranks, step)] = (values[number], indices[number])
+            if self.timed:
+                clock = self._lap("ms_scores", clock)
         # The tree, best first. An entry: (-score, a number to keep the order, the parent, which of its children).
         order[()] = (scores[0][:top], list(range(top)))
         if self.keep_last:
@@ -1446,7 +1481,10 @@ class SecondTree(BranchTree):
         parents = {node[:-1] for node in final}
         rows = [[first_token] + [tokens[place][rank] for place, rank in enumerate(node)] + [-1] * (width - 1 - len(node))
                 for node in final if node not in parents]
-        return torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
+        rows = torch.tensor(rows, dtype=s.block_ids.dtype, device=device)
+        if self.timed:
+            self._lap("ms_choice", clock)
+        return rows
 
 
 class EchoRows:

@@ -213,6 +213,15 @@ every-opd-2cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more
 # every-opd-2c (the next job to start) is the real-speed test (line above). The control with a layer from NEW weights
 # moves to every-opd-full, the control with the drafter's layer fully trained to every-opd-300cb, the run on 300
 # answers to every-opd-100cb. every-opd-2cc stays the two-layer training.
-every-opd-full: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --fresh --rate 5e-4 --passes 3 --save control-fresh --max-hours 3.2 --check-answers 12
-every-opd-300cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --full --rate 5e-5 --passes 3 --save control-full --max-hours 3.2 --check-answers 12
-every-opd-100cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --max-answers 300 --passes 20 --save opd-e1c300 --max-hours 2.0 --check-answers 12
+
+
+# (November 19, 07:45 UTC) Real speed, 3 of 8 answers: the tree the second drafter scores holds 3.1% more tokens a
+# round than the tree with counts but its part of a round takes 11.1 ms against 3.2 ms, so it is 7% SLOWER. The
+# scoring was rewritten (the counts' lifts from the tree's own lookup, the GPU read back once) and each part is timed
+# (the x in a name). every-opd-full, the next job to start, measures that on 3 answers. The control with a layer
+# from NEW weights moves to every-opd-100cb, the run on 300 answers to every-opd-300cb, the control with the
+# drafter's layer fully trained to every-opd-2cc.
+every-opd-full: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 3 --max-hours 1.5 --count-data ~/specdec-data/think1 --settings plain,plain+ctree63,plain+cstree63x@opd-e1c,plain+cstree63@opd-e1c,plain+cstree63t1x@opd-e1c,plain+cstree63f40x@opd-e1c
+every-opd-100cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --fresh --rate 5e-4 --passes 3 --save control-fresh --max-hours 3.2 --check-answers 12
+every-opd-300cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --max-answers 300 --passes 20 --save opd-e1c300 --max-hours 2.0 --check-answers 12
+every-opd-2cc: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --full --rate 5e-5 --passes 3 --save control-full --max-hours 3.2 --check-answers 12
