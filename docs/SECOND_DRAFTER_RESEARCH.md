@@ -451,7 +451,7 @@ training and not the reuse of the drafter's layer is what makes little text enou
 better guess is worth 3.4% tokens on top of the counts, half of what the target's real states are
 worth there; (5) run as a pass, it does not pay for itself here.
 
-## Gaps in this account, and the diagnosis that comes before any new architecture (November 19, 20:30 UTC)
+## Gaps in this account, and the diagnosis that comes before any new architecture (November 19, 19:55 UTC)
 
 Shrinav had the account above audited and brought back the gaps. The scope from here on is his:
 DDTree with a second drafter or a smaller neural network (the count table is a baseline, not the
