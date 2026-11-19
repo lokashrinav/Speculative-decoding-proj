@@ -183,3 +183,10 @@ count-tree-opd-0: train_every.py --draft opd --data-dir ~/specdec-data/long1 --m
 # (November 19, 01:57 UTC) the second drafter trained at EVERY place with the answer's own tokens before it
 # (nexus/train_every.py; docs/SECOND_DRAFTER_RESEARCH.md): one layer, on all the text, without the counts.
 gen-think-0: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --save opd-e1 --passes 3 --max-hours 3.2 --check-answers 12
+
+# (November 19, 02:50 UTC) The control of the claim "going on from the drafter's own layer needs far less text than a
+# new layer": the same training (every place, candidates, on top of the counts, all the text) with a layer that starts
+# from NEW weights, all of them trained, its correction read through a map that starts at nothing (as a new head's
+# would be; Weaver, arXiv 2607.06763, trains a new layer on 300,000 answers). Measured while it trains and on the
+# validation answers at the end; not saved. The two-layer training this job was queued for is every-opd-2cb now.
+every-opd-2c: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --fresh --rate 5e-4 --passes 3 --save control-fresh --max-hours 3.2 --check-answers 12

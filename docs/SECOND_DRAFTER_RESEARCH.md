@@ -177,3 +177,26 @@ What is measured.
 Jobs (all Draft-OPD): `count-tree-opd-0` trains one layer on top of the counts (saved `opd-e1c`),
 `gen-think-0` one layer without counts (`opd-e1`), `every-opd-2c` two layers (`opd-e2c`),
 `every-opd-100c`, `-300c`, `-1000c` the curve, `every-replay-opd-0` the replay.
+
+## The control that decides whether this is more than Weaver with less text (queued November 19, 02:50 UTC)
+
+Weaver and ours are the same family: one small layer on a frozen drafter that reads a branch's
+tokens and corrects the first run's candidates. What we claim on top is that going on from the
+drafter's OWN last layer (and the counts) needs far less text than a new layer. Two controls of
+`nexus/train_every.py` test it on the same text, the same rounds and the same loss:
+
+- `--fresh` (job `every-opd-2c`): the layer starts from new weights, all trained; its correction
+  is read through a map that starts at nothing, so its scores start as the first run's with the
+  counts, as a new head's would.
+- `--full` (job `every-opd-full`): the layer starts as the drafter's own, all weights trained in
+  place of the low-rank change.
+
+If ours is clearly ahead of `--fresh` on about 3,000 answers, that gap is the result. If it is not,
+the method is Weaver's with a different layer, and the paper has no point of its own. The
+two-layer training moved to the job `every-opd-2cb`.
+
+First numbers of the trainings, on answers seen for the first time (means over 200 answers, about
+730 answers in): after the branch has left the first run's first choices, the first choice at the
+next place is right for the first run in 18% of the places, with counts in 35%, for the second
+drafter trained without counts in 36%, and for the second drafter on top of the counts in 43%.
+The right token is among the 32 candidates in 72% of these places.

@@ -119,9 +119,12 @@ def second_rows(drafter, second, target, features, ids, starts: torch.Tensor, de
     entering = torch.where(known[..., None], second._written(kept, embedded, mask_in), kept)
     spans = (depths + 1 + reach).clamp(max=width)
     sees = _sees(high - low, starts - low, spans, width)
-    hidden = drafter(target_hidden=features[:, low:high], noise_embedding=entering.reshape(1, rows * width, -1),
-                     position_ids=_positions(low, high, starts, width), attention_mask=sees[None, None],
-                     layers=list(second.layers))[:, -rows * width :, :].reshape(rows, width, -1)
+    # (a copy whose own weights are trained keeps them in 32-bit numbers next to a 16-bit drafter)
+    mixed = (second.full or second.fresh) and device.type == "cuda" and drafter.fc.weight.dtype != torch.float32
+    with torch.autocast("cuda", dtype=drafter.fc.weight.dtype, enabled=mixed):
+        hidden = drafter(target_hidden=features[:, low:high], noise_embedding=entering.reshape(1, rows * width, -1),
+                         position_ids=_positions(low, high, starts, width), attention_mask=sees[None, None],
+                         layers=list(second.layers))[:, -rows * width :, :].reshape(rows, width, -1)
     places = depths[:, None] + 1 + torch.arange(reach, device=device)[None, :]
     return hidden[torch.arange(rows, device=device)[:, None], places.clamp(max=width - 1)], places <= width - 1
 
@@ -203,7 +206,11 @@ class TeachEvery:
             places = (depths[:, None] + 1 + torch.arange(reach, device=device)[None, :]).clamp(max=width - 1)    # [rows, reach]
             at = (owner[:, None], places - 1)
             candidates, first_log, firsts = best.indices[at], best.values[at], first_scores[at]                # [rows, reach, top]
-            seconds = candidate_scores(drafter, head, states, candidates)
+            if second.scores.out is not None:         # a layer from new weights: its correction through its own map, from nothing
+                seconds = candidate_scores(drafter, head, second.scores.out(states.to(second.scores.out.weight.dtype)), candidates)
+                firsts = torch.zeros_like(firsts)
+            else:
+                seconds = candidate_scores(drafter, head, states, candidates)
             off = wrong[owner[:, None], places - 2] > 0                                    # a wrong first choice before the place
             label = answer[at]
             position = row_starts[:, None] + places                                        # the answer's position of each place
@@ -289,6 +296,9 @@ def main():
     parser.add_argument("--start-from", default="", help="go on from the saved layers warm-<name>.pt")
     parser.add_argument("--layers", type=int, default=1, help="how many of the drafter's last layers the second drafter has")
     parser.add_argument("--rank", type=int, default=256, help="of the low-rank updates")
+    parser.add_argument("--full", action="store_true", help="control: the copy starts as the drafter's layer and all its weights are trained")
+    parser.add_argument("--fresh", action="store_true",
+                        help="control: the copy starts from NEW weights, all trained (a new layer on the same text); neither control is saved")
     parser.add_argument("--more-data", action="append", default=[], help="folders of further answers to learn from (none of the validation prompts)")
     parser.add_argument("--more-only", action="store_true", help="learn from --more-data only")
     parser.add_argument("--counts", action="store_true", help="train on top of the counts of the training answers")
@@ -334,7 +344,8 @@ def main():
             second = second.float_parameters().train()
             args.layers, args.rank = second.sizes["count"], second.sizes["rank"]
         else:
-            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed, reveal=True, scores=True).train()
+            second = RestartLayers(draft, count=args.layers, rank=args.rank, seed=args.seed, reveal=True, scores=True,
+                                   fresh=args.fresh, full=args.full).float_parameters().train()
         if not second.reveal or second.first <= 0:
             raise ValueError("this training is for layers that read the tokens and go on from the first run")
         optimizer = torch.optim.AdamW([{"params": second.trained(), "lr": args.rate}], weight_decay=0.0)
@@ -354,7 +365,9 @@ def main():
     def report(done, learned, measured=None):
         write_json(status_path, {
             "done": done, "answers": learned, "answers_to_learn_from": len(answers), "updates": teach.updates, "rows": teach.rows_seen,
-            "draft": args.draft, "layers": args.layers, "rank": args.rank, "saved_as": args.save, "started_from": args.start_from,
+            "draft": args.draft, "layers": args.layers, "rank": args.rank, "saved_as": "" if args.fresh or args.full else args.save,
+            "started_from": args.start_from, "control": "fresh" if args.fresh else "full" if args.full else "", "rate": args.rate,
+            "trained_numbers": sum(value.numel() for value in second.trained()),
             "candidates": args.candidates, "reach": args.reach, "anchors": args.anchors, "depths": args.depths, "soft": args.soft,
             "counts": bool(args.counts), "tokens_counted": tokens_counted, "more_data": args.more_data,
             "scores": {name: round(float(value), 4) for name, value in (("strength", second.scores.strength), ("on_path", second.scores.on_path),
@@ -363,6 +376,8 @@ def main():
         }, indent=1)
 
     def save(learned):
+        if args.fresh or args.full:                   # the controls are whole layers (about 200 MB): measured, not kept
+            return
         notes = {"draft": args.draft, "answers": learned, "updates": teach.updates, "trained_by": "train_every", "counts": bool(args.counts),
                  "candidates": args.candidates, "reach": args.reach, "curve_end": curve[-1] if curve else None}
         save_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.save}.pt"), second, notes)

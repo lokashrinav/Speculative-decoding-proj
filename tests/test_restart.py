@@ -2061,6 +2061,32 @@ def test_the_second_drafter_trained_at_every_place(tmp_path):
     assert torch.allclose(mine, theirs, atol=2e-2)                    # (saved in 16-bit numbers)
     assert halves([("a", 0, torch.tensor([1, 2, 3, 9]), 3, ""), ("a", 1, torch.tensor([1, 2, 4, 9]), 3, "")]) == [0, 1]
 
+    # The two controls. full: the copy is the drafter's layer, all of it trained. fresh: a layer from new weights,
+    # whose correction is read through a map that starts at nothing, so that its scores start as the first run's.
+    whole = RestartLayers(draft, count=1, reveal=True, scores=True, full=True)
+    new = RestartLayers(draft, count=1, reveal=True, scores=True, fresh=True)
+    plain_copy = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True)
+    assert not whole.adapters and not new.adapters and whole.scores.out is None and new.scores.out is not None
+    layer = sum(value.numel() for value in draft.layers[2].parameters())
+    assert sum(value.numel() for value in whole.trained()) > layer > sum(value.numel() for value in plain_copy.trained())
+    with torch.no_grad():
+        as_drafter, _ = second_rows(draft, plain_copy, target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+        same, _ = second_rows(draft, whole, target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+        other, _ = second_rows(draft, new, target, features, ids, starts, depths, kept, 0, reach=2, width=BLOCK)
+    assert torch.allclose(same, as_drafter, atol=1e-5) and not torch.allclose(other, as_drafter, atol=1e-2)
+    for control in (whole, new):
+        teach = TeachEvery(control, torch.optim.AdamW(control.trained(), lr=3e-3), draft, target, candidates=5, reach=2, group=6,
+                           depths=3, window=64, width=BLOCK, warm=1)
+        losses = []
+        for _ in range(8):
+            teach.generator.manual_seed(0)
+            teach.learn_from(ids, features, said, length, 12, follow)
+            losses.append(teach.progress())
+        assert losses[-1]["loss"] < losses[0]["loss"]
+        if control is new:                            # before anything is learned its scores are the first run's with the counts
+            assert abs(losses[0]["second_counts_log"] - losses[0]["first_counts_log"]) < 0.2
+    assert all(torch.equal(kept_as[name], value) for name, value in draft.state_dict().items())
+
 
 def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
     """dflash/redraft.py: SecondTree. One pass of the second drafter over a first tree, then the tree chosen

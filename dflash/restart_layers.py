@@ -44,8 +44,14 @@ class CandidateScores(nn.Module):
     UBTree, arXiv 2609.39972: 64), and DForkTree (arXiv 2611.12356, eq. 4) keeps the first run's rest
     in the same way. Nothing here reads the whole vocabulary."""
 
-    def __init__(self, size: int, on_path: float = 0.3, off_path: float = 0.6):
+    def __init__(self, size: int, on_path: float = 0.3, off_path: float = 0.6, own: bool = False):
         super().__init__()
+        # own: for a layer that starts from NEW weights (the control of nexus/train_every.py --fresh). Its states
+        # mean nothing to the output head at first, so its correction is read through a map of its own that
+        # starts at nothing: at the start the scores are the first run's, as a new head's would be (Weaver).
+        self.out = nn.Linear(size, size, bias=False) if own else None
+        if own:
+            nn.init.zeros_(self.out.weight)
         self.rest = nn.Linear(size, 1)
         nn.init.zeros_(self.rest.weight)
         nn.init.zeros_(self.rest.bias)
@@ -95,7 +101,7 @@ def _multiplier(drafter) -> float:
 
 class RestartLayers(nn.Module):
     def __init__(self, drafter: nn.Module, count: int = 1, rank: int = 64, seed: int = 0, reveal: bool = False,
-                 states_in_block: bool = False, scores: bool = False):
+                 states_in_block: bool = False, scores: bool = False, fresh: bool = False, full: bool = False):
         super().__init__()
         total = len(drafter.layers)
         if not 1 <= count <= total or (count == total and not reveal):
@@ -119,13 +125,27 @@ class RestartLayers(nn.Module):
         self.sizes = {"count": count, "rank": rank, "reveal": bool(reveal), "states_in_block": bool(states_in_block)}
         if scores:                                     # (not among the sizes of layers saved before the option existed)
             self.sizes["scores"] = True
+        # Two controls of what going on from the drafter's own layer with a low-rank change is worth (they are
+        # measured while they train and not saved): full: the copy starts as the drafter's layer and ALL its weights
+        # are trained; fresh: the copy starts from NEW weights, all trained: a new layer, as a new head would be.
+        self.fresh, self.full = bool(fresh), bool(full)
         self.reveal, self.states_in_block = bool(reveal), bool(states_in_block)
         self.first = total - count                     # the first of the drafter's layers a copy stands in for
         self.layers = nn.ModuleList(copy.deepcopy(layer) for layer in drafter.layers[self.first :])
         for parameter in self.layers.parameters():
             parameter.requires_grad_(False)
         self.adapters = []
-        for number, layer in enumerate(self.layers):
+        if fresh or full:
+            generator = torch.Generator().manual_seed(seed)
+            for module in self.layers.modules():
+                if fresh and isinstance(module, nn.Linear):
+                    with torch.no_grad():
+                        module.weight.copy_((torch.randn(module.weight.shape, generator=generator) * 0.02).to(module.weight))
+                        if module.bias is not None:
+                            module.bias.zero_()
+            for parameter in self.layers.parameters():
+                parameter.requires_grad_(True)
+        for number, layer in enumerate(self.layers if not (fresh or full) else []):
             for parent in (layer.self_attn, layer.mlp):
                 for name in ADAPTED:
                     module = getattr(parent, name, None)
@@ -143,7 +163,7 @@ class RestartLayers(nn.Module):
         self.state_up = nn.Linear(rank, size, bias=False) if states_in_block else None
         if states_in_block:
             nn.init.zeros_(self.state_up.weight)
-        self.scores = CandidateScores(size) if scores else None
+        self.scores = CandidateScores(size, own=fresh) if scores else None
         self.to(drafter.fc.weight.device)
 
     def float_parameters(self):
