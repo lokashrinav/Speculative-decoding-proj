@@ -2569,5 +2569,14 @@ def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
     assert make_method("stree12f8@tiny", str(tmp_path), draft).passes == 1
     timed = make_method("stree12p3x@tiny", str(tmp_path), draft)
     assert timed.passes == 3 and timed.timed
+    # Rows for a first tree larger than the tree that is checked: the tree keeps its budget.
+    wider = make_method("stree12f40@tiny", str(tmp_path), draft)
+    assert wider.first == 40 and wider.tree.budget == 40 and wider.budget == 12
+    wide_rows = Rows(wider)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=wide_rows, block_size=BLOCK)
+    assert wider.nodes <= 12 and wider.counts["rows_of_the_pass"] > shared.inner.counts["rounds"] * 8
+    wider.close()
+    with pytest.raises(ValueError):
+        SecondTree(12, 0)
     save_restart_layers(str(tmp_path / "warm-tiny1.pt"), second, {"reach": 2, "candidates": 8, "reveal_last": 1})
     assert make_method("stree12@tiny1", str(tmp_path), draft).reveal_last == 1 and named.reveal_last == 0

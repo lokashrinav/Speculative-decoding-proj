@@ -1380,7 +1380,13 @@ class SecondTree(BranchTree):
     layer over the whole first tree. Rows as DraftTree returns them."""
 
     def __init__(self, budget: int, first: int | None = None, tail: int = 2, top: int = 32):
-        super().__init__(budget, budget if first is None else first, tail=tail, stand_in="none")
+        super().__init__(budget, budget, tail=tail, stand_in="none")
+        if first is not None:
+            # The first tree may be LARGER than the tree that is checked: rows for more nodes in the one pass, so that
+            # a token the pass moves up is more often a node that has a row of its own.
+            if first < 1:
+                raise ValueError("the first tree has at least one node")
+            self.first, self.tree = first, DraftTree(first)
         self.top, self.follow = top, None
         self.lean = True                               # one layer: only the places that are asked for run through it (see below)
         self.timed = False                             # count the milliseconds of each part (waits for the GPU between them)
