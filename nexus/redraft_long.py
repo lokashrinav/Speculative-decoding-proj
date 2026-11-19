@@ -321,6 +321,7 @@ def make_method(name, ckpt_dir, like=None):
         method.second, method.timed = second.merge(), bool(found[7])        # x: the milliseconds of each part are counted
         method.gate = None if found[5] is None else int(found[5]) / 100.0
         method.passes = int(found[6] or 1)
+        method.reveal_last = int(notes.get("reveal_last", 0) or 0)           # (rows see what the layer was shown in training)
         if found[1]:                                   # (the first tree scores as many candidates as the second drafter: one lookup for both)
             method.tree, method.follow = CountTree(method.first, FOLLOW.get("counts"), candidates=method.top), FOLLOW.get("counts")
         return method

@@ -2504,6 +2504,62 @@ def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
     assert len(shared.rounds) == len(in_full.rounds) > 10 and shared.inner.counts["more_passes"] > 0
     assert sum(int(mine == theirs) for mine, theirs in zip(shared.rounds, in_full.rounds)) > 0.95 * len(shared.rounds)
 
+    # A second drafter that is shown only the last tokens of a branch (nexus/train_every.py --reveal-last): what the
+    # tree's pass gives a node of the answer's own path is what the training computes with the same tokens left out,
+    # whether the rows share what they look at or are whole blocks.
+    from dflash.model import _output_head
+    from dflash.restart_layers import candidate_scores
+    from nexus.train_every import first_runs, second_rows
+
+    class Lasts(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            last = self.inner.last                     # (every node a pass had a row for, the later passes' too)
+            self.rounds.append((s.start, {node: last["final_order"][node] for node in last["corrected"]}, last["tokens"]))
+            return rows
+
+    head = _output_head(target)
+    for last, few in ((1, 4), (2, 2)):
+        seen_by = {}
+        for lean in (True, False):
+            tree = SecondTree(12, 4, tail=2, top=few)   # (few candidates and more passes: nodes several tokens deep get rows)
+            tree.second, tree.passes = second, 16
+            tree.reveal_last, tree.keep_last, tree.lean = last, True, lean
+            seen_by[lean] = Lasts(tree)
+            replay_decode(draft, target, ids, length, ended=False, features=features, improver=seen_by[lean], block_size=BLOCK)
+            tree.close()
+        checked = deep = 0
+        for (start, order, tokens), (_, other, _) in zip(seen_by[True].rounds, seen_by[False].rounds):
+            for ranks, (values, indices) in order.items():
+                depth = len(ranks)
+                if not depth or start + BLOCK >= ids.shape[1] or checked >= 24 or (depth <= last and checked - deep >= 6):
+                    continue
+                if ranks not in other:                          # (the two ways may differ in a near-tie of a later pass)
+                    continue
+                assert torch.allclose(torch.tensor(values), torch.tensor(other[ranks][0]), atol=3e-4)
+                # (the training reads the tokens from the answer: an answer that goes on with the node's tokens)
+                as_if = ids.clone()
+                as_if[0, start + 1 : start + 1 + depth] = torch.tensor([tokens[place][rank] for place, rank in enumerate(ranks)])
+                with torch.no_grad():
+                    starts, depths = torch.tensor([start]), torch.tensor([depth])
+                    final, entered = first_runs(draft, target, features, as_if, starts, 0, keep=1, width=BLOCK)
+                    scores = draft.compute_logits(final[:, 1:], head).float()
+                    best = scores.log_softmax(dim=-1).topk(few, dim=-1)
+                    states, _ = second_rows(draft, second, target, features, as_if, starts, depths, entered, 0, reach=2, width=BLOCK, last=last)
+                    candidates = best.indices[0, depth][None]
+                    mine = second.scores(best.values[0, depth][None], scores[0, depth].gather(-1, candidates[0])[None],
+                                         candidate_scores(draft, head, states[:, 0], candidates), states[:, 0], None,
+                                         torch.tensor([any(ranks)]))[0, :few]
+                    every, _ = second_rows(draft, second, target, features, as_if, starts, depths, entered, 0, reach=2, width=BLOCK)
+                assert torch.allclose(mine.sort(descending=True).values, torch.tensor(values), atol=2e-3)
+                checked += 1
+                if depth > last:                                # tokens are left out: not the row that sees them all
+                    deep += 1
+                    assert not torch.allclose(every, states, atol=1e-5)
+                else:
+                    assert torch.allclose(every, states, atol=1e-5)
+        assert checked - deep >= 3 and deep >= 3
+
     # By name: pP is the number of passes.
     from dflash.restart_layers import save_restart_layers
 
@@ -2513,3 +2569,5 @@ def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
     assert make_method("stree12f8@tiny", str(tmp_path), draft).passes == 1
     timed = make_method("stree12p3x@tiny", str(tmp_path), draft)
     assert timed.passes == 3 and timed.timed
+    save_restart_layers(str(tmp_path / "warm-tiny1.pt"), second, {"reach": 2, "candidates": 8, "reveal_last": 1})
+    assert make_method("stree12@tiny1", str(tmp_path), draft).reveal_last == 1 and named.reveal_last == 0

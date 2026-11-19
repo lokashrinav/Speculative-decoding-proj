@@ -102,17 +102,22 @@ def first_runs(drafter, target, features, ids, starts: torch.Tensor, low: int, k
 
 
 def second_rows(drafter, second, target, features, ids, starts: torch.Tensor, depths: torch.Tensor, kept: torch.Tensor,
-                low: int, reach: int, width: int = 16):
+                low: int, reach: int, width: int = 16, last: int = 0):
     """The second drafter's states for rows (anchor start, depth): the round's block that starts at starts[r],
     going on from the first run's states `kept` ([rows, width, size], after the last layer left out), with the
     answer's tokens written in at the places 1 .. depths[r]. A row sees the context before its start and its own
     places up to depths[r] + reach, as a node's block does in a tree (dflash/redraft.py). One pass for all rows.
     Returns the states at the places depths[r] + 1 .. depths[r] + reach ([rows, reach, size]; places past the
-    block's end: its last place) and which of them lie inside the block ([rows, reach])."""
+    block's end: its last place) and which of them lie inside the block ([rows, reach]).
+    last: only the last `last` of the answer's tokens before the places asked for are written in (0: all of them):
+    what the second drafter needs to see of a branch (with 1 its answer depends on the place and the token before
+    it alone, so one pass could give it for every candidate of every place: a table, searched at every depth)."""
     device, rows, high = ids.device, starts.shape[0], int(starts.max())
     scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
     slots = torch.arange(width, device=device)[None, :]
     known = (slots >= 1) & (slots <= depths[:, None])
+    if last:
+        known = known & (slots > depths[:, None] - last)
     given = torch.where(known, ids[0][(starts[:, None] + slots).clamp(max=ids.shape[1] - 1)], torch.full_like(slots, drafter.mask_token_id))
     embedded = _raw_input_embeddings(target, given, scale)
     mask_in = _raw_input_embeddings(target, torch.full((1, 1), drafter.mask_token_id, dtype=ids.dtype, device=device), scale)[0, 0]
@@ -133,8 +138,9 @@ class TeachEvery:
     """One answer at a time: groups of anchors, the first runs, the rows, the loss; and what is counted."""
 
     def __init__(self, second, optimizer, drafter, target, candidates=32, reach=2, group=32, depths=4, shallow=0.85,
-                 soft=0.5, window=2048, width=16, seed=0, depth_decay=7.0, warm=100, reach_decay=0.5):
+                 soft=0.5, window=2048, width=16, seed=0, depth_decay=7.0, warm=100, reach_decay=0.5, reveal_last=0):
         self.second, self.optimizer, self.drafter, self.target = second, optimizer, drafter, target
+        self.reveal_last = reveal_last                 # only the last N true tokens are written in (0: all), see second_rows
         self.candidates, self.reach, self.group, self.depths, self.shallow = candidates, reach, group, depths, shallow
         self.soft, self.window, self.width, self.depth_decay, self.warm = soft, window, width, depth_decay, warm
         self.reach_decay = reach_decay                 # the weight of each further place asked for after the true tokens
@@ -203,7 +209,8 @@ class TeachEvery:
             depths = depths.flatten()
             row_starts = starts[owner]
         with torch.set_grad_enabled(learn):
-            states, inside = second_rows(drafter, second, target, features, ids, row_starts, depths, kept[owner], low, reach, width)
+            states, inside = second_rows(drafter, second, target, features, ids, row_starts, depths, kept[owner], low, reach, width,
+                                         self.reveal_last)
             places = (depths[:, None] + 1 + torch.arange(reach, device=device)[None, :]).clamp(max=width - 1)    # [rows, reach]
             at = (owner[:, None], places - 1)
             candidates, first_log, firsts = best.indices[at], best.values[at], first_scores[at]                # [rows, reach, top]
@@ -313,6 +320,8 @@ def main():
     parser.add_argument("--candidates", type=int, default=32, help="tokens of a place the second drafter scores")
     parser.add_argument("--reach", type=int, default=2, help="places after the true tokens that are asked for")
     parser.add_argument("--reach-decay", type=float, default=0.5, help="weight of each further place against the one before it")
+    parser.add_argument("--reveal-last", type=int, default=0,
+                        help="write in only the last N of the true tokens before the places asked for (0: all of them)")
     parser.add_argument("--anchors", type=int, default=256, help="rounds per answer")
     parser.add_argument("--depths", type=int, default=4, help="depths asked per round")
     parser.add_argument("--group", type=int, default=32, help="rounds per pass and update")
@@ -359,7 +368,7 @@ def main():
             raise ValueError("this training is for layers that read the tokens and go on from the first run")
         optimizer = torch.optim.AdamW([{"params": second.trained(), "lr": args.rate}], weight_decay=0.0)
     teach = TeachEvery(second, optimizer, draft, target, args.candidates, args.reach, args.group, args.depths, soft=args.soft,
-                       window=args.window, seed=args.seed, reach_decay=args.reach_decay)
+                       window=args.window, seed=args.seed, reach_decay=args.reach_decay, reveal_last=args.reveal_last)
     # The counts: a training answer is scored with the counts of the OTHER half of the answers, a validation
     # answer with the counts of all training answers (as a tree would have them in use).
     follow, half_of, tokens_counted = None, {}, 0
@@ -377,7 +386,8 @@ def main():
             "draft": args.draft, "layers": args.layers, "rank": args.rank, "saved_as": "" if args.fresh or args.full else args.save,
             "started_from": args.start_from, "control": "fresh" if args.fresh else "full" if args.full else "", "rate": args.rate,
             "trained_numbers": sum(value.numel() for value in second.trained()),
-            "candidates": args.candidates, "reach": args.reach, "anchors": args.anchors, "depths": args.depths, "soft": args.soft,
+            "candidates": args.candidates, "reach": args.reach, "reveal_last": args.reveal_last, "anchors": args.anchors,
+            "depths": args.depths, "soft": args.soft,
             "counts": bool(args.counts), "tokens_counted": tokens_counted, "more_data": args.more_data,
             "scores": {name: round(float(value), 4) for name, value in (("strength", second.scores.strength), ("on_path", second.scores.on_path),
                                                                         ("off_path", second.scores.off_path))},
@@ -388,7 +398,8 @@ def main():
         if args.fresh or args.full:                   # the controls are whole layers (about 200 MB): measured, not kept
             return
         notes = {"draft": args.draft, "answers": learned, "updates": teach.updates, "trained_by": "train_every", "counts": bool(args.counts),
-                 "candidates": args.candidates, "reach": args.reach, "curve_end": curve[-1] if curve else None}
+                 "candidates": args.candidates, "reach": args.reach, "reveal_last": args.reveal_last,
+                 "curve_end": curve[-1] if curve else None}
         save_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.save}.pt"), second, notes)
 
     def said_and_states(ids):

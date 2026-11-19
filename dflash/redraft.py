@@ -1390,6 +1390,9 @@ class SecondTree(BranchTree):
         # corrects are the branches off the first run's own path, which matter when that path is likely to break.
         self.gate, self.gate_places = None, 4
         self.keep_last, self.last = False, None        # for tests: what the last round's pass gave every node
+        # reveal_last: a row sees only the last N tokens of its node's path (0: all), as a second drafter trained that
+        # way was shown them (nexus/train_every.py --reveal-last).
+        self.reveal_last = 0
         # passes: after the first pass the nodes of the tree that had no row get one and the tree is chosen anew,
         # up to this many passes in all (1: the one pass). For measuring what the scores are worth at every depth.
         self.passes = 1
@@ -1513,6 +1516,8 @@ class SecondTree(BranchTree):
         scale = float(_draft_value(s.first_drafter.config, "input_embedding_scale", 1.0))
         depth = torch.tensor([len(ranks) for ranks in ask], device=device)
         gone = _gone_on_from(s, second, self._first_run, width)
+        # (the first place of a node's path whose token its row sees: all of them, or the last `reveal_last`)
+        since = (lambda ranks: max(1, len(ranks) - self.reveal_last + 1)) if self.reveal_last else (lambda ranks: 1)
         if self.lean and len(second.layers) == 1 and getattr(second.layers[0], "attention_conv", None) is None:
             # A row's places with tokens written in are only LOOKED AT by the places that are asked for; with one
             # layer nothing reads what the layer would make of them. So they are given as what the layer looks at
@@ -1532,20 +1537,25 @@ class SecondTree(BranchTree):
             given = torch.tensor([[tokens[len(ranks) - 1][ranks[-1]] for ranks in entries] + [mask_token]], dtype=s.block_ids.dtype, device=device)
             embedded = _raw_input_embeddings(s.target, given, scale)[0]
             written = second._written(gone[entry_depth], embedded[:-1], embedded[-1])
-            looked_at = layer.input_layernorm(torch.cat((gone[:1], written), dim=0))
+            # Places as the first run left them: the block's first one; and, for rows that leave tokens out, every place,
+            # since such a row looks at the places before its tokens as they were (as in its training).
+            plain = width if self.reveal_last else 1
+            looked_at = layer.input_layernorm(torch.cat((gone[:plain], written), dim=0))
             asked = (depth[:, None] + 1 + torch.arange(tail, device=device)[None, :]).clamp(max=width - 1)
             if clock is not None:
                 clock = self._lap("ms_rows", clock)
             states = _restart_pass(s, [], [s.start + len(ranks) + 1 for ranks in ask], looked_at, [],
-                                   [s.start] + [s.start + len(ranks) for ranks in entries], tail, layers=list(second.layers),
-                                   entering=gone[asked], lengths=[min(tail, width - 1 - len(ranks)) for ranks in ask],
-                                   shared=[[0] + [1 + entry_of[ranks[:upto]] for upto in range(1, len(ranks) + 1)] for ranks in ask],
+                                   [s.start + place for place in range(plain)] + [s.start + len(ranks) for ranks in entries], tail,
+                                   layers=list(second.layers), entering=gone[asked],
+                                   lengths=[min(tail, width - 1 - len(ranks)) for ranks in ask],
+                                   shared=[list(range(since(ranks))) + [plain + entry_of[ranks[:upto]] for upto in range(since(ranks), len(ranks) + 1)]
+                                           for ranks in ask],
                                    wanted=([0] * len(ask), tail), states_only=True)                      # [nodes, tail, size]
         else:
             lengths = [min(len(ranks) + 1 + tail, width) for ranks in ask]
             wide = max(lengths)
             written_in = [[first_token] + path[ranks] + [mask_token] * (wide - len(ranks) - 1) for ranks in ask]
-            known = [[0 < slot <= len(ranks) for slot in range(wide)] for ranks in ask]
+            known = [[since(ranks) <= slot <= len(ranks) for slot in range(wide)] for ranks in ask]
             embedded = _raw_input_embeddings(s.target, torch.tensor(written_in + [[mask_token] * wide], dtype=s.block_ids.dtype, device=device), scale)
             entering = second.enter_blocks(gone[:wide], embedded[:-1], embedded[-1, 0], torch.tensor(known, device=device))
             states = _restart_pass(s, [path[ranks][-1] for ranks in ask], [s.start] * len(ask), None, [], [], wide,
