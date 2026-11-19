@@ -2378,3 +2378,138 @@ def test_scores_of_pairs_of_neighbouring_tokens(tmp_path):
     finally:
         FOLLOW.clear()
     assert with_counts("cptree63@x") and not with_counts("ptree63@x")
+
+
+def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
+    """nexus/trace_trees.py: several trees built in the same rounds, with why the answer's path stops in each;
+    SecondTree with more passes (every node of the tree gets a row); CountTree.children (its scores for one node)."""
+    from dflash.follow import FollowCounts
+    from dflash.pair_scores import PairScores
+    from dflash.redraft import CountTree, DraftTree, SecondTree
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+    from nexus.redraft_long import make_method
+    from nexus.trace_trees import CAUSES, KEPT, Trace, summarize
+
+    # The scores a tree with counts gives one node are the ones its search used: a node's score is its parent's
+    # plus what children() gives its token.
+    torch.manual_seed(0)
+    logits = torch.randn(6, 32) * 2.0
+    s = _round_state(logits)
+    text = torch.randint(0, 32, (400,))
+    counted = CountTree(14, FollowCounts.count([(text, 2)], vocabulary=32), candidates=9)
+    counted.keep_last = True
+    best = logits.log_softmax(dim=-1).topk(14, dim=-1)
+    chosen, worth = counted.choose(s, best, best.values.tolist())
+    assert any(len(node) > 2 for node in chosen) and len(counted.seen["tokens"]) == 6 and len(counted.seen["tokens"][0]) == 9
+    for node in chosen:
+        above = node[:-1]
+        given = counted.children(len(above), above[-2] if len(above) > 1 else 0, above[-1] if above else 0, not any(above))
+        assert abs(worth[node] - (worth[above] if above else 0.0) - float(given[node[-1]])) < 1e-9
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    second = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True).eval()
+    with torch.no_grad():
+        for adapter in second.adapters:
+            adapter.up.normal_(std=0.3)
+    follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+    torch.manual_seed(0)
+    pairs = PairScores(16, rank=8, hidden=12).eval()
+    with torch.no_grad():
+        pairs.here[2].weight.normal_(std=0.3)
+
+    def second_tree(passes=1, counts=False):
+        tree = SecondTree(12, 8, tail=2, top=8)
+        tree.second, tree.passes = second, passes
+        if counts:
+            tree.tree, tree.follow = CountTree(8, follow, candidates=8), follow
+        return tree
+
+    with_pairs = CountTree(12, None, candidates=8)
+    with_pairs.pairs = pairs
+    methods = {"tree": DraftTree(12), "counts": CountTree(12, follow, candidates=8), "pairs": with_pairs, "second": second_tree(),
+               "second_all": second_tree(16), "second_counts": second_tree(counts=True), "second_counts_all": second_tree(16, counts=True)}
+
+    class Kept(Trace):
+        seen_rows = []
+
+        def record(self, method, rows, truth, ranked, plain):
+            row = super().record(method, rows, truth, ranked, plain)
+            self.seen_rows.append((method, rows.clone(), list(truth), row, dict(getattr(method, "last", None) or {})))
+            return row
+
+    with pytest.raises(ValueError):
+        Trace({"plain": object()})
+    trace = Kept(methods, block=BLOCK)
+    trace.ids = ids
+    traced = replay_decode(draft, target, ids, length, ended=False, features=features, improver=trace, block_size=BLOCK)
+    alone = replay_decode(draft, target, ids, length, ended=False, features=features, improver=DraftTree(12), block_size=BLOCK)
+    assert traced.acceptance_lengths == alone.acceptance_lengths                # the first tree decides how the answer is decoded
+    rounds = len(trace.first_run)
+    assert rounds > 10 and all(len(rows) == rounds for rows in trace.rounds.values())
+
+    places, reasons = BLOCK - 1, set()
+    for method, rows, truth, row, last in trace.seen_rows:
+        got, cause, where, forks, would, mended, beyond, reach, *kept = row
+        accepted = max(_matches(rows[at : at + 1, 1:], torch.tensor([truth])) for at in range(rows.shape[0]))
+        assert beyond in (0, 1) and (not beyond or cause in (1, 5, 6))          # (a token past the 32 is never ranked first)
+        assert got == accepted <= reach <= places and len(kept) == len(KEPT)
+        assert kept == sorted(kept) and kept[-1] <= reach                       # more children kept: at least as far
+        assert (cause == 0) == (got == places) and (cause == 1) == (got < places and got == reach)
+        assert forks <= got and (mended >= 1) == (cause != 0) and (mended == 1 or got + mended <= reach)
+        assert (would >= 0) == (cause in (2, 3)) and where in (0, 1, 2)
+        reasons.add(CAUSES[cause])
+        if isinstance(method, SecondTree) and method.passes > 1:
+            # With passes until none is needed, every node of the tree that has a place after it has a row.
+            assert all(node in last["corrected"] or len(node) == places for node in last["nodes"])
+            assert cause not in (2, 3)
+    assert {"ranked 2 to 4", "ranked first, not kept"} & reasons and len(reasons) >= 3
+    assert methods["second_all"].counts["more_passes"] > 0 and methods["second"].counts.get("more_passes", 0) == 0
+    assert methods["second_all"].counts["rows_of_the_pass"] > methods["second"].counts["rows_of_the_pass"]
+    # DDTree's scores are the first run's: following the answer with its first choices is the first draft.
+    assert [row[8] for row in trace.rounds["tree"]] == [first for first, _ in trace.first_run]
+
+    report = summarize(trace)
+    assert report["rounds"] == rounds and report["decoded_with"] == "tree" and set(report["trees"]) == set(methods)
+    for name, tree in report["trees"].items():
+        shares = sum(entry["share_of_rounds"] for entry in tree["why_the_path_stops"].values())
+        assert abs(shares - 1.0) < 1e-3 and set(tree["against"]) == set(methods) - {name}
+        assert abs(tree["tokens_per_round"] - 1 - sum(row[0] for row in trace.rounds[name]) / rounds) < 1e-3
+        followed = [tree["following_the_answer"][f"best_{most}_kept"] for most in KEPT]
+        assert followed == sorted(followed) and followed[-1] <= tree["candidates_reach"] + 1e-9
+        for entry in tree["why_the_path_stops"].values():
+            assert abs(sum(entry["where"].values()) - 1.0) < 2e-3
+        assert abs(sum(tree["tokens_past_the_first_fork"].values()) - 1.0) < 1e-3
+    assert report["trees"]["tree"]["following_the_answer"]["best_1_kept"] == report["first_run"]["tokens_per_round_of_first_choices"]
+    ahead, behind = report["trees"]["second"]["against"]["tree"], report["trees"]["tree"]["against"]["second"]
+    assert ahead["rounds_further"] == behind["rounds_less_far"] and ahead["tokens_gained_per_round"] == behind["tokens_lost_per_round"]
+    assert "a_round" in report["trees"]["second"] and "rows_of_the_pass" in report["trees"]["second"]["a_round"]
+    trace.close()
+
+    # The later passes give the same trees whether the rows share what they look at or every row is its whole block.
+    class Rows(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append(sorted(map(tuple, rows.tolist())))
+            return rows
+
+    shared, in_full = Rows(second_tree(16)), Rows(second_tree(16))
+    in_full.inner.lean = False
+    for kept_rows in (shared, in_full):
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept_rows, block_size=BLOCK)
+        kept_rows.inner.close()
+    assert len(shared.rounds) == len(in_full.rounds) > 10 and shared.inner.counts["more_passes"] > 0
+    assert sum(int(mine == theirs) for mine, theirs in zip(shared.rounds, in_full.rounds)) > 0.95 * len(shared.rounds)
+
+    # By name: pP is the number of passes.
+    from dflash.restart_layers import save_restart_layers
+
+    save_restart_layers(str(tmp_path / "warm-tiny.pt"), second, {"reach": 2, "candidates": 8})
+    named = make_method("stree12f8p16@tiny", str(tmp_path), draft)
+    assert named.passes == 16 and named.first == 8 and named.budget == 12 and not named.timed
+    assert make_method("stree12f8@tiny", str(tmp_path), draft).passes == 1
+    timed = make_method("stree12p3x@tiny", str(tmp_path), draft)
+    assert timed.passes == 3 and timed.timed

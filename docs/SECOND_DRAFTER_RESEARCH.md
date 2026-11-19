@@ -450,3 +450,70 @@ enough for that, 300 give most of it; (3) a layer from new weights gets two thir
 training and not the reuse of the drafter's layer is what makes little text enough; (4) that much
 better guess is worth 3.4% tokens on top of the counts, half of what the target's real states are
 worth there; (5) run as a pass, it does not pay for itself here.
+
+## Gaps in this account, and the diagnosis that comes before any new architecture (November 19, 20:30 UTC)
+
+Shrinav had the account above audited and brought back the gaps. The scope from here on is his:
+DDTree with a second drafter or a smaller neural network (the count table is a baseline, not the
+method). The gaps that hold, and what is done about each:
+
+1. **"Cost is the bottleneck, not accuracy" does not follow from the numbers.** The second drafter
+   is right more often than the counts after a fork (49.1% against 39.5% of the places), and its
+   tree holds FEWER tokens a round in replay (8.21 against 8.31). Tokens per round do not include
+   time, so cost cannot explain that. Read in the code (dflash/redraft.py: SecondTree), the likely
+   reason is the tree, not the guess: the tree with counts is searched with its scores at EVERY
+   depth, while the second drafter's one pass gives rows to the nodes of the FIRST tree only. A
+   token the pass brings in gets no row of its own: after it the tree has at most the one chain
+   token of its parent's row. In the letters example the pass puts in g and corrects h; h is new,
+   nothing after h is corrected. So the accuracy (measured at every place given the true tokens)
+   and the tokens (limited by how far a corrected branch can go) measure different things.
+2. **The accuracy was not weighted by what a round reaches.** It is measured at all places of a
+   block after the true tokens; a round only reaches the place after the first fork if the tree
+   has the fork, and the places after that if the tree has the continuation.
+3. **The scores are over the first run's 32 candidates only.** If the answer's token is not among
+   them no scorer can pick it (after a fork it is among them in 81.7% of the places, among 64 in
+   88.6%). How often a round ends that way was not measured.
+4. **The "ceiling" of +6.7% with the target's real states bounds one setup**: rows for a first
+   tree's nodes, two places after each, the same re-selection. It does not bound a second drafter
+   used at every depth.
+5. **Overstated**: that the pair scores "should" be 6% ahead of DDTree with a cheap step (a
+   projection from other papers' timings, not measured); that the control with a layer from new
+   weights says something about architecture (it says the start of the weights matters little);
+   any "nobody has done this" (DARTree, arXiv 2608.13524, corrects the branches of a draft tree
+   with a small head).
+
+Already covered: the tokens per round are from replay and real decoding on held-out answers, with
+trees built from nothing but the drafter's outputs (the split is by answer); only the accuracy
+percentages are with the true tokens given. The step's time is split (pass 3.3 ms, scoring 1.6,
+rows and choice 1.4). And the second drafter already works the way one audit point fears: it is
+ONE layer that goes on from the first run's old states with the branch's tokens written in; the
+layers before it never saw the branch. Whether that holds it back is check 3 below.
+
+**The diagnosis (no architecture work before it).**
+
+- `nexus/trace_trees.py` builds several trees in the SAME rounds (the answer is decoded with the
+  first one; every tree gets the same first run) and records for each round and tree how many
+  tokens of the answer the tree holds and why the answer's path is not in the tree at the next
+  place: block end; the token is not a candidate; no correction left (a node no pass had a row
+  for); the chain's one token is wrong; ranked first by the tree's scores but not kept (the nodes
+  went elsewhere); ranked 2 to 4; ranked 5 or lower. Each with where it is relative to the first
+  fork, how often a tree gets less far than another on the same round, and how many tokens would
+  follow if the stop were mended.
+- Kept apart from that, "following the answer" (a ceiling, not a method: it knows which branch
+  matters): where each tree's scores put the answer's token among the children of the answer's own
+  path at every depth, and how far a path gets if the b best children are kept at every node.
+- `SecondTree.passes`: after the first pass, the nodes of the tree without a row get one and the
+  tree is chosen anew, until no node is left without one (names `stree63p2@…`, `p16`). Built from
+  the drafter's outputs only, so it is a deployable rule with the time ignored: what the second
+  drafter's scores are worth when the tree's construction does not cut them short.
+- Check 3: the same training as `opd-e1` with the drafter's last 2 and last 4 layers run again
+  over the branch's tokens (`opd-e2`, `opd-e4`).
+
+Jobs: `diag1-trace` (the trace: DDTree, counts with 16 and 32 candidates, pair scores alone and on
+the counts, the second drafter with 1, 2 and all passes, alone and on the counts), `diag2-replay`
+(the trees with more passes in replay, each on its own rounds), `diag3-two`, `diag4-four` (check 3,
+each followed by its trace). What decides the next step: if the second drafter with a row for
+every node holds clearly more tokens than with one pass, the work is how to give every depth its
+correction for the price of one pass or less (a table-shaped form, rows chosen better); if most
+rounds end at a token that is not a candidate, it is the candidates; if they end at tokens the
+scores rank low, it is the predictor (more layers, more of the branch).

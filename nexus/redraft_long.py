@@ -302,7 +302,7 @@ def make_method(name, ckpt_dir, like=None):
         method = CountTree(int(found[2]), FOLLOW.get("counts") if found[1] else None, candidates=int(notes.get("candidates", 32)))
         method.pairs = pairs
         return method
-    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(x?)@(.+)", name)
+    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(?:p(\d+))?(x?)@(.+)", name)
     if found:
         # streeB@SECOND: a tree of B nodes in which the second drafter warm-SECOND.pt (trained at every place,
         # nexus/train_every.py) scores every edge (dflash/redraft.py: SecondTree); fF: rows for a first tree of F
@@ -313,11 +313,14 @@ def make_method(name, ckpt_dir, like=None):
 
         # gG: no pass in rounds where the product of the first run's first four first-choice probabilities is above
         # G hundredths (the first tree is used as it is there).
-        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[7]}.pt"), like)
+        # pP: up to P passes: the nodes of the tree that had no row get one and the tree is chosen anew (a measurement
+        # of what the scores are worth at every depth; p16 goes on until no node is left without a row).
+        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[8]}.pt"), like)
         method = SecondTree(int(found[2]), None if found[3] is None else int(found[3]),
                             tail=int(found[4] or notes.get("reach", 2)), top=int(notes.get("candidates", 32)))
-        method.second, method.timed = second.merge(), bool(found[6])        # x: the milliseconds of each part are counted
+        method.second, method.timed = second.merge(), bool(found[7])        # x: the milliseconds of each part are counted
         method.gate = None if found[5] is None else int(found[5]) / 100.0
+        method.passes = int(found[6] or 1)
         if found[1]:                                   # (the first tree scores as many candidates as the second drafter: one lookup for both)
             method.tree, method.follow = CountTree(method.first, FOLLOW.get("counts"), candidates=method.top), FOLLOW.get("counts")
         return method
