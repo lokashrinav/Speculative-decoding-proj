@@ -291,3 +291,35 @@ Jobs after the reordering of 06:05 UTC: `every-opd-2c` real speed; `every-opd-30
 `train-more-opd-0` (the old recipe on more text) has hung since about 02:27 UTC at 1,042 answers
 and holds a GPU until its limit at 10:21 UTC; its last numbers were no better than on 366 answers
 (0.98 of 3 tokens).
+
+## Real speed of the new tree, and the text it needs (November 19, 08:40 UTC)
+
+Real decoding, job `every-opd-2c`, 4 of 8 validation answers when the runner stopped reporting
+(07:39 UTC; plain decoding 83.4 tokens a second):
+
+| Method | Tokens per round | Tree or second-run part of a round | Speed against plain |
+| --- | --- | --- | --- |
+| DDTree, 63 nodes | +31.3% | 0.8 ms | +20.2% |
+| Tree with counts, 63 | +43.8% | 3.2 ms | +27.2% |
+| Second drafter on it, 63 (`cstree63@opd-e1c`) | +48.0% | 11.2 ms | +18.5% |
+| ... one place asked for (`cstree63t1`) | +47.8% | 9.8 ms | +20.2% |
+| Tree with counts, 95 | +48.6% | 3.9 ms | +28.4% |
+| Second drafter on it, 95 | +53.7% | 13.2 ms | +19.1% |
+
+The second drafter's tree holds 3% more tokens than the tree with counts and is 7% SLOWER: its
+part of a round takes 8 ms more, not the 2 ms estimated. As measured it is at DDTree's speed. The
+gain in tokens is there; the cost has to come down to about 2 ms over the tree with counts to
+break even and below that to win. Done so far (not measured yet): the lifts come from the lookup
+the tree with counts already makes (its table for 32 candidates), the GPU is read back once, and
+every part is timed (`x` in a name; job `every-speed-1`).
+
+How much text (validation, the place after a branch has left the first run's first choices):
+
+| Answers trained on | Tokens counted | First run with counts | Second drafter on the counts | Tokens right in a row |
+| --- | --- | --- | --- | --- |
+| 1,000 (`opd-e1c1000`) | 3.0 million | 38.1% | 49.3% | 6.58 |
+| about 3,000 (`opd-e1c`) | 9.3 million | 39.3% | 50.5% | 6.55 |
+
+With a third of the text the second drafter is where it is with all of it. The runs on 100 and on
+300 answers, the control with a layer from new weights, the longer chain and the 64 candidates
+were running or waiting when the runner stopped reporting.
