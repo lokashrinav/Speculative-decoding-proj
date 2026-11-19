@@ -417,3 +417,36 @@ answers; here the drafter is frozen and the scores are trained like the second d
 the counts. This is the "second drafter, then a small network in its place" that Shrinav asked
 about on the 18th. Jobs `pair1-c` (on the counts, `opd-p1c`) and `pair2-n` (alone, `opd-p1`) train
 for 0.6 hours and then measure tokens per round and real speed, before the 16:45 UTC maintenance.
+
+## Pair scores: result (November 19, 16:15 UTC)
+
+Jobs `pair1-c` and `pair2-n`: 0.6 hours of training (about 1,500 answers, one partial pass; the
+loss was still falling slowly, the share right after a fork was flat), then replay on the 8
+validation answers and real speed on 3.
+
+| | Right after a fork (validation) | Tokens right in a row | Tokens per round (replay) | Tree part of a round | Speed against plain |
+| --- | --- | --- | --- | --- | --- |
+| DDTree | 20.7% | 6.32 | 7.561 | 0.8 ms | +21.5% |
+| Tree with counts | 39.5% | 6.33 | 8.305 | 3.1 ms | +29.1% |
+| Pair scores alone (`ptree63@opd-p1`) | 40.2% | 6.19 | 8.093 | 4.5 ms | +25.1% |
+| Pair scores on the counts (`cptree63@opd-p1c`) | 43.2% | 6.17 | 8.344 | 6.1 ms | +25.1% |
+| Second drafter (a layer) alone | 49.1% | 6.61 | 8.207 | 6.9 ms | +21.4% |
+| Second drafter on the counts | 50.5% | 6.55 | 8.587 | 11.3 ms | +19.3% |
+
+The pair scores know less than the layer (43% against 51% after a fork, and they are slightly
+WORSE than the first run on its own path, which costs tokens in a row), add 0.5% tokens to the
+tree with counts, and their tables cost 3 ms in this code, not the half millisecond expected. They
+do not beat the tree with counts either.
+
+**Where the whole line stands.** Every learned correction on top of the counts was measured in
+real speed: the layer (+3.4% tokens, 8 ms), the layer with a gate, the pair scores (+0.5%, 3 ms).
+None is faster than the tree with counts (+29%), and alone each is at DDTree's speed or a little
+above. The counts give 10% more tokens for 2.3 ms; what is left above them at this tree size is
+small (6.7% even with the target's real states), and a learned pass or table costs about as much
+as it gains on this machine. What stands as findings: (1) trained at every place with the true
+tokens before it, on candidates only, a one-layer second drafter is right after a fork in 51% of
+the places where the first run is right in 21% and the counts in 39%; (2) about 1,000 answers are
+enough for that, 300 give most of it; (3) a layer from new weights gets two thirds of it, so the
+training and not the reuse of the drafter's layer is what makes little text enough; (4) that much
+better guess is worth 3.4% tokens on top of the counts, half of what the target's real states are
+worth there; (5) run as a pass, it does not pay for itself here.
