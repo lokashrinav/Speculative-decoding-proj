@@ -59,7 +59,7 @@ def swap_of(setting, ckpt_dir=None, like=None):
     if found:
         return found[1], Branches(k=int(found[3]), differ="switch" if found[2] == "swap" else "early",
                                   tail=None if found[4] is None else int(found[4]))
-    found = re.fullmatch(r"(.+?)\+((?:(?:cbtree|cstree|ctree|btree|stree|tree|restart|echo)\d+|reanchor).*)", setting)
+    found = re.fullmatch(r"(.+?)\+((?:(?:cbtree|cptree|cstree|ctree|btree|ptree|stree|tree|restart|echo)\d+|reanchor).*)", setting)
     if found:
         from nexus.redraft_long import make_method
 

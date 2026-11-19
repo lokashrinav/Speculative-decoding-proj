@@ -221,7 +221,7 @@ def follow_counts(data_dir, more, vocabulary, device):
 
 def with_counts(name):
     """Whether a method's name has a tree with counts in it."""
-    return re.search(r"(?:^|[+_])c(?:b|s)?tree\d", name) is not None
+    return re.search(r"(?:^|[+_])c(?:b|s|p)?tree\d", name) is not None
 
 
 def make_method(name, ckpt_dir, like=None):
@@ -289,6 +289,18 @@ def make_method(name, ckpt_dir, like=None):
             from dflash.restart_layers import load_restart_layers
 
             method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
+        return method
+    found = re.fullmatch(r"(c?)ptree(\d+)@(.+)", name)
+    if found:
+        # ptreeB@NAME: a tree of B nodes searched at every depth with the trained scores of pairs of neighbouring tokens
+        # pairs-NAME.pt (dflash/pair_scores.py; no pass of a second drafter); cptreeB@NAME: with the counts' lifts too,
+        # as the scores were trained.
+        from dflash.pair_scores import load_pair_scores
+        from dflash.redraft import CountTree
+
+        pairs, notes = load_pair_scores(os.path.join(ckpt_dir, f"pairs-{found[3]}.pt"), like.fc.weight.device)
+        method = CountTree(int(found[2]), FOLLOW.get("counts") if found[1] else None, candidates=int(notes.get("candidates", 32)))
+        method.pairs = pairs
         return method
     found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(x?)@(.+)", name)
     if found:

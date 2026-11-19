@@ -1070,16 +1070,44 @@ class CountTree(DraftTree):
         super().__init__(budget)
         self.follow, self.candidates, self.on_path, self.off_path = follow, candidates, on_path, off_path
         self.table = None                              # the last round's lifts [places - 1, a, b, c], where they were computed
+        # pairs: trained scores of pairs of neighbouring tokens (dflash/pair_scores.py), added to the counts' lifts
+        # or used without counts (follow None). Set by nexus/redraft_long.py for the trees named ptree / cptree.
+        self.pairs = None
+
+    def _pair_tables(self, s: SimpleNamespace, tokens: torch.Tensor):
+        """The pair scores of all candidates of all places after the first: [places - 1, before, here],
+        [places - 1, two before, here], the factor on "another token" [places - 1], as numpy arrays."""
+        pairs, target, drafter = self.pairs, s.target, s.first_drafter
+        scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+        first = s.block_ids[0, :1].to(tokens.device).expand(tokens.shape[1])[None]
+        embedded = _raw_input_embeddings(target, torch.cat((first, tokens[:-1])), scale)       # of the block's first token and of every place's candidates
+        states = self._final_states(s)[2 : tokens.shape[0] + 1]                                 # the first run's states at the block's places 2 ..
+        pair, skip, rest = pairs.tables(states, embedded[1:], embedded[:-1], _output_head(target).weight[tokens[1:]])
+        return (pair.double().cpu().numpy(), skip.double().cpu().numpy(), rest.double().exp().cpu().numpy(),
+                float(pairs.on_path), float(pairs.off_path))
+
+    @staticmethod
+    def _final_states(s: SimpleNamespace) -> torch.Tensor:
+        """The first run's final states of all places of the block ([width, size])."""
+        states = getattr(s, "draft_states", None)
+        if states is None:
+            raise ValueError("the pair scores need the first run's states (the decoding loop keeps them as s.draft_states)")
+        return states[0] if states.dim() == 3 else states
 
     def choose(self, s: SimpleNamespace, best, scores: list[list[float]]):
-        if self.follow is None:
+        if self.follow is None and self.pairs is None:
             raise ValueError("the tree with counts needs the counts (dflash/follow.py: FollowCounts)")
         many = min(self.candidates, best.indices.shape[1])
         tokens = best.indices[:, :many]                                # [places, candidates], most probable first
         places = tokens.shape[0]
         likely = numpy.asarray([row[:many] for row in scores], dtype=numpy.float64)
         rest = numpy.clip(1.0 - numpy.exp(likely).sum(axis=-1), 0.0, None)      # what the other tokens of a place have
-        if places > 1:
+        lift, extra, on_weight, off_weight = None, None, self.on_path, self.off_path
+        if places > 1 and self.pairs is not None:
+            *extra, on_weight, off_weight = self._pair_tables(s, tokens)
+            if getattr(self, "keep_last", False):      # for tests
+                self.last = {"extra": extra, "likely": likely, "rest": rest, "tokens": tokens.tolist(), "start": s.start}
+        if places > 1 and self.follow is not None:
             # One lookup for all places: the lift of every candidate c of a place after every candidate b of the
             # place before it and every candidate a of the place before that (for the second place: the block's
             # first token).
@@ -1099,9 +1127,13 @@ class CountTree(DraftTree):
             # depth, nothing deeper can come into the tree.
             if len(so_far) >= self.budget and score.max() < numpy.partition(so_far, -self.budget)[-self.budget]:
                 break
-            weight = numpy.where(on_path, self.on_path, self.off_path)[:, None]
-            raised = likely[place][None, :] + weight * lift[place - 1][before, last]
-            given = raised - numpy.log(rest[place] + numpy.exp(raised).sum(axis=-1))[:, None]
+            raised, others = likely[place][None, :], rest[place]
+            if lift is not None:
+                raised = raised + numpy.where(on_path, on_weight, off_weight)[:, None] * lift[place - 1][before, last]
+            if extra is not None:
+                raised = raised + extra[0][place - 1][last] + extra[1][place - 1][before]
+                others = others * extra[2][place - 1]
+            given = raised - numpy.log(others + numpy.exp(raised).sum(axis=-1))[:, None]
             total = (score[:, None] + given).ravel()
             keep = numpy.argsort(-total, kind="stable")[: self.budget]
             parent, chosen_candidate = keep // many, keep % many

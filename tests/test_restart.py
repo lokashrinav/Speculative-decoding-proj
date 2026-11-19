@@ -2254,3 +2254,127 @@ def test_a_tree_whose_edges_the_second_drafter_scores(tmp_path):
     finally:
         FOLLOW.clear()
     assert with_counts("cstree63@x") and with_counts("plain+cstree63f40@x") and not with_counts("stree63@x")
+
+
+def test_scores_of_pairs_of_neighbouring_tokens(tmp_path):
+    """dflash/pair_scores.py, nexus/train_pairs.py: the second drafter's knowledge without a pass, and the tree
+    that is searched with it at every depth (CountTree with `pairs`)."""
+    import numpy
+    from dflash.follow import FollowCounts
+    from dflash.model import _draft_value, _output_head, _raw_input_embeddings
+    from dflash.pair_scores import PairScores, load_pair_scores, save_pair_scores
+    from dflash.redraft import CountTree, DraftTree, dflash_generate_redraft
+    from dflash.replay import target_features
+    from nexus.redraft_long import FOLLOW, make_method, with_counts
+    from nexus.train_every import first_runs
+    from nexus.train_pairs import TeachPairs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    torch.manual_seed(0)
+    pairs = PairScores(16, rank=8, hidden=12)
+
+    # Before anything is learned the scores are the first run's own.
+    first_log = torch.tensor([[0.5, 0.2, 0.1]]).log()
+    start = pairs(first_log, torch.randn(1, 16), torch.randn(1, 16), torch.randn(1, 16), torch.randn(1, 3, 16))
+    assert torch.allclose(start.exp(), torch.tensor([[0.5, 0.2, 0.1, 0.2]]), atol=1e-5)
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, rows.clone(), getattr(self.inner, "last", None)))
+            return rows
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    # A tree searched with scores that change nothing is DDTree's tree.
+    untouched = CountTree(12, None, candidates=16)
+    untouched.pairs = pairs
+    same, tree = Kept(untouched), Kept(DraftTree(12))
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=same, block_size=BLOCK)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=tree, block_size=BLOCK)
+    alike = sum(int(prefixes(mine) == prefixes(theirs)) for (_, mine, _), (_, theirs, _) in zip(same.rounds, tree.rounds))
+    assert alike > 0.9 * len(tree.rounds)
+    with pytest.raises(ValueError):
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=CountTree(12, None), block_size=BLOCK)
+
+    # Training: the loss falls, the drafter stays as it is, the same things are counted as for the second drafter.
+    follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+    kept_as = {name: value.clone() for name, value in draft.state_dict().items()}
+    teach = TeachPairs(pairs, torch.optim.AdamW(pairs.parameters(), lr=3e-3), draft, target, candidates=5, group=6, window=64, width=BLOCK, warm=1)
+    losses = []
+    for _ in range(12):
+        teach.generator.manual_seed(0)
+        teach.learn_from(ids, features, said, length, 12, follow)
+        losses.append(teach.progress()["loss"])
+    assert losses[-1] < losses[0] and teach.updates == 24 and teach.rows_seen == 24 * 6 * (BLOCK - 2)
+    assert all(torch.equal(kept_as[name], value) for name, value in draft.state_dict().items())
+    teach.learn_from(ids, features, said, length, 0, follow, learn=False, every=7)
+    point = teach.progress()
+    assert {"first", "first_counts", "second", "second_counts", "covered_off", "second_counts_walk", "first_walk"} <= set(point)
+    assert 0.0 <= point["second_counts"] <= point["covered"] <= 1.0
+
+    # The tree with trained scores differs from DDTree, and what it adds to a branch of the answer's own tokens is
+    # what the training computed at that place: the same states, the same two tokens before.
+    pairs.eval()
+    method = CountTree(12, None, candidates=8)
+    method.pairs, method.keep_last = pairs, True
+    kept = Kept(method)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+    assert sum(int(prefixes(mine) != prefixes(theirs)) for (_, mine, _), (_, theirs, _) in zip(kept.rounds, tree.rounds)) > 0
+    head, checked = _output_head(target), 0
+    scale = float(_draft_value(draft.config, "input_embedding_scale", 1.0))
+    for start, rows, last in kept.rounds:
+        if checked >= 5 or last is None or start + BLOCK >= ids.shape[1]:
+            continue
+        tokens = last["tokens"]
+        for place in range(1, 4):                                     # the block's places 2, 3, 4
+            truth = ids[0, start + 1 : start + place + 2].tolist()   # the answer's tokens of the block's places 1 .. place + 1
+            if truth[place - 1] not in tokens[place - 1] or (place > 1 and truth[place - 2] not in tokens[place - 2]):
+                continue
+            b = tokens[place - 1].index(truth[place - 1])
+            a = tokens[place - 2].index(truth[place - 2]) if place > 1 else 0
+            with torch.no_grad():
+                final, _ = first_runs(draft, target, features, ids, torch.tensor([start]), 0, 0, BLOCK)
+                two = ids[0, start + place - 1 : start + place]       # the token two before the place (the block's first for place 1)
+                embedded = _raw_input_embeddings(target, torch.stack((ids[0, start + place : start + place + 1], two)), scale)
+                here = torch.tensor(tokens[place])
+                mine = pairs(torch.tensor(last["likely"][place], dtype=torch.float)[None], final[0, place + 1][None], embedded[0], embedded[1],
+                             head.weight[here][None])[0]
+            raised = last["likely"][place] + last["extra"][0][place - 1][b] + last["extra"][1][place - 1][a]
+            given = raised - numpy.log(last["rest"][place] * last["extra"][2][place - 1] + numpy.exp(raised).sum())
+            assert numpy.allclose(given, mine[:-1].double().numpy(), atol=2e-3)
+            checked += 1
+    assert checked >= 3
+
+    # Real decoding gives the plain text, with and without the counts; saved, read again and built by name.
+    for counts in (None, follow):
+        method = CountTree(14, counts, candidates=8)
+        method.pairs = pairs
+        with_it = dflash_generate_redraft(draft, target, torch.tensor([[1, 2, 3, 4, 5]]), 200, None, improver=method, block_size=BLOCK,
+                                          return_stats=True)
+        assert torch.equal(with_it.output_ids, ids)
+    save_pair_scores(str(tmp_path / "pairs-tiny.pt"), pairs, {"candidates": 8, "counts": True})
+    again, notes = load_pair_scores(str(tmp_path / "pairs-tiny.pt"), torch.device("cpu"))
+    assert notes["candidates"] == 8 and torch.allclose(again.rest.weight, pairs.rest.weight, atol=1e-3)
+    FOLLOW["counts"] = follow
+    try:
+        named = make_method("cptree63@tiny", str(tmp_path), draft)
+        assert isinstance(named, CountTree) and named.budget == 63 and named.candidates == 8 and named.follow is follow and named.pairs is not None
+        bare = make_method("ptree31@tiny", str(tmp_path), draft)
+        assert bare.follow is None and bare.pairs is not None and bare.budget == 31
+    finally:
+        FOLLOW.clear()
+    assert with_counts("cptree63@x") and not with_counts("ptree63@x")
