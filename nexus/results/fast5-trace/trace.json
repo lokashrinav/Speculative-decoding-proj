@@ -1,1969 +1,224 @@
 {
- "rounds": 3105,
+ "rounds": 5987,
  "decoded_with": "tree63",
  "first_run": {
-  "tokens_per_round_of_first_choices": 6.048,
-  "tokens_per_round_if_any_of_32_candidates_counted": 12.203
+  "tokens_per_round_of_first_choices": 6.084,
+  "tokens_per_round_if_any_of_32_candidates_counted": 12.377
  },
  "trees": {
   "tree63": {
-   "tokens_per_round": 7.571,
+   "tokens_per_round": 7.643,
    "following_the_answer": {
-    "best_1_kept": 6.048,
-    "best_2_kept": 7.632,
-    "best_3_kept": 8.409,
-    "best_4_kept": 8.916,
-    "best_8_kept": 9.975
+    "best_1_kept": 6.084,
+    "best_2_kept": 7.702,
+    "best_3_kept": 8.486,
+    "best_4_kept": 8.993,
+    "best_8_kept": 10.093
    },
-   "candidates_reach": 14.15,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0383,
+   "candidates_reach": 14.282,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0408,
    "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.266,
-    "share_of_rounds_past_it": 0.734
+    "none (stops before or at it)": 0.2596,
+    "share_of_rounds_past_it": 0.7404
    },
    "why_the_path_stops": {
     "block end": {
-     "share_of_rounds": 0.0866,
+     "share_of_rounds": 0.072,
      "tokens_of_the_answer_before_it": 15.0,
      "would_follow_if_mended": 0.0,
      "tokens_per_round_if_mended": 0.0,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.699,
-      "after the first fork": 0.301
+      "at the first fork": 0.673,
+      "after the first fork": 0.327
      },
-     "forks_passed_before_it": 0.36,
+     "forks_passed_before_it": 0.39,
      "token_not_among_the_first_runs_32": 0.0
     },
     "not a candidate": {
-     "share_of_rounds": 0.0068,
-     "tokens_of_the_answer_before_it": 3.67,
+     "share_of_rounds": 0.006,
+     "tokens_of_the_answer_before_it": 4.11,
      "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.007,
+     "tokens_per_round_if_mended": 0.006,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.238,
-      "after the first fork": 0.762
+      "at the first fork": 0.278,
+      "after the first fork": 0.722
      },
-     "forks_passed_before_it": 1.05,
+     "forks_passed_before_it": 0.92,
      "token_not_among_the_first_runs_32": 1.0
     },
     "ranked first, not kept": {
      "share_of_rounds": 0.0857,
-     "tokens_of_the_answer_before_it": 7.29,
-     "would_follow_if_mended": 1.85,
-     "tokens_per_round_if_mended": 0.158,
+     "tokens_of_the_answer_before_it": 7.47,
+     "would_follow_if_mended": 1.95,
+     "tokens_per_round_if_mended": 0.167,
      "where": {
-      "before the first fork": 0.147,
+      "before the first fork": 0.131,
       "at the first fork": 0.0,
-      "after the first fork": 0.853
+      "after the first fork": 0.869
      },
-     "forks_passed_before_it": 1.22,
+     "forks_passed_before_it": 1.26,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 2 to 4": {
-     "share_of_rounds": 0.4428,
-     "tokens_of_the_answer_before_it": 5.99,
-     "would_follow_if_mended": 1.35,
-     "tokens_per_round_if_mended": 0.598,
+     "share_of_rounds": 0.4379,
+     "tokens_of_the_answer_before_it": 6.18,
+     "would_follow_if_mended": 1.33,
+     "tokens_per_round_if_mended": 0.582,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.207,
-      "after the first fork": 0.793
+      "at the first fork": 0.201,
+      "after the first fork": 0.799
      },
      "forks_passed_before_it": 1.06,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 5 or lower": {
-     "share_of_rounds": 0.3781,
-     "tokens_of_the_answer_before_it": 5.21,
+     "share_of_rounds": 0.3984,
+     "tokens_of_the_answer_before_it": 5.5,
      "would_follow_if_mended": 1.14,
-     "tokens_per_round_if_mended": 0.432,
+     "tokens_per_round_if_mended": 0.455,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.263,
-      "after the first fork": 0.737
+      "at the first fork": 0.277,
+      "after the first fork": 0.723
      },
-     "forks_passed_before_it": 0.89,
-     "token_not_among_the_first_runs_32": 0.083
+     "forks_passed_before_it": 0.87,
+     "token_not_among_the_first_runs_32": 0.087
     }
    },
    "against": {
     "ctree63": {
-     "rounds_further": 0.1053,
-     "rounds_less_far": 0.419,
-     "tokens_gained_per_round": 0.183,
-     "tokens_lost_per_round": 0.879,
+     "rounds_further": 0.1087,
+     "rounds_less_far": 0.4151,
+     "tokens_gained_per_round": 0.19,
+     "tokens_lost_per_round": 0.837,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.137,
-      "ranked 2 to 4": 0.626,
-      "ranked 5 or lower": 0.237
+      "ranked first, not kept": 0.135,
+      "ranked 2 to 4": 0.616,
+      "ranked 5 or lower": 0.249
      }
     },
     "ctree63m32": {
-     "rounds_further": 0.1076,
-     "rounds_less_far": 0.4206,
-     "tokens_gained_per_round": 0.187,
-     "tokens_lost_per_round": 0.888,
+     "rounds_further": 0.1112,
+     "rounds_less_far": 0.4164,
+     "tokens_gained_per_round": 0.194,
+     "tokens_lost_per_round": 0.848,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.135,
-      "ranked 2 to 4": 0.619,
-      "ranked 5 or lower": 0.246
+      "ranked first, not kept": 0.133,
+      "ranked 2 to 4": 0.609,
+      "ranked 5 or lower": 0.258
      }
     },
     "ptree63@opd-p1": {
-     "rounds_further": 0.1098,
-     "rounds_less_far": 0.4039,
-     "tokens_gained_per_round": 0.177,
-     "tokens_lost_per_round": 0.811,
+     "rounds_further": 0.1306,
+     "rounds_less_far": 0.3862,
+     "tokens_gained_per_round": 0.231,
+     "tokens_lost_per_round": 0.758,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.126,
-      "ranked 2 to 4": 0.624,
-      "ranked 5 or lower": 0.25
+      "ranked first, not kept": 0.122,
+      "ranked 2 to 4": 0.612,
+      "ranked 5 or lower": 0.265
      }
     },
     "cptree63@opd-p1c": {
-     "rounds_further": 0.1056,
-     "rounds_less_far": 0.4345,
-     "tokens_gained_per_round": 0.191,
-     "tokens_lost_per_round": 0.938,
+     "rounds_further": 0.1144,
+     "rounds_less_far": 0.4273,
+     "tokens_gained_per_round": 0.204,
+     "tokens_lost_per_round": 0.9,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.118,
-      "ranked 2 to 4": 0.613,
-      "ranked 5 or lower": 0.269
+      "ranked first, not kept": 0.119,
+      "ranked 2 to 4": 0.605,
+      "ranked 5 or lower": 0.276
      }
     },
     "stree63@opd-e1": {
-     "rounds_further": 0.0464,
-     "rounds_less_far": 0.5385,
-     "tokens_gained_per_round": 0.056,
-     "tokens_lost_per_round": 0.685,
+     "rounds_further": 0.054,
+     "rounds_less_far": 0.4981,
+     "tokens_gained_per_round": 0.071,
+     "tokens_lost_per_round": 0.628,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.114,
-      "ranked 2 to 4": 0.593,
-      "ranked 5 or lower": 0.293
+      "ranked first, not kept": 0.113,
+      "ranked 2 to 4": 0.596,
+      "ranked 5 or lower": 0.291
      }
     },
     "stree63p2@opd-e1": {
-     "rounds_further": 0.0651,
-     "rounds_less_far": 0.4876,
-     "tokens_gained_per_round": 0.085,
-     "tokens_lost_per_round": 0.893,
+     "rounds_further": 0.0773,
+     "rounds_less_far": 0.4498,
+     "tokens_gained_per_round": 0.106,
+     "tokens_lost_per_round": 0.821,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.113,
-      "ranked 2 to 4": 0.606,
-      "ranked 5 or lower": 0.281
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.0747,
-     "rounds_less_far": 0.4689,
-     "tokens_gained_per_round": 0.104,
-     "tokens_lost_per_round": 0.996,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.115,
-      "ranked 2 to 4": 0.605,
+      "ranked first, not kept": 0.112,
+      "ranked 2 to 4": 0.609,
       "ranked 5 or lower": 0.28
      }
     },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.0573,
-     "rounds_less_far": 0.5034,
-     "tokens_gained_per_round": 0.075,
-     "tokens_lost_per_round": 0.813,
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.0875,
+     "rounds_less_far": 0.4316,
+     "tokens_gained_per_round": 0.125,
+     "tokens_lost_per_round": 0.91,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.114,
-      "ranked 2 to 4": 0.602,
+      "ranked first, not kept": 0.112,
+      "ranked 2 to 4": 0.609,
+      "ranked 5 or lower": 0.279
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.0702,
+     "rounds_less_far": 0.4652,
+     "tokens_gained_per_round": 0.096,
+     "tokens_lost_per_round": 0.758,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.112,
+      "ranked 2 to 4": 0.603,
       "ranked 5 or lower": 0.284
      }
     },
     "cstree63@opd-e1c": {
-     "rounds_further": 0.0757,
-     "rounds_less_far": 0.5208,
-     "tokens_gained_per_round": 0.127,
-     "tokens_lost_per_round": 1.077,
+     "rounds_further": 0.0805,
+     "rounds_less_far": 0.5111,
+     "tokens_gained_per_round": 0.136,
+     "tokens_lost_per_round": 1.024,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.106,
-      "ranked 2 to 4": 0.589,
-      "ranked 5 or lower": 0.305
+      "ranked first, not kept": 0.101,
+      "ranked 2 to 4": 0.587,
+      "ranked 5 or lower": 0.311
      }
     },
     "cstree63p16@opd-e1c": {
-     "rounds_further": 0.0799,
-     "rounds_less_far": 0.494,
-     "tokens_gained_per_round": 0.123,
-     "tokens_lost_per_round": 1.117,
+     "rounds_further": 0.0865,
+     "rounds_less_far": 0.4861,
+     "tokens_gained_per_round": 0.137,
+     "tokens_lost_per_round": 1.083,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.109,
-      "ranked 2 to 4": 0.595,
-      "ranked 5 or lower": 0.297
+      "ranked first, not kept": 0.105,
+      "ranked 2 to 4": 0.593,
+      "ranked 5 or lower": 0.301
      }
     }
    }
   },
   "ctree63": {
-   "tokens_per_round": 8.266,
+   "tokens_per_round": 8.289,
    "following_the_answer": {
-    "best_1_kept": 6.16,
-    "best_2_kept": 8.219,
-    "best_3_kept": 9.281,
-    "best_4_kept": 9.755,
-    "best_8_kept": 10.578
+    "best_1_kept": 6.203,
+    "best_2_kept": 8.27,
+    "best_3_kept": 9.287,
+    "best_4_kept": 9.803,
+    "best_8_kept": 10.725
    },
-   "candidates_reach": 11.071,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0808,
+   "candidates_reach": 11.216,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0815,
    "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2502,
-    "share_of_rounds_past_it": 0.7498
+    "none (stops before or at it)": 0.2402,
+    "share_of_rounds_past_it": 0.7598
    },
    "why_the_path_stops": {
     "block end": {
-     "share_of_rounds": 0.1179,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.519,
-      "after the first fork": 0.481
-     },
-     "forks_passed_before_it": 1.01,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.1887,
-     "tokens_of_the_answer_before_it": 5.84,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.189,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.113,
-      "after the first fork": 0.887
-     },
-     "forks_passed_before_it": 1.82,
-     "token_not_among_the_first_runs_32": 0.428
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.0989,
-     "tokens_of_the_answer_before_it": 7.64,
-     "would_follow_if_mended": 1.98,
-     "tokens_per_round_if_mended": 0.196,
-     "where": {
-      "before the first fork": 0.078,
-      "at the first fork": 0.042,
-      "after the first fork": 0.879
-     },
-     "forks_passed_before_it": 2.06,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.3862,
-     "tokens_of_the_answer_before_it": 6.49,
-     "would_follow_if_mended": 1.82,
-     "tokens_per_round_if_mended": 0.703,
-     "where": {
-      "before the first fork": 0.013,
-      "at the first fork": 0.186,
-      "after the first fork": 0.801
-     },
-     "forks_passed_before_it": 1.61,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.2084,
-     "tokens_of_the_answer_before_it": 5.44,
-     "would_follow_if_mended": 1.66,
-     "tokens_per_round_if_mended": 0.346,
-     "where": {
-      "before the first fork": 0.002,
-      "at the first fork": 0.377,
-      "after the first fork": 0.621
-     },
-     "forks_passed_before_it": 1.1,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.419,
-     "rounds_less_far": 0.1053,
-     "tokens_gained_per_round": 0.879,
-     "tokens_lost_per_round": 0.183,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.003,
-      "ranked first, not kept": 0.138,
-      "ranked 2 to 4": 0.477,
-      "ranked 5 or lower": 0.382
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.0184,
-     "rounds_less_far": 0.0238,
-     "tokens_gained_per_round": 0.022,
-     "tokens_lost_per_round": 0.027,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.703,
-      "ranked first, not kept": 0.243,
-      "ranked 2 to 4": 0.054
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2357,
-     "rounds_less_far": 0.2042,
-     "tokens_gained_per_round": 0.448,
-     "tokens_lost_per_round": 0.387,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.06,
-      "ranked first, not kept": 0.128,
-      "ranked 2 to 4": 0.562,
-      "ranked 5 or lower": 0.251
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.1308,
-     "rounds_less_far": 0.1736,
-     "tokens_gained_per_round": 0.233,
-     "tokens_lost_per_round": 0.284,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.1,
-      "ranked first, not kept": 0.187,
-      "ranked 2 to 4": 0.57,
-      "ranked 5 or lower": 0.143
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.2461,
-     "rounds_less_far": 0.2622,
-     "tokens_gained_per_round": 0.471,
-     "tokens_lost_per_round": 0.404,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.049,
-      "ranked first, not kept": 0.111,
-      "ranked 2 to 4": 0.555,
-      "ranked 5 or lower": 0.285
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.2135,
-     "rounds_less_far": 0.2808,
-     "tokens_gained_per_round": 0.387,
-     "tokens_lost_per_round": 0.499,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.068,
-      "ranked first, not kept": 0.117,
-      "ranked 2 to 4": 0.578,
-      "ranked 5 or lower": 0.237
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.2084,
-     "rounds_less_far": 0.2795,
-     "tokens_gained_per_round": 0.37,
-     "tokens_lost_per_round": 0.567,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.067,
-      "ranked first, not kept": 0.129,
-      "ranked 2 to 4": 0.578,
-      "ranked 5 or lower": 0.226
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.2238,
-     "rounds_less_far": 0.2638,
-     "tokens_gained_per_round": 0.405,
-     "tokens_lost_per_round": 0.447,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.051,
-      "ranked first, not kept": 0.118,
-      "ranked 2 to 4": 0.573,
-      "ranked 5 or lower": 0.258
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.0982,
-     "rounds_less_far": 0.3359,
-     "tokens_gained_per_round": 0.147,
-     "tokens_lost_per_round": 0.401,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.092,
-      "ranked first, not kept": 0.151,
-      "ranked 2 to 4": 0.586,
-      "ranked 5 or lower": 0.171
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.133,
-     "rounds_less_far": 0.2779,
-     "tokens_gained_per_round": 0.208,
-     "tokens_lost_per_round": 0.506,
-     "stopped_by_where_less_far": {
-      "not a candidate": 0.094,
-      "ranked first, not kept": 0.163,
-      "ranked 2 to 4": 0.582,
-      "ranked 5 or lower": 0.161
-     }
-    }
-   }
-  },
-  "ctree63m32": {
-   "tokens_per_round": 8.271,
-   "following_the_answer": {
-    "best_1_kept": 6.164,
-    "best_2_kept": 8.276,
-    "best_3_kept": 9.418,
-    "best_4_kept": 9.979,
-    "best_8_kept": 11.064
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.085,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2525,
-    "share_of_rounds_past_it": 0.7475
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1179,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.519,
-      "after the first fork": 0.481
-     },
-     "forks_passed_before_it": 1.02,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.085,
-     "tokens_of_the_answer_before_it": 5.84,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.085,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.106,
-      "after the first fork": 0.894
-     },
-     "forks_passed_before_it": 1.93,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.1089,
-     "tokens_of_the_answer_before_it": 7.43,
-     "would_follow_if_mended": 2.05,
-     "tokens_per_round_if_mended": 0.224,
-     "where": {
-      "before the first fork": 0.068,
-      "at the first fork": 0.038,
-      "after the first fork": 0.893
-     },
-     "forks_passed_before_it": 2.09,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.4122,
-     "tokens_of_the_answer_before_it": 6.52,
-     "would_follow_if_mended": 1.82,
-     "tokens_per_round_if_mended": 0.751,
-     "where": {
-      "before the first fork": 0.013,
-      "at the first fork": 0.18,
-      "after the first fork": 0.807
-     },
-     "forks_passed_before_it": 1.64,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.276,
-     "tokens_of_the_answer_before_it": 5.47,
-     "would_follow_if_mended": 1.64,
-     "tokens_per_round_if_mended": 0.454,
-     "where": {
-      "before the first fork": 0.001,
-      "at the first fork": 0.329,
-      "after the first fork": 0.67
-     },
-     "forks_passed_before_it": 1.23,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.4206,
-     "rounds_less_far": 0.1076,
-     "tokens_gained_per_round": 0.888,
-     "tokens_lost_per_round": 0.187,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.141,
-      "ranked 2 to 4": 0.461,
-      "ranked 5 or lower": 0.398
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.0238,
-     "rounds_less_far": 0.0184,
-     "tokens_gained_per_round": 0.027,
-     "tokens_lost_per_round": 0.022,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.544,
-      "ranked 2 to 4": 0.386,
-      "ranked 5 or lower": 0.07
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2383,
-     "rounds_less_far": 0.2013,
-     "tokens_gained_per_round": 0.451,
-     "tokens_lost_per_round": 0.384,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.15,
-      "ranked 2 to 4": 0.565,
-      "ranked 5 or lower": 0.285
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.1333,
-     "rounds_less_far": 0.1694,
-     "tokens_gained_per_round": 0.234,
-     "tokens_lost_per_round": 0.28,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.213,
-      "ranked 2 to 4": 0.606,
-      "ranked 5 or lower": 0.181
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.2525,
-     "rounds_less_far": 0.2638,
-     "tokens_gained_per_round": 0.479,
-     "tokens_lost_per_round": 0.407,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.121,
-      "ranked 2 to 4": 0.56,
-      "ranked 5 or lower": 0.319
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.2171,
-     "rounds_less_far": 0.2802,
-     "tokens_gained_per_round": 0.392,
-     "tokens_lost_per_round": 0.499,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.131,
-      "ranked 2 to 4": 0.593,
-      "ranked 5 or lower": 0.276
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.2113,
-     "rounds_less_far": 0.2779,
-     "tokens_gained_per_round": 0.374,
-     "tokens_lost_per_round": 0.565,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.143,
-      "ranked 2 to 4": 0.591,
-      "ranked 5 or lower": 0.267
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.2283,
-     "rounds_less_far": 0.2641,
-     "tokens_gained_per_round": 0.412,
-     "tokens_lost_per_round": 0.449,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.134,
-      "ranked 2 to 4": 0.576,
-      "ranked 5 or lower": 0.29
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.0989,
-     "rounds_less_far": 0.3333,
-     "tokens_gained_per_round": 0.147,
-     "tokens_lost_per_round": 0.396,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.176,
-      "ranked 2 to 4": 0.618,
-      "ranked 5 or lower": 0.206
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1346,
-     "rounds_less_far": 0.2741,
-     "tokens_gained_per_round": 0.21,
-     "tokens_lost_per_round": 0.503,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.183,
-      "ranked 2 to 4": 0.622,
-      "ranked 5 or lower": 0.195
-     }
-    }
-   }
-  },
-  "ptree63@opd-p1": {
-   "tokens_per_round": 8.205,
-   "following_the_answer": {
-    "best_1_kept": 6.046,
-    "best_2_kept": 8.153,
-    "best_3_kept": 9.256,
-    "best_4_kept": 9.882,
-    "best_8_kept": 11.03
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0795,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2528,
-    "share_of_rounds_past_it": 0.7472
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1085,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.537,
-      "after the first fork": 0.463
-     },
-     "forks_passed_before_it": 1.01,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0795,
-     "tokens_of_the_answer_before_it": 5.61,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.08,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.117,
-      "after the first fork": 0.883
-     },
-     "forks_passed_before_it": 1.93,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.1272,
-     "tokens_of_the_answer_before_it": 7.21,
-     "would_follow_if_mended": 2.09,
-     "tokens_per_round_if_mended": 0.266,
-     "where": {
-      "before the first fork": 0.051,
-      "at the first fork": 0.041,
-      "after the first fork": 0.909
-     },
-     "forks_passed_before_it": 1.98,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.3971,
-     "tokens_of_the_answer_before_it": 6.59,
-     "would_follow_if_mended": 1.94,
-     "tokens_per_round_if_mended": 0.772,
-     "where": {
-      "before the first fork": 0.032,
-      "at the first fork": 0.193,
-      "after the first fork": 0.775
-     },
-     "forks_passed_before_it": 1.53,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.2876,
-     "tokens_of_the_answer_before_it": 5.55,
-     "would_follow_if_mended": 1.63,
-     "tokens_per_round_if_mended": 0.468,
-     "where": {
-      "before the first fork": 0.01,
-      "at the first fork": 0.283,
-      "after the first fork": 0.707
-     },
-     "forks_passed_before_it": 1.29,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.4039,
-     "rounds_less_far": 0.1098,
-     "tokens_gained_per_round": 0.811,
-     "tokens_lost_per_round": 0.177,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.185,
-      "ranked 2 to 4": 0.531,
-      "ranked 5 or lower": 0.284
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.2042,
-     "rounds_less_far": 0.2357,
-     "tokens_gained_per_round": 0.387,
-     "tokens_lost_per_round": 0.448,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.238,
-      "ranked 2 to 4": 0.566,
-      "ranked 5 or lower": 0.197
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2013,
-     "rounds_less_far": 0.2383,
-     "tokens_gained_per_round": 0.384,
-     "tokens_lost_per_round": 0.451,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.238,
-      "ranked 2 to 4": 0.555,
-      "ranked 5 or lower": 0.207
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.1746,
-     "rounds_less_far": 0.2428,
-     "tokens_gained_per_round": 0.328,
-     "tokens_lost_per_round": 0.44,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.218,
-      "ranked 2 to 4": 0.589,
-      "ranked 5 or lower": 0.194
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.2193,
-     "rounds_less_far": 0.2634,
-     "tokens_gained_per_round": 0.396,
-     "tokens_lost_per_round": 0.39,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.171,
-      "ranked 2 to 4": 0.573,
-      "ranked 5 or lower": 0.256
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.1678,
-     "rounds_less_far": 0.2789,
-     "tokens_gained_per_round": 0.29,
-     "tokens_lost_per_round": 0.464,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.18,
-      "ranked 2 to 4": 0.594,
-      "ranked 5 or lower": 0.226
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.1585,
-     "rounds_less_far": 0.2783,
-     "tokens_gained_per_round": 0.266,
-     "tokens_lost_per_round": 0.524,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.194,
-      "ranked 2 to 4": 0.586,
-      "ranked 5 or lower": 0.22
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.1894,
-     "rounds_less_far": 0.267,
-     "tokens_gained_per_round": 0.328,
-     "tokens_lost_per_round": 0.431,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.18,
-      "ranked 2 to 4": 0.586,
-      "ranked 5 or lower": 0.234
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1517,
-     "rounds_less_far": 0.3465,
-     "tokens_gained_per_round": 0.271,
-     "tokens_lost_per_round": 0.587,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.173,
-      "ranked 2 to 4": 0.564,
-      "ranked 5 or lower": 0.263
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1517,
-     "rounds_less_far": 0.3205,
-     "tokens_gained_per_round": 0.256,
-     "tokens_lost_per_round": 0.616,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.189,
-      "ranked 2 to 4": 0.558,
-      "ranked 5 or lower": 0.253
-     }
-    }
-   }
-  },
-  "cptree63@opd-p1c": {
-   "tokens_per_round": 8.317,
-   "following_the_answer": {
-    "best_1_kept": 6.119,
-    "best_2_kept": 8.322,
-    "best_3_kept": 9.496,
-    "best_4_kept": 10.102,
-    "best_8_kept": 11.202
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0899,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2428,
-    "share_of_rounds_past_it": 0.7572
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1095,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.541,
-      "after the first fork": 0.459
-     },
-     "forks_passed_before_it": 1.07,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0899,
-     "tokens_of_the_answer_before_it": 5.61,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.09,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.104,
-      "after the first fork": 0.896
-     },
-     "forks_passed_before_it": 2.0,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.142,
-     "tokens_of_the_answer_before_it": 7.42,
-     "would_follow_if_mended": 2.07,
-     "tokens_per_round_if_mended": 0.295,
-     "where": {
-      "before the first fork": 0.059,
-      "at the first fork": 0.034,
-      "after the first fork": 0.907
-     },
-     "forks_passed_before_it": 2.24,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.4026,
-     "tokens_of_the_answer_before_it": 6.73,
-     "would_follow_if_mended": 2.03,
-     "tokens_per_round_if_mended": 0.819,
-     "where": {
-      "before the first fork": 0.022,
-      "at the first fork": 0.176,
-      "after the first fork": 0.802
-     },
-     "forks_passed_before_it": 1.66,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.256,
-     "tokens_of_the_answer_before_it": 5.49,
-     "would_follow_if_mended": 1.74,
-     "tokens_per_round_if_mended": 0.445,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.318,
-      "after the first fork": 0.682
-     },
-     "forks_passed_before_it": 1.26,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.4345,
-     "rounds_less_far": 0.1056,
-     "tokens_gained_per_round": 0.938,
-     "tokens_lost_per_round": 0.191,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.155,
-      "ranked 2 to 4": 0.558,
-      "ranked 5 or lower": 0.287
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.1736,
-     "rounds_less_far": 0.1308,
-     "tokens_gained_per_round": 0.284,
-     "tokens_lost_per_round": 0.233,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.36,
-      "ranked 2 to 4": 0.527,
-      "ranked 5 or lower": 0.113
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.1694,
-     "rounds_less_far": 0.1333,
-     "tokens_gained_per_round": 0.28,
-     "tokens_lost_per_round": 0.234,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.365,
-      "ranked 2 to 4": 0.522,
-      "ranked 5 or lower": 0.114
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2428,
-     "rounds_less_far": 0.1746,
-     "tokens_gained_per_round": 0.44,
-     "tokens_lost_per_round": 0.328,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.214,
-      "ranked 2 to 4": 0.554,
-      "ranked 5 or lower": 0.232
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.2622,
-     "rounds_less_far": 0.2438,
-     "tokens_gained_per_round": 0.502,
-     "tokens_lost_per_round": 0.384,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.161,
-      "ranked 2 to 4": 0.561,
-      "ranked 5 or lower": 0.277
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.2203,
-     "rounds_less_far": 0.2512,
-     "tokens_gained_per_round": 0.388,
-     "tokens_lost_per_round": 0.449,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.181,
-      "ranked 2 to 4": 0.574,
-      "ranked 5 or lower": 0.245
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.2016,
-     "rounds_less_far": 0.2519,
-     "tokens_gained_per_round": 0.349,
-     "tokens_lost_per_round": 0.495,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.208,
-      "ranked 2 to 4": 0.564,
-      "ranked 5 or lower": 0.228
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.2316,
-     "rounds_less_far": 0.2403,
-     "tokens_gained_per_round": 0.424,
-     "tokens_lost_per_round": 0.415,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.186,
-      "ranked 2 to 4": 0.564,
-      "ranked 5 or lower": 0.249
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1266,
-     "rounds_less_far": 0.277,
-     "tokens_gained_per_round": 0.2,
-     "tokens_lost_per_round": 0.403,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.199,
-      "ranked 2 to 4": 0.605,
-      "ranked 5 or lower": 0.197
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1324,
-     "rounds_less_far": 0.2477,
-     "tokens_gained_per_round": 0.204,
-     "tokens_lost_per_round": 0.452,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.237,
-      "ranked 2 to 4": 0.589,
-      "ranked 5 or lower": 0.174
-     }
-    }
-   }
-  },
-  "stree63@opd-e1": {
-   "tokens_per_round": 8.199,
-   "following_the_answer": {
-    "best_1_kept": 6.312,
-    "best_2_kept": 8.521,
-    "best_3_kept": 9.561,
-    "best_4_kept": 10.193,
-    "best_8_kept": 11.286
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0773,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.1794,
-    "share_of_rounds_past_it": 0.8206
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.104,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.582,
-      "after the first fork": 0.418
-     },
-     "forks_passed_before_it": 0.64,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0773,
-     "tokens_of_the_answer_before_it": 5.03,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.077,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.117,
-      "after the first fork": 0.883
-     },
-     "forks_passed_before_it": 1.52,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "no correction left": {
-     "share_of_rounds": 0.3108,
-     "tokens_of_the_answer_before_it": 6.88,
-     "would_follow_if_mended": 2.43,
-     "tokens_per_round_if_mended": 0.755,
-     "where": {
-      "before the first fork": 0.002,
-      "at the first fork": 0.003,
-      "after the first fork": 0.995
-     },
-     "forks_passed_before_it": 2.26,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.617,
-      "2 to 4": 0.285,
-      "5 or lower": 0.098
-     }
-    },
-    "chain token wrong": {
-     "share_of_rounds": 0.1459,
-     "tokens_of_the_answer_before_it": 6.53,
-     "would_follow_if_mended": 2.09,
-     "tokens_per_round_if_mended": 0.306,
-     "where": {
-      "before the first fork": 0.009,
-      "at the first fork": 0.015,
-      "after the first fork": 0.976
-     },
-     "forks_passed_before_it": 2.03,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.311,
-      "2 to 4": 0.477,
-      "5 or lower": 0.212
-     }
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.0676,
-     "tokens_of_the_answer_before_it": 7.18,
-     "would_follow_if_mended": 2.01,
-     "tokens_per_round_if_mended": 0.136,
-     "where": {
-      "before the first fork": 0.119,
-      "at the first fork": 0.062,
-      "after the first fork": 0.819
-     },
-     "forks_passed_before_it": 1.19,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.1449,
-     "tokens_of_the_answer_before_it": 6.26,
-     "would_follow_if_mended": 1.86,
-     "tokens_per_round_if_mended": 0.27,
-     "where": {
-      "before the first fork": 0.033,
-      "at the first fork": 0.229,
-      "after the first fork": 0.738
-     },
-     "forks_passed_before_it": 0.91,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.1494,
-     "tokens_of_the_answer_before_it": 5.12,
-     "would_follow_if_mended": 1.59,
-     "tokens_per_round_if_mended": 0.237,
-     "where": {
-      "before the first fork": 0.004,
-      "at the first fork": 0.36,
-      "after the first fork": 0.636
-     },
-     "forks_passed_before_it": 0.75,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.5385,
-     "rounds_less_far": 0.0464,
-     "tokens_gained_per_round": 0.685,
-     "tokens_lost_per_round": 0.056,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.354,
-      "ranked 2 to 4": 0.507,
-      "ranked 5 or lower": 0.139
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.2622,
-     "rounds_less_far": 0.2461,
-     "tokens_gained_per_round": 0.404,
-     "tokens_lost_per_round": 0.471,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.414,
-      "chain token wrong": 0.168,
-      "ranked first, not kept": 0.144,
-      "ranked 2 to 4": 0.187,
-      "ranked 5 or lower": 0.088
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2638,
-     "rounds_less_far": 0.2525,
-     "tokens_gained_per_round": 0.407,
-     "tokens_lost_per_round": 0.479,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.413,
-      "chain token wrong": 0.18,
-      "ranked first, not kept": 0.136,
-      "ranked 2 to 4": 0.177,
-      "ranked 5 or lower": 0.093
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2634,
-     "rounds_less_far": 0.2193,
-     "tokens_gained_per_round": 0.39,
-     "tokens_lost_per_round": 0.396,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.458,
-      "chain token wrong": 0.176,
-      "ranked first, not kept": 0.134,
-      "ranked 2 to 4": 0.167,
-      "ranked 5 or lower": 0.065
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.2438,
-     "rounds_less_far": 0.2622,
-     "tokens_gained_per_round": 0.384,
-     "tokens_lost_per_round": 0.502,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.432,
-      "chain token wrong": 0.187,
-      "ranked first, not kept": 0.127,
-      "ranked 2 to 4": 0.166,
-      "ranked 5 or lower": 0.088
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.0805,
-     "rounds_less_far": 0.209,
-     "tokens_gained_per_round": 0.088,
-     "tokens_lost_per_round": 0.267,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.71,
-      "chain token wrong": 0.263,
-      "ranked first, not kept": 0.026
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.1072,
-     "rounds_less_far": 0.1903,
-     "tokens_gained_per_round": 0.128,
-     "tokens_lost_per_round": 0.392,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.706,
-      "chain token wrong": 0.269,
-      "ranked first, not kept": 0.025
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.0557,
-     "rounds_less_far": 0.124,
-     "tokens_gained_per_round": 0.062,
-     "tokens_lost_per_round": 0.171,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.727,
-      "chain token wrong": 0.252,
-      "ranked first, not kept": 0.021
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1414,
-     "rounds_less_far": 0.305,
-     "tokens_gained_per_round": 0.216,
-     "tokens_lost_per_round": 0.537,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.437,
-      "chain token wrong": 0.216,
-      "ranked first, not kept": 0.099,
-      "ranked 2 to 4": 0.155,
-      "ranked 5 or lower": 0.092
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1594,
-     "rounds_less_far": 0.2982,
-     "tokens_gained_per_round": 0.223,
-     "tokens_lost_per_round": 0.589,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.503,
-      "chain token wrong": 0.192,
-      "ranked first, not kept": 0.094,
-      "ranked 2 to 4": 0.134,
-      "ranked 5 or lower": 0.077
-     }
-    }
-   },
-   "a_round": {
-    "nodes_from_the_first_run": 34.03,
-    "nodes_from_the_second_run": 28.97,
-    "rows_of_the_pass": 61.58,
-    "first_tree_nodes_dropped": 28.97
-   }
-  },
-  "stree63p2@opd-e1": {
-   "tokens_per_round": 8.378,
-   "following_the_answer": {
-    "best_1_kept": 6.312,
-    "best_2_kept": 8.521,
-    "best_3_kept": 9.561,
-    "best_4_kept": 10.193,
-    "best_8_kept": 11.286
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0886,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2019,
-    "share_of_rounds_past_it": 0.7981
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1098,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.548,
-      "after the first fork": 0.452
-     },
-     "forks_passed_before_it": 0.82,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0886,
-     "tokens_of_the_answer_before_it": 5.29,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.089,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.098,
-      "after the first fork": 0.902
-     },
-     "forks_passed_before_it": 1.91,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "no correction left": {
-     "share_of_rounds": 0.0828,
-     "tokens_of_the_answer_before_it": 8.17,
-     "would_follow_if_mended": 2.54,
-     "tokens_per_round_if_mended": 0.211,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.0,
-      "after the first fork": 1.0
-     },
-     "forks_passed_before_it": 3.73,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.704,
-      "2 to 4": 0.214,
-      "5 or lower": 0.082
-     }
-    },
-    "chain token wrong": {
-     "share_of_rounds": 0.0647,
-     "tokens_of_the_answer_before_it": 7.81,
-     "would_follow_if_mended": 2.21,
-     "tokens_per_round_if_mended": 0.143,
-     "where": {
-      "before the first fork": 0.005,
-      "at the first fork": 0.0,
-      "after the first fork": 0.995
-     },
-     "forks_passed_before_it": 3.07,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.343,
-      "2 to 4": 0.493,
-      "5 or lower": 0.164
-     }
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.1536,
-     "tokens_of_the_answer_before_it": 7.19,
-     "would_follow_if_mended": 2.14,
-     "tokens_per_round_if_mended": 0.329,
-     "where": {
-      "before the first fork": 0.065,
-      "at the first fork": 0.038,
-      "after the first fork": 0.897
-     },
-     "forks_passed_before_it": 1.78,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.2879,
-     "tokens_of_the_answer_before_it": 6.4,
-     "would_follow_if_mended": 1.93,
-     "tokens_per_round_if_mended": 0.557,
-     "where": {
-      "before the first fork": 0.025,
-      "at the first fork": 0.161,
-      "after the first fork": 0.814
-     },
-     "forks_passed_before_it": 1.31,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.2126,
-     "tokens_of_the_answer_before_it": 5.33,
-     "would_follow_if_mended": 1.71,
-     "tokens_per_round_if_mended": 0.364,
-     "where": {
-      "before the first fork": 0.006,
-      "at the first fork": 0.292,
-      "after the first fork": 0.702
-     },
-     "forks_passed_before_it": 1.05,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.4876,
-     "rounds_less_far": 0.0651,
-     "tokens_gained_per_round": 0.893,
-     "tokens_lost_per_round": 0.085,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.342,
-      "ranked 2 to 4": 0.495,
-      "ranked 5 or lower": 0.163
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.2808,
-     "rounds_less_far": 0.2135,
-     "tokens_gained_per_round": 0.499,
-     "tokens_lost_per_round": 0.387,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.11,
-      "chain token wrong": 0.06,
-      "ranked first, not kept": 0.302,
-      "ranked 2 to 4": 0.385,
-      "ranked 5 or lower": 0.143
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2802,
-     "rounds_less_far": 0.2171,
-     "tokens_gained_per_round": 0.499,
-     "tokens_lost_per_round": 0.392,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.107,
-      "chain token wrong": 0.059,
-      "ranked first, not kept": 0.303,
-      "ranked 2 to 4": 0.377,
-      "ranked 5 or lower": 0.154
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2789,
-     "rounds_less_far": 0.1678,
-     "tokens_gained_per_round": 0.464,
-     "tokens_lost_per_round": 0.29,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.132,
-      "chain token wrong": 0.071,
-      "ranked first, not kept": 0.286,
-      "ranked 2 to 4": 0.39,
-      "ranked 5 or lower": 0.121
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.2512,
-     "rounds_less_far": 0.2203,
-     "tokens_gained_per_round": 0.449,
-     "tokens_lost_per_round": 0.388,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.137,
-      "chain token wrong": 0.066,
-      "ranked first, not kept": 0.269,
-      "ranked 2 to 4": 0.379,
-      "ranked 5 or lower": 0.149
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.209,
-     "rounds_less_far": 0.0805,
-     "tokens_gained_per_round": 0.267,
-     "tokens_lost_per_round": 0.088,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.332,
-      "ranked 2 to 4": 0.516,
-      "ranked 5 or lower": 0.152
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.0522,
-     "rounds_less_far": 0.0718,
-     "tokens_gained_per_round": 0.062,
-     "tokens_lost_per_round": 0.146,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.668,
-      "chain token wrong": 0.229,
-      "ranked first, not kept": 0.103
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.113,
-     "rounds_less_far": 0.0531,
-     "tokens_gained_per_round": 0.136,
-     "tokens_lost_per_round": 0.066,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.152,
-      "chain token wrong": 0.036,
-      "ranked first, not kept": 0.376,
-      "ranked 2 to 4": 0.345,
-      "ranked 5 or lower": 0.091
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1678,
-     "rounds_less_far": 0.2544,
-     "tokens_gained_per_round": 0.267,
-     "tokens_lost_per_round": 0.409,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.133,
-      "chain token wrong": 0.065,
-      "ranked first, not kept": 0.252,
-      "ranked 2 to 4": 0.391,
-      "ranked 5 or lower": 0.159
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1527,
-     "rounds_less_far": 0.239,
-     "tokens_gained_per_round": 0.235,
-     "tokens_lost_per_round": 0.421,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.194,
-      "chain token wrong": 0.078,
-      "ranked first, not kept": 0.257,
-      "ranked 2 to 4": 0.337,
-      "ranked 5 or lower": 0.133
-     }
-    }
-   },
-   "a_round": {
-    "nodes_from_the_first_run": 31.72,
-    "nodes_from_the_second_run": 31.28,
-    "rows_of_the_pass": 89.85,
-    "first_tree_nodes_dropped": 31.28,
-    "more_passes": 1.0
-   }
-  },
-  "stree63p16@opd-e1": {
-   "tokens_per_round": 8.462,
-   "following_the_answer": {
-    "best_1_kept": 6.312,
-    "best_2_kept": 8.521,
-    "best_3_kept": 9.561,
-    "best_4_kept": 10.193,
-    "best_8_kept": 11.286
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0902,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2119,
-    "share_of_rounds_past_it": 0.7881
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.115,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.513,
-      "after the first fork": 0.487
-     },
-     "forks_passed_before_it": 1.17,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0902,
-     "tokens_of_the_answer_before_it": 5.33,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.09,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.096,
-      "after the first fork": 0.904
-     },
-     "forks_passed_before_it": 2.05,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.1894,
-     "tokens_of_the_answer_before_it": 7.47,
-     "would_follow_if_mended": 2.19,
-     "tokens_per_round_if_mended": 0.414,
-     "where": {
-      "before the first fork": 0.061,
-      "at the first fork": 0.036,
-      "after the first fork": 0.903
-     },
-     "forks_passed_before_it": 2.19,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.3675,
-     "tokens_of_the_answer_before_it": 6.84,
-     "would_follow_if_mended": 1.96,
-     "tokens_per_round_if_mended": 0.72,
-     "where": {
-      "before the first fork": 0.021,
-      "at the first fork": 0.143,
-      "after the first fork": 0.836
-     },
-     "forks_passed_before_it": 1.76,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.238,
-     "tokens_of_the_answer_before_it": 5.58,
-     "would_follow_if_mended": 1.69,
-     "tokens_per_round_if_mended": 0.403,
-     "where": {
-      "before the first fork": 0.007,
-      "at the first fork": 0.269,
-      "after the first fork": 0.724
-     },
-     "forks_passed_before_it": 1.33,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.4689,
-     "rounds_less_far": 0.0747,
-     "tokens_gained_per_round": 0.996,
-     "tokens_lost_per_round": 0.104,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.332,
-      "ranked 2 to 4": 0.509,
-      "ranked 5 or lower": 0.159
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.2795,
-     "rounds_less_far": 0.2084,
-     "tokens_gained_per_round": 0.567,
-     "tokens_lost_per_round": 0.37,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.36,
-      "ranked 2 to 4": 0.479,
-      "ranked 5 or lower": 0.161
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2779,
-     "rounds_less_far": 0.2113,
-     "tokens_gained_per_round": 0.565,
-     "tokens_lost_per_round": 0.374,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.36,
-      "ranked 2 to 4": 0.47,
-      "ranked 5 or lower": 0.171
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.2783,
-     "rounds_less_far": 0.1585,
-     "tokens_gained_per_round": 0.524,
-     "tokens_lost_per_round": 0.266,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.37,
-      "ranked 2 to 4": 0.488,
-      "ranked 5 or lower": 0.142
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.2519,
-     "rounds_less_far": 0.2016,
-     "tokens_gained_per_round": 0.495,
-     "tokens_lost_per_round": 0.349,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.332,
-      "ranked 2 to 4": 0.492,
-      "ranked 5 or lower": 0.176
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.1903,
-     "rounds_less_far": 0.1072,
-     "tokens_gained_per_round": 0.392,
-     "tokens_lost_per_round": 0.128,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.309,
-      "ranked 2 to 4": 0.541,
-      "ranked 5 or lower": 0.15
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.0718,
-     "rounds_less_far": 0.0522,
-     "tokens_gained_per_round": 0.146,
-     "tokens_lost_per_round": 0.062,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.5,
-      "ranked 2 to 4": 0.42,
-      "ranked 5 or lower": 0.08
-     }
-    },
-    "stree63f255@opd-e1": {
-     "rounds_further": 0.1211,
-     "rounds_less_far": 0.0757,
-     "tokens_gained_per_round": 0.244,
-     "tokens_lost_per_round": 0.09,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.417,
-      "ranked 2 to 4": 0.472,
-      "ranked 5 or lower": 0.111
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1681,
-     "rounds_less_far": 0.2467,
-     "tokens_gained_per_round": 0.319,
-     "tokens_lost_per_round": 0.377,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.316,
-      "ranked 2 to 4": 0.503,
-      "ranked 5 or lower": 0.181
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1491,
-     "rounds_less_far": 0.211,
-     "tokens_gained_per_round": 0.238,
-     "tokens_lost_per_round": 0.34,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.359,
-      "ranked 2 to 4": 0.478,
-      "ranked 5 or lower": 0.163
-     }
-    }
-   },
-   "a_round": {
-    "nodes_from_the_first_run": 30.81,
-    "nodes_from_the_second_run": 32.19,
-    "rows_of_the_pass": 106.38,
-    "first_tree_nodes_dropped": 32.19,
-    "more_passes": 3.43
-   }
-  },
-  "stree63f255@opd-e1": {
-   "tokens_per_round": 8.308,
-   "following_the_answer": {
-    "best_1_kept": 6.312,
-    "best_2_kept": 8.521,
-    "best_3_kept": 9.561,
-    "best_4_kept": 10.193,
-    "best_8_kept": 11.286
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.0795,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.1961,
-    "share_of_rounds_past_it": 0.8039
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1085,
-     "tokens_of_the_answer_before_it": 15.0,
-     "would_follow_if_mended": 0.0,
-     "tokens_per_round_if_mended": 0.0,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.558,
-      "after the first fork": 0.442
-     },
-     "forks_passed_before_it": 0.77,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "not a candidate": {
-     "share_of_rounds": 0.0795,
-     "tokens_of_the_answer_before_it": 5.15,
-     "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.08,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.109,
-      "after the first fork": 0.891
-     },
-     "forks_passed_before_it": 1.64,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "no correction left": {
-     "share_of_rounds": 0.1578,
-     "tokens_of_the_answer_before_it": 7.06,
-     "would_follow_if_mended": 2.4,
-     "tokens_per_round_if_mended": 0.379,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.0,
-      "after the first fork": 1.0
-     },
-     "forks_passed_before_it": 2.97,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.653,
-      "2 to 4": 0.239,
-      "5 or lower": 0.108
-     }
-    },
-    "chain token wrong": {
-     "share_of_rounds": 0.1027,
-     "tokens_of_the_answer_before_it": 6.7,
-     "would_follow_if_mended": 2.21,
-     "tokens_per_round_if_mended": 0.227,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.0,
-      "after the first fork": 1.0
-     },
-     "forks_passed_before_it": 2.55,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.345,
-      "2 to 4": 0.483,
-      "5 or lower": 0.172
-     }
-    },
-    "ranked first, not kept": {
-     "share_of_rounds": 0.1198,
-     "tokens_of_the_answer_before_it": 7.27,
-     "would_follow_if_mended": 2.15,
-     "tokens_per_round_if_mended": 0.258,
-     "where": {
-      "before the first fork": 0.073,
-      "at the first fork": 0.046,
-      "after the first fork": 0.882
-     },
-     "forks_passed_before_it": 1.51,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 2 to 4": {
-     "share_of_rounds": 0.2403,
-     "tokens_of_the_answer_before_it": 6.53,
-     "would_follow_if_mended": 1.92,
-     "tokens_per_round_if_mended": 0.462,
-     "where": {
-      "before the first fork": 0.027,
-      "at the first fork": 0.181,
-      "after the first fork": 0.792
-     },
-     "forks_passed_before_it": 1.13,
-     "token_not_among_the_first_runs_32": 0.0
-    },
-    "ranked 5 or lower": {
-     "share_of_rounds": 0.1913,
-     "tokens_of_the_answer_before_it": 5.38,
-     "would_follow_if_mended": 1.69,
-     "tokens_per_round_if_mended": 0.322,
-     "where": {
-      "before the first fork": 0.007,
-      "at the first fork": 0.322,
-      "after the first fork": 0.672
-     },
-     "forks_passed_before_it": 0.89,
-     "token_not_among_the_first_runs_32": 0.0
-    }
-   },
-   "against": {
-    "tree63": {
-     "rounds_further": 0.5034,
-     "rounds_less_far": 0.0573,
-     "tokens_gained_per_round": 0.813,
-     "tokens_lost_per_round": 0.075,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.315,
-      "ranked 2 to 4": 0.506,
-      "ranked 5 or lower": 0.18
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.2638,
-     "rounds_less_far": 0.2238,
-     "tokens_gained_per_round": 0.447,
-     "tokens_lost_per_round": 0.405,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.19,
-      "chain token wrong": 0.106,
-      "ranked first, not kept": 0.249,
-      "ranked 2 to 4": 0.329,
-      "ranked 5 or lower": 0.125
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2641,
-     "rounds_less_far": 0.2283,
-     "tokens_gained_per_round": 0.449,
-     "tokens_lost_per_round": 0.412,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.192,
-      "chain token wrong": 0.113,
-      "ranked first, not kept": 0.243,
-      "ranked 2 to 4": 0.319,
-      "ranked 5 or lower": 0.134
-     }
-    },
-    "ptree63@opd-p1": {
-     "rounds_further": 0.267,
-     "rounds_less_far": 0.1894,
-     "tokens_gained_per_round": 0.431,
-     "tokens_lost_per_round": 0.328,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.259,
-      "chain token wrong": 0.129,
-      "ranked first, not kept": 0.219,
-      "ranked 2 to 4": 0.291,
-      "ranked 5 or lower": 0.102
-     }
-    },
-    "cptree63@opd-p1c": {
-     "rounds_further": 0.2403,
-     "rounds_less_far": 0.2316,
-     "tokens_gained_per_round": 0.415,
-     "tokens_lost_per_round": 0.424,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.239,
-      "chain token wrong": 0.134,
-      "ranked first, not kept": 0.207,
-      "ranked 2 to 4": 0.291,
-      "ranked 5 or lower": 0.129
-     }
-    },
-    "stree63@opd-e1": {
-     "rounds_further": 0.124,
-     "rounds_less_far": 0.0557,
-     "tokens_gained_per_round": 0.171,
-     "tokens_lost_per_round": 0.062,
-     "stopped_by_where_less_far": {
-      "chain token wrong": 0.012,
-      "ranked first, not kept": 0.329,
-      "ranked 2 to 4": 0.497,
-      "ranked 5 or lower": 0.162
-     }
-    },
-    "stree63p2@opd-e1": {
-     "rounds_further": 0.0531,
-     "rounds_less_far": 0.113,
-     "tokens_gained_per_round": 0.066,
-     "tokens_lost_per_round": 0.136,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.59,
-      "chain token wrong": 0.311,
-      "ranked first, not kept": 0.074,
-      "ranked 2 to 4": 0.023,
-      "ranked 5 or lower": 0.003
-     }
-    },
-    "stree63p16@opd-e1": {
-     "rounds_further": 0.0757,
-     "rounds_less_far": 0.1211,
-     "tokens_gained_per_round": 0.09,
-     "tokens_lost_per_round": 0.244,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.628,
-      "chain token wrong": 0.303,
-      "ranked first, not kept": 0.064,
-      "ranked 2 to 4": 0.005
-     }
-    },
-    "cstree63@opd-e1c": {
-     "rounds_further": 0.1494,
-     "rounds_less_far": 0.2757,
-     "tokens_gained_per_round": 0.241,
-     "tokens_lost_per_round": 0.453,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.241,
-      "chain token wrong": 0.15,
-      "ranked first, not kept": 0.187,
-      "ranked 2 to 4": 0.291,
-      "ranked 5 or lower": 0.132
-     }
-    },
-    "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1543,
-     "rounds_less_far": 0.2641,
-     "tokens_gained_per_round": 0.232,
-     "tokens_lost_per_round": 0.488,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.31,
-      "chain token wrong": 0.162,
-      "ranked first, not kept": 0.18,
-      "ranked 2 to 4": 0.24,
-      "ranked 5 or lower": 0.107
-     }
-    }
-   },
-   "a_round": {
-    "nodes_from_the_first_run": 46.77,
-    "nodes_from_the_second_run": 16.23,
-    "rows_of_the_pass": 245.3,
-    "first_tree_nodes_dropped": 208.23
-   }
-  },
-  "cstree63@opd-e1c": {
-   "tokens_per_round": 8.52,
-   "following_the_answer": {
-    "best_1_kept": 6.36,
-    "best_2_kept": 8.754,
-    "best_3_kept": 9.874,
-    "best_4_kept": 10.454,
-    "best_8_kept": 11.427
-   },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.1066,
-   "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.1929,
-    "share_of_rounds_past_it": 0.8071
-   },
-   "why_the_path_stops": {
-    "block end": {
-     "share_of_rounds": 0.1256,
+     "share_of_rounds": 0.1009,
      "tokens_of_the_answer_before_it": 15.0,
      "would_follow_if_mended": 0.0,
      "tokens_per_round_if_mended": 0.0,
@@ -1972,431 +227,2180 @@
       "at the first fork": 0.482,
       "after the first fork": 0.518
      },
-     "forks_passed_before_it": 1.13,
+     "forks_passed_before_it": 1.12,
      "token_not_among_the_first_runs_32": 0.0
     },
     "not a candidate": {
-     "share_of_rounds": 0.1066,
-     "tokens_of_the_answer_before_it": 5.57,
+     "share_of_rounds": 0.1914,
+     "tokens_of_the_answer_before_it": 5.93,
      "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.107,
+     "tokens_per_round_if_mended": 0.191,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.082,
-      "after the first fork": 0.918
+      "at the first fork": 0.127,
+      "after the first fork": 0.873
      },
-     "forks_passed_before_it": 2.1,
-     "token_not_among_the_first_runs_32": 1.0
-    },
-    "no correction left": {
-     "share_of_rounds": 0.2129,
-     "tokens_of_the_answer_before_it": 6.56,
-     "would_follow_if_mended": 2.54,
-     "tokens_per_round_if_mended": 0.541,
-     "where": {
-      "before the first fork": 0.018,
-      "at the first fork": 0.014,
-      "after the first fork": 0.968
-     },
-     "forks_passed_before_it": 2.34,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.626,
-      "2 to 4": 0.281,
-      "5 or lower": 0.092
-     }
-    },
-    "chain token wrong": {
-     "share_of_rounds": 0.047,
-     "tokens_of_the_answer_before_it": 6.84,
-     "would_follow_if_mended": 2.29,
-     "tokens_per_round_if_mended": 0.108,
-     "where": {
-      "before the first fork": 0.0,
-      "at the first fork": 0.027,
-      "after the first fork": 0.973
-     },
-     "forks_passed_before_it": 2.84,
-     "token_not_among_the_first_runs_32": 0.0,
-     "with_a_row_the_answers_token_would_be": {
-      "first": 0.13,
-      "2 to 4": 0.61,
-      "5 or lower": 0.26
-     }
+     "forks_passed_before_it": 1.73,
+     "token_not_among_the_first_runs_32": 0.426
     },
     "ranked first, not kept": {
-     "share_of_rounds": 0.1166,
-     "tokens_of_the_answer_before_it": 8.04,
-     "would_follow_if_mended": 2.03,
-     "tokens_per_round_if_mended": 0.237,
+     "share_of_rounds": 0.0974,
+     "tokens_of_the_answer_before_it": 7.68,
+     "would_follow_if_mended": 2.04,
+     "tokens_per_round_if_mended": 0.198,
      "where": {
-      "before the first fork": 0.064,
-      "at the first fork": 0.058,
-      "after the first fork": 0.878
+      "before the first fork": 0.063,
+      "at the first fork": 0.043,
+      "after the first fork": 0.894
      },
-     "forks_passed_before_it": 2.2,
+     "forks_passed_before_it": 2.01,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 2 to 4": {
-     "share_of_rounds": 0.22,
+     "share_of_rounds": 0.3932,
      "tokens_of_the_answer_before_it": 6.62,
-     "would_follow_if_mended": 2.04,
-     "tokens_per_round_if_mended": 0.448,
+     "would_follow_if_mended": 1.85,
+     "tokens_per_round_if_mended": 0.729,
      "where": {
-      "before the first fork": 0.032,
-      "at the first fork": 0.155,
-      "after the first fork": 0.813
+      "before the first fork": 0.01,
+      "at the first fork": 0.185,
+      "after the first fork": 0.805
      },
-     "forks_passed_before_it": 1.52,
+     "forks_passed_before_it": 1.57,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 5 or lower": {
-     "share_of_rounds": 0.1713,
-     "tokens_of_the_answer_before_it": 5.44,
-     "would_follow_if_mended": 1.89,
-     "tokens_per_round_if_mended": 0.324,
+     "share_of_rounds": 0.2171,
+     "tokens_of_the_answer_before_it": 5.94,
+     "would_follow_if_mended": 1.66,
+     "tokens_per_round_if_mended": 0.361,
      "where": {
-      "before the first fork": 0.004,
-      "at the first fork": 0.348,
-      "after the first fork": 0.648
+      "before the first fork": 0.006,
+      "at the first fork": 0.364,
+      "after the first fork": 0.63
      },
-     "forks_passed_before_it": 1.09,
+     "forks_passed_before_it": 1.08,
      "token_not_among_the_first_runs_32": 0.0
     }
    },
    "against": {
     "tree63": {
-     "rounds_further": 0.5208,
-     "rounds_less_far": 0.0757,
-     "tokens_gained_per_round": 1.077,
-     "tokens_lost_per_round": 0.127,
+     "rounds_further": 0.4151,
+     "rounds_less_far": 0.1087,
+     "tokens_gained_per_round": 0.837,
+     "tokens_lost_per_round": 0.19,
      "stopped_by_where_less_far": {
-      "no correction left": 0.323,
-      "chain token wrong": 0.021,
-      "ranked first, not kept": 0.136,
-      "ranked 2 to 4": 0.302,
-      "ranked 5 or lower": 0.217
-     }
-    },
-    "ctree63": {
-     "rounds_further": 0.3359,
-     "rounds_less_far": 0.0982,
-     "tokens_gained_per_round": 0.401,
-     "tokens_lost_per_round": 0.147,
-     "stopped_by_where_less_far": {
-      "no correction left": 0.007,
-      "ranked first, not kept": 0.452,
-      "ranked 2 to 4": 0.485,
-      "ranked 5 or lower": 0.056
+      "not a candidate": 0.002,
+      "ranked first, not kept": 0.144,
+      "ranked 2 to 4": 0.499,
+      "ranked 5 or lower": 0.355
      }
     },
     "ctree63m32": {
-     "rounds_further": 0.3333,
-     "rounds_less_far": 0.0989,
-     "tokens_gained_per_round": 0.396,
-     "tokens_lost_per_round": 0.147,
+     "rounds_further": 0.0175,
+     "rounds_less_far": 0.0232,
+     "tokens_gained_per_round": 0.02,
+     "tokens_lost_per_round": 0.027,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.466,
-      "ranked 2 to 4": 0.476,
-      "ranked 5 or lower": 0.059
+      "not a candidate": 0.712,
+      "ranked first, not kept": 0.23,
+      "ranked 2 to 4": 0.05,
+      "ranked 5 or lower": 0.007
      }
     },
     "ptree63@opd-p1": {
-     "rounds_further": 0.3465,
-     "rounds_less_far": 0.1517,
-     "tokens_gained_per_round": 0.587,
-     "tokens_lost_per_round": 0.271,
+     "rounds_further": 0.2504,
+     "rounds_less_far": 0.2036,
+     "tokens_gained_per_round": 0.502,
+     "tokens_lost_per_round": 0.382,
      "stopped_by_where_less_far": {
-      "no correction left": 0.331,
-      "chain token wrong": 0.025,
-      "ranked first, not kept": 0.187,
-      "ranked 2 to 4": 0.299,
-      "ranked 5 or lower": 0.157
+      "not a candidate": 0.057,
+      "ranked first, not kept": 0.133,
+      "ranked 2 to 4": 0.548,
+      "ranked 5 or lower": 0.263
      }
     },
     "cptree63@opd-p1c": {
-     "rounds_further": 0.277,
-     "rounds_less_far": 0.1266,
-     "tokens_gained_per_round": 0.403,
-     "tokens_lost_per_round": 0.2,
+     "rounds_further": 0.1403,
+     "rounds_less_far": 0.175,
+     "tokens_gained_per_round": 0.252,
+     "tokens_lost_per_round": 0.301,
      "stopped_by_where_less_far": {
-      "no correction left": 0.239,
-      "chain token wrong": 0.023,
-      "ranked first, not kept": 0.313,
-      "ranked 2 to 4": 0.364,
-      "ranked 5 or lower": 0.061
+      "not a candidate": 0.097,
+      "ranked first, not kept": 0.194,
+      "ranked 2 to 4": 0.58,
+      "ranked 5 or lower": 0.129
      }
     },
     "stree63@opd-e1": {
-     "rounds_further": 0.305,
-     "rounds_less_far": 0.1414,
-     "tokens_gained_per_round": 0.537,
-     "tokens_lost_per_round": 0.216,
+     "rounds_further": 0.2495,
+     "rounds_less_far": 0.2502,
+     "tokens_gained_per_round": 0.475,
+     "tokens_lost_per_round": 0.386,
      "stopped_by_where_less_far": {
-      "no correction left": 0.326,
-      "chain token wrong": 0.027,
-      "ranked first, not kept": 0.107,
-      "ranked 2 to 4": 0.323,
-      "ranked 5 or lower": 0.216
+      "not a candidate": 0.046,
+      "ranked first, not kept": 0.113,
+      "ranked 2 to 4": 0.557,
+      "ranked 5 or lower": 0.284
      }
     },
     "stree63p2@opd-e1": {
-     "rounds_further": 0.2544,
-     "rounds_less_far": 0.1678,
-     "tokens_gained_per_round": 0.409,
-     "tokens_lost_per_round": 0.267,
+     "rounds_further": 0.2242,
+     "rounds_less_far": 0.2674,
+     "tokens_gained_per_round": 0.411,
+     "tokens_lost_per_round": 0.479,
      "stopped_by_where_less_far": {
-      "no correction left": 0.453,
-      "chain token wrong": 0.052,
-      "ranked first, not kept": 0.123,
-      "ranked 2 to 4": 0.234,
-      "ranked 5 or lower": 0.138
+      "not a candidate": 0.061,
+      "ranked first, not kept": 0.122,
+      "ranked 2 to 4": 0.577,
+      "ranked 5 or lower": 0.24
      }
     },
     "stree63p16@opd-e1": {
-     "rounds_further": 0.2467,
-     "rounds_less_far": 0.1681,
-     "tokens_gained_per_round": 0.377,
-     "tokens_lost_per_round": 0.319,
+     "rounds_further": 0.2216,
+     "rounds_less_far": 0.2626,
+     "tokens_gained_per_round": 0.4,
+     "tokens_lost_per_round": 0.538,
      "stopped_by_where_less_far": {
-      "no correction left": 0.496,
-      "chain token wrong": 0.054,
-      "ranked first, not kept": 0.121,
-      "ranked 2 to 4": 0.207,
-      "ranked 5 or lower": 0.123
+      "not a candidate": 0.06,
+      "ranked first, not kept": 0.13,
+      "ranked 2 to 4": 0.576,
+      "ranked 5 or lower": 0.234
      }
     },
     "stree63f255@opd-e1": {
-     "rounds_further": 0.2757,
-     "rounds_less_far": 0.1494,
-     "tokens_gained_per_round": 0.453,
-     "tokens_lost_per_round": 0.241,
+     "rounds_further": 0.2327,
+     "rounds_less_far": 0.2559,
+     "tokens_gained_per_round": 0.42,
+     "tokens_lost_per_round": 0.436,
      "stopped_by_where_less_far": {
-      "no correction left": 0.425,
-      "chain token wrong": 0.024,
-      "ranked first, not kept": 0.125,
-      "ranked 2 to 4": 0.259,
-      "ranked 5 or lower": 0.168
+      "not a candidate": 0.048,
+      "ranked first, not kept": 0.121,
+      "ranked 2 to 4": 0.571,
+      "ranked 5 or lower": 0.26
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.0987,
+     "rounds_less_far": 0.3219,
+     "tokens_gained_per_round": 0.145,
+     "tokens_lost_per_round": 0.386,
+     "stopped_by_where_less_far": {
+      "not a candidate": 0.092,
+      "ranked first, not kept": 0.148,
+      "ranked 2 to 4": 0.591,
+      "ranked 5 or lower": 0.169
      }
     },
     "cstree63p16@opd-e1c": {
-     "rounds_further": 0.1114,
-     "rounds_less_far": 0.0857,
-     "tokens_gained_per_round": 0.129,
-     "tokens_lost_per_round": 0.173,
+     "rounds_further": 0.1328,
+     "rounds_less_far": 0.2686,
+     "tokens_gained_per_round": 0.206,
+     "tokens_lost_per_round": 0.506,
      "stopped_by_where_less_far": {
-      "no correction left": 0.876,
-      "chain token wrong": 0.109,
-      "ranked first, not kept": 0.015
+      "not a candidate": 0.095,
+      "ranked first, not kept": 0.158,
+      "ranked 2 to 4": 0.595,
+      "ranked 5 or lower": 0.153
      }
     }
-   },
-   "a_round": {
-    "nodes_from_the_first_run": 40.24,
-    "nodes_from_the_second_run": 22.76,
-    "rows_of_the_pass": 61.12,
-    "first_tree_nodes_dropped": 22.76
    }
   },
-  "cstree63p16@opd-e1c": {
-   "tokens_per_round": 8.565,
+  "ctree63m32": {
+   "tokens_per_round": 8.296,
    "following_the_answer": {
-    "best_1_kept": 6.36,
-    "best_2_kept": 8.754,
-    "best_3_kept": 9.874,
-    "best_4_kept": 10.454,
-    "best_8_kept": 11.427
+    "best_1_kept": 6.207,
+    "best_2_kept": 8.314,
+    "best_3_kept": 9.399,
+    "best_4_kept": 10.008,
+    "best_8_kept": 11.193
    },
-   "candidates_reach": 12.203,
-   "stops_at_a_token_not_among_the_first_runs_32": 0.1072,
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0847,
    "tokens_past_the_first_fork": {
-    "none (stops before or at it)": 0.2184,
-    "share_of_rounds_past_it": 0.7816
+    "none (stops before or at it)": 0.2419,
+    "share_of_rounds_past_it": 0.7581
    },
    "why_the_path_stops": {
     "block end": {
-     "share_of_rounds": 0.1211,
+     "share_of_rounds": 0.1012,
      "tokens_of_the_answer_before_it": 15.0,
      "would_follow_if_mended": 0.0,
      "tokens_per_round_if_mended": 0.0,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.5,
-      "after the first fork": 0.5
+      "at the first fork": 0.48,
+      "after the first fork": 0.52
      },
-     "forks_passed_before_it": 1.23,
+     "forks_passed_before_it": 1.13,
      "token_not_among_the_first_runs_32": 0.0
     },
     "not a candidate": {
-     "share_of_rounds": 0.1072,
-     "tokens_of_the_answer_before_it": 5.49,
+     "share_of_rounds": 0.0847,
+     "tokens_of_the_answer_before_it": 5.88,
      "would_follow_if_mended": 1.0,
-     "tokens_per_round_if_mended": 0.107,
+     "tokens_per_round_if_mended": 0.085,
      "where": {
       "before the first fork": 0.0,
-      "at the first fork": 0.084,
-      "after the first fork": 0.916
+      "at the first fork": 0.112,
+      "after the first fork": 0.888
      },
-     "forks_passed_before_it": 2.21,
+     "forks_passed_before_it": 1.83,
      "token_not_among_the_first_runs_32": 1.0
     },
     "ranked first, not kept": {
-     "share_of_rounds": 0.2055,
-     "tokens_of_the_answer_before_it": 7.76,
-     "would_follow_if_mended": 2.27,
-     "tokens_per_round_if_mended": 0.467,
+     "share_of_rounds": 0.1039,
+     "tokens_of_the_answer_before_it": 7.58,
+     "would_follow_if_mended": 2.08,
+     "tokens_per_round_if_mended": 0.216,
      "where": {
-      "before the first fork": 0.061,
-      "at the first fork": 0.05,
-      "after the first fork": 0.889
+      "before the first fork": 0.056,
+      "at the first fork": 0.04,
+      "after the first fork": 0.904
      },
-     "forks_passed_before_it": 2.34,
+     "forks_passed_before_it": 2.07,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 2 to 4": {
-     "share_of_rounds": 0.3527,
-     "tokens_of_the_answer_before_it": 6.79,
-     "would_follow_if_mended": 2.16,
-     "tokens_per_round_if_mended": 0.76,
+     "share_of_rounds": 0.4192,
+     "tokens_of_the_answer_before_it": 6.61,
+     "would_follow_if_mended": 1.85,
+     "tokens_per_round_if_mended": 0.774,
      "where": {
-      "before the first fork": 0.021,
-      "at the first fork": 0.147,
-      "after the first fork": 0.832
+      "before the first fork": 0.01,
+      "at the first fork": 0.178,
+      "after the first fork": 0.812
      },
-     "forks_passed_before_it": 1.85,
+     "forks_passed_before_it": 1.59,
      "token_not_among_the_first_runs_32": 0.0
     },
     "ranked 5 or lower": {
-     "share_of_rounds": 0.2135,
-     "tokens_of_the_answer_before_it": 5.47,
-     "would_follow_if_mended": 1.87,
-     "tokens_per_round_if_mended": 0.4,
+     "share_of_rounds": 0.291,
+     "tokens_of_the_answer_before_it": 5.92,
+     "would_follow_if_mended": 1.62,
+     "tokens_per_round_if_mended": 0.472,
      "where": {
-      "before the first fork": 0.003,
-      "at the first fork": 0.309,
-      "after the first fork": 0.688
+      "before the first fork": 0.005,
+      "at the first fork": 0.321,
+      "after the first fork": 0.674
      },
-     "forks_passed_before_it": 1.27,
+     "forks_passed_before_it": 1.2,
      "token_not_among_the_first_runs_32": 0.0
     }
    },
    "against": {
     "tree63": {
-     "rounds_further": 0.494,
-     "rounds_less_far": 0.0799,
-     "tokens_gained_per_round": 1.117,
-     "tokens_lost_per_round": 0.123,
+     "rounds_further": 0.4164,
+     "rounds_less_far": 0.1112,
+     "tokens_gained_per_round": 0.848,
+     "tokens_lost_per_round": 0.194,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.262,
-      "ranked 2 to 4": 0.472,
-      "ranked 5 or lower": 0.266
+      "ranked first, not kept": 0.146,
+      "ranked 2 to 4": 0.483,
+      "ranked 5 or lower": 0.371
      }
     },
     "ctree63": {
-     "rounds_further": 0.2779,
-     "rounds_less_far": 0.133,
-     "tokens_gained_per_round": 0.506,
-     "tokens_lost_per_round": 0.208,
+     "rounds_further": 0.0232,
+     "rounds_less_far": 0.0175,
+     "tokens_gained_per_round": 0.027,
+     "tokens_lost_per_round": 0.02,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.475,
-      "ranked 2 to 4": 0.467,
-      "ranked 5 or lower": 0.058
-     }
-    },
-    "ctree63m32": {
-     "rounds_further": 0.2741,
-     "rounds_less_far": 0.1346,
-     "tokens_gained_per_round": 0.503,
-     "tokens_lost_per_round": 0.21,
-     "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.486,
-      "ranked 2 to 4": 0.457,
-      "ranked 5 or lower": 0.057
+      "ranked first, not kept": 0.438,
+      "ranked 2 to 4": 0.486,
+      "ranked 5 or lower": 0.076
      }
     },
     "ptree63@opd-p1": {
-     "rounds_further": 0.3205,
-     "rounds_less_far": 0.1517,
-     "tokens_gained_per_round": 0.616,
-     "tokens_lost_per_round": 0.256,
+     "rounds_further": 0.2522,
+     "rounds_less_far": 0.2013,
+     "tokens_gained_per_round": 0.506,
+     "tokens_lost_per_round": 0.379,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.357,
-      "ranked 2 to 4": 0.456,
-      "ranked 5 or lower": 0.187
+      "ranked first, not kept": 0.144,
+      "ranked 2 to 4": 0.561,
+      "ranked 5 or lower": 0.295
      }
     },
     "cptree63@opd-p1c": {
-     "rounds_further": 0.2477,
-     "rounds_less_far": 0.1324,
-     "tokens_gained_per_round": 0.452,
-     "tokens_lost_per_round": 0.204,
+     "rounds_further": 0.1431,
+     "rounds_less_far": 0.171,
+     "tokens_gained_per_round": 0.254,
+     "tokens_lost_per_round": 0.296,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.448,
-      "ranked 2 to 4": 0.482,
-      "ranked 5 or lower": 0.071
+      "ranked first, not kept": 0.207,
+      "ranked 2 to 4": 0.628,
+      "ranked 5 or lower": 0.165
      }
     },
     "stree63@opd-e1": {
-     "rounds_further": 0.2982,
-     "rounds_less_far": 0.1594,
-     "tokens_gained_per_round": 0.589,
-     "tokens_lost_per_round": 0.223,
+     "rounds_further": 0.2549,
+     "rounds_less_far": 0.2512,
+     "tokens_gained_per_round": 0.484,
+     "tokens_lost_per_round": 0.388,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.238,
-      "ranked 2 to 4": 0.509,
-      "ranked 5 or lower": 0.253
+      "ranked first, not kept": 0.115,
+      "ranked 2 to 4": 0.567,
+      "ranked 5 or lower": 0.318
      }
     },
     "stree63p2@opd-e1": {
-     "rounds_further": 0.239,
-     "rounds_less_far": 0.1527,
-     "tokens_gained_per_round": 0.421,
-     "tokens_lost_per_round": 0.235,
+     "rounds_further": 0.2272,
+     "rounds_less_far": 0.2669,
+     "tokens_gained_per_round": 0.418,
+     "tokens_lost_per_round": 0.479,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.31,
-      "ranked 2 to 4": 0.475,
-      "ranked 5 or lower": 0.215
+      "ranked first, not kept": 0.13,
+      "ranked 2 to 4": 0.595,
+      "ranked 5 or lower": 0.275
      }
     },
     "stree63p16@opd-e1": {
-     "rounds_further": 0.211,
-     "rounds_less_far": 0.1491,
-     "tokens_gained_per_round": 0.34,
-     "tokens_lost_per_round": 0.238,
+     "rounds_further": 0.2242,
+     "rounds_less_far": 0.2621,
+     "tokens_gained_per_round": 0.406,
+     "tokens_lost_per_round": 0.537,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.343,
-      "ranked 2 to 4": 0.471,
-      "ranked 5 or lower": 0.186
+      "ranked first, not kept": 0.138,
+      "ranked 2 to 4": 0.593,
+      "ranked 5 or lower": 0.27
      }
     },
     "stree63f255@opd-e1": {
-     "rounds_further": 0.2641,
-     "rounds_less_far": 0.1543,
-     "tokens_gained_per_round": 0.488,
-     "tokens_lost_per_round": 0.232,
+     "rounds_further": 0.237,
+     "rounds_less_far": 0.2561,
+     "tokens_gained_per_round": 0.429,
+     "tokens_lost_per_round": 0.437,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.284,
-      "ranked 2 to 4": 0.486,
-      "ranked 5 or lower": 0.23
+      "ranked first, not kept": 0.127,
+      "ranked 2 to 4": 0.582,
+      "ranked 5 or lower": 0.291
      }
     },
     "cstree63@opd-e1c": {
-     "rounds_further": 0.0857,
-     "rounds_less_far": 0.1114,
-     "tokens_gained_per_round": 0.173,
-     "tokens_lost_per_round": 0.129,
+     "rounds_further": 0.1007,
+     "rounds_less_far": 0.3207,
+     "tokens_gained_per_round": 0.147,
+     "tokens_lost_per_round": 0.381,
      "stopped_by_where_less_far": {
-      "ranked first, not kept": 0.445,
-      "ranked 2 to 4": 0.46,
-      "ranked 5 or lower": 0.095
+      "ranked first, not kept": 0.166,
+      "ranked 2 to 4": 0.629,
+      "ranked 5 or lower": 0.206
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.1348,
+     "rounds_less_far": 0.2642,
+     "tokens_gained_per_round": 0.209,
+     "tokens_lost_per_round": 0.501,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.173,
+      "ranked 2 to 4": 0.637,
+      "ranked 5 or lower": 0.191
+     }
+    }
+   }
+  },
+  "ptree63@opd-p1": {
+   "tokens_per_round": 8.17,
+   "following_the_answer": {
+    "best_1_kept": 6.003,
+    "best_2_kept": 8.173,
+    "best_3_kept": 9.269,
+    "best_4_kept": 9.923,
+    "best_8_kept": 11.152
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.078,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.2576,
+    "share_of_rounds_past_it": 0.7424
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0917,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.506,
+      "after the first fork": 0.494
+     },
+     "forks_passed_before_it": 1.11,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.078,
+     "tokens_of_the_answer_before_it": 5.56,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.078,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.124,
+      "after the first fork": 0.876
+     },
+     "forks_passed_before_it": 1.82,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1276,
+     "tokens_of_the_answer_before_it": 7.24,
+     "would_follow_if_mended": 2.07,
+     "tokens_per_round_if_mended": 0.265,
+     "where": {
+      "before the first fork": 0.064,
+      "at the first fork": 0.043,
+      "after the first fork": 0.893
+     },
+     "forks_passed_before_it": 1.96,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.4106,
+     "tokens_of_the_answer_before_it": 6.62,
+     "would_follow_if_mended": 1.95,
+     "tokens_per_round_if_mended": 0.799,
+     "where": {
+      "before the first fork": 0.043,
+      "at the first fork": 0.2,
+      "after the first fork": 0.757
+     },
+     "forks_passed_before_it": 1.44,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.2921,
+     "tokens_of_the_answer_before_it": 5.88,
+     "would_follow_if_mended": 1.57,
+     "tokens_per_round_if_mended": 0.459,
+     "where": {
+      "before the first fork": 0.013,
+      "at the first fork": 0.288,
+      "after the first fork": 0.699
+     },
+     "forks_passed_before_it": 1.23,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.3862,
+     "rounds_less_far": 0.1306,
+     "tokens_gained_per_round": 0.758,
+     "tokens_lost_per_round": 0.231,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.179,
+      "ranked 2 to 4": 0.584,
+      "ranked 5 or lower": 0.237
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2036,
+     "rounds_less_far": 0.2504,
+     "tokens_gained_per_round": 0.382,
+     "tokens_lost_per_round": 0.502,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.226,
+      "ranked 2 to 4": 0.576,
+      "ranked 5 or lower": 0.198
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2013,
+     "rounds_less_far": 0.2522,
+     "tokens_gained_per_round": 0.379,
+     "tokens_lost_per_round": 0.506,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.226,
+      "ranked 2 to 4": 0.57,
+      "ranked 5 or lower": 0.205
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.1774,
+     "rounds_less_far": 0.2601,
+     "tokens_gained_per_round": 0.326,
+     "tokens_lost_per_round": 0.495,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.213,
+      "ranked 2 to 4": 0.588,
+      "ranked 5 or lower": 0.199
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.2221,
+     "rounds_less_far": 0.2716,
+     "tokens_gained_per_round": 0.401,
+     "tokens_lost_per_round": 0.432,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.172,
+      "ranked 2 to 4": 0.592,
+      "ranked 5 or lower": 0.237
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.1827,
+     "rounds_less_far": 0.2878,
+     "tokens_gained_per_round": 0.32,
+     "tokens_lost_per_round": 0.508,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.186,
+      "ranked 2 to 4": 0.598,
+      "ranked 5 or lower": 0.216
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.1765,
+     "rounds_less_far": 0.2863,
+     "tokens_gained_per_round": 0.298,
+     "tokens_lost_per_round": 0.555,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.201,
+      "ranked 2 to 4": 0.589,
+      "ranked 5 or lower": 0.21
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.1984,
+     "rounds_less_far": 0.2793,
+     "tokens_gained_per_round": 0.343,
+     "tokens_lost_per_round": 0.478,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.185,
+      "ranked 2 to 4": 0.594,
+      "ranked 5 or lower": 0.22
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1488,
+     "rounds_less_far": 0.3518,
+     "tokens_gained_per_round": 0.268,
+     "tokens_lost_per_round": 0.628,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.177,
+      "ranked 2 to 4": 0.576,
+      "ranked 5 or lower": 0.247
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.1488,
+     "rounds_less_far": 0.3294,
+     "tokens_gained_per_round": 0.25,
+     "tokens_lost_per_round": 0.668,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.195,
+      "ranked 2 to 4": 0.571,
+      "ranked 5 or lower": 0.234
+     }
+    }
+   }
+  },
+  "cptree63@opd-p1c": {
+   "tokens_per_round": 8.339,
+   "following_the_answer": {
+    "best_1_kept": 6.13,
+    "best_2_kept": 8.343,
+    "best_3_kept": 9.489,
+    "best_4_kept": 10.121,
+    "best_8_kept": 11.308
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0905,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.2395,
+    "share_of_rounds_past_it": 0.7605
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0954,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.492,
+      "after the first fork": 0.508
+     },
+     "forks_passed_before_it": 1.2,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.0905,
+     "tokens_of_the_answer_before_it": 5.64,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.091,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.103,
+      "after the first fork": 0.897
+     },
+     "forks_passed_before_it": 1.93,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1376,
+     "tokens_of_the_answer_before_it": 7.55,
+     "would_follow_if_mended": 2.05,
+     "tokens_per_round_if_mended": 0.282,
+     "where": {
+      "before the first fork": 0.067,
+      "at the first fork": 0.039,
+      "after the first fork": 0.894
+     },
+     "forks_passed_before_it": 2.15,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.4044,
+     "tokens_of_the_answer_before_it": 6.79,
+     "would_follow_if_mended": 2.03,
+     "tokens_per_round_if_mended": 0.82,
+     "where": {
+      "before the first fork": 0.024,
+      "at the first fork": 0.178,
+      "after the first fork": 0.797
+     },
+     "forks_passed_before_it": 1.62,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.2721,
+     "tokens_of_the_answer_before_it": 5.92,
+     "would_follow_if_mended": 1.7,
+     "tokens_per_round_if_mended": 0.463,
+     "where": {
+      "before the first fork": 0.004,
+      "at the first fork": 0.314,
+      "after the first fork": 0.681
+     },
+     "forks_passed_before_it": 1.22,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4273,
+     "rounds_less_far": 0.1144,
+     "tokens_gained_per_round": 0.9,
+     "tokens_lost_per_round": 0.204,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.162,
+      "ranked 2 to 4": 0.55,
+      "ranked 5 or lower": 0.288
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.175,
+     "rounds_less_far": 0.1403,
+     "tokens_gained_per_round": 0.301,
+     "tokens_lost_per_round": 0.252,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.327,
+      "ranked 2 to 4": 0.564,
+      "ranked 5 or lower": 0.108
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.171,
+     "rounds_less_far": 0.1431,
+     "tokens_gained_per_round": 0.296,
+     "tokens_lost_per_round": 0.254,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.341,
+      "ranked 2 to 4": 0.55,
+      "ranked 5 or lower": 0.11
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.2601,
+     "rounds_less_far": 0.1774,
+     "tokens_gained_per_round": 0.495,
+     "tokens_lost_per_round": 0.326,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.204,
+      "ranked 2 to 4": 0.543,
+      "ranked 5 or lower": 0.252
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.2698,
+     "rounds_less_far": 0.2394,
+     "tokens_gained_per_round": 0.517,
+     "tokens_lost_per_round": 0.379,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.159,
+      "ranked 2 to 4": 0.56,
+      "ranked 5 or lower": 0.281
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.2332,
+     "rounds_less_far": 0.2455,
+     "tokens_gained_per_round": 0.423,
+     "tokens_lost_per_round": 0.442,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.185,
+      "ranked 2 to 4": 0.568,
+      "ranked 5 or lower": 0.247
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.2216,
+     "rounds_less_far": 0.245,
+     "tokens_gained_per_round": 0.395,
+     "tokens_lost_per_round": 0.484,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.2,
+      "ranked 2 to 4": 0.564,
+      "ranked 5 or lower": 0.235
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.2472,
+     "rounds_less_far": 0.2387,
+     "tokens_gained_per_round": 0.448,
+     "tokens_lost_per_round": 0.414,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.185,
+      "ranked 2 to 4": 0.558,
+      "ranked 5 or lower": 0.257
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1315,
+     "rounds_less_far": 0.2723,
+     "tokens_gained_per_round": 0.213,
+     "tokens_lost_per_round": 0.405,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.196,
+      "ranked 2 to 4": 0.608,
+      "ranked 5 or lower": 0.196
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.1343,
+     "rounds_less_far": 0.2439,
+     "tokens_gained_per_round": 0.21,
+     "tokens_lost_per_round": 0.46,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.232,
+      "ranked 2 to 4": 0.595,
+      "ranked 5 or lower": 0.173
+     }
+    }
+   }
+  },
+  "stree63@opd-e1": {
+   "tokens_per_round": 8.2,
+   "following_the_answer": {
+    "best_1_kept": 6.287,
+    "best_2_kept": 8.494,
+    "best_3_kept": 9.509,
+    "best_4_kept": 10.124,
+    "best_8_kept": 11.299
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0765,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.1844,
+    "share_of_rounds_past_it": 0.8156
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0857,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.563,
+      "after the first fork": 0.437
+     },
+     "forks_passed_before_it": 0.66,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.0765,
+     "tokens_of_the_answer_before_it": 5.23,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.076,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.124,
+      "after the first fork": 0.876
+     },
+     "forks_passed_before_it": 1.49,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "no correction left": {
+     "share_of_rounds": 0.2918,
+     "tokens_of_the_answer_before_it": 6.98,
+     "would_follow_if_mended": 2.35,
+     "tokens_per_round_if_mended": 0.686,
+     "where": {
+      "before the first fork": 0.002,
+      "at the first fork": 0.003,
+      "after the first fork": 0.995
+     },
+     "forks_passed_before_it": 2.24,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.604,
+      "2 to 4": 0.284,
+      "5 or lower": 0.112
+     }
+    },
+    "chain token wrong": {
+     "share_of_rounds": 0.1301,
+     "tokens_of_the_answer_before_it": 6.74,
+     "would_follow_if_mended": 2.06,
+     "tokens_per_round_if_mended": 0.268,
+     "where": {
+      "before the first fork": 0.005,
+      "at the first fork": 0.019,
+      "after the first fork": 0.976
+     },
+     "forks_passed_before_it": 2.0,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.298,
+      "2 to 4": 0.487,
+      "5 or lower": 0.216
+     }
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.0738,
+     "tokens_of_the_answer_before_it": 7.38,
+     "would_follow_if_mended": 2.05,
+     "tokens_per_round_if_mended": 0.151,
+     "where": {
+      "before the first fork": 0.109,
+      "at the first fork": 0.068,
+      "after the first fork": 0.824
+     },
+     "forks_passed_before_it": 1.2,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.1644,
+     "tokens_of_the_answer_before_it": 6.42,
+     "would_follow_if_mended": 1.88,
+     "tokens_per_round_if_mended": 0.309,
+     "where": {
+      "before the first fork": 0.03,
+      "at the first fork": 0.222,
+      "after the first fork": 0.748
+     },
+     "forks_passed_before_it": 0.91,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.1777,
+     "tokens_of_the_answer_before_it": 5.64,
+     "would_follow_if_mended": 1.55,
+     "tokens_per_round_if_mended": 0.275,
+     "where": {
+      "before the first fork": 0.003,
+      "at the first fork": 0.378,
+      "after the first fork": 0.619
+     },
+     "forks_passed_before_it": 0.73,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4981,
+     "rounds_less_far": 0.054,
+     "tokens_gained_per_round": 0.628,
+     "tokens_lost_per_round": 0.071,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.341,
+      "ranked 2 to 4": 0.464,
+      "ranked 5 or lower": 0.195
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2502,
+     "rounds_less_far": 0.2495,
+     "tokens_gained_per_round": 0.386,
+     "tokens_lost_per_round": 0.475,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.368,
+      "chain token wrong": 0.146,
+      "ranked first, not kept": 0.15,
+      "ranked 2 to 4": 0.216,
+      "ranked 5 or lower": 0.12
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2512,
+     "rounds_less_far": 0.2549,
+     "tokens_gained_per_round": 0.388,
+     "tokens_lost_per_round": 0.484,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.368,
+      "chain token wrong": 0.156,
+      "ranked first, not kept": 0.145,
+      "ranked 2 to 4": 0.208,
+      "ranked 5 or lower": 0.123
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.2716,
+     "rounds_less_far": 0.2221,
+     "tokens_gained_per_round": 0.432,
+     "tokens_lost_per_round": 0.401,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.398,
+      "chain token wrong": 0.159,
+      "ranked first, not kept": 0.147,
+      "ranked 2 to 4": 0.198,
+      "ranked 5 or lower": 0.099
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.2394,
+     "rounds_less_far": 0.2698,
+     "tokens_gained_per_round": 0.379,
+     "tokens_lost_per_round": 0.517,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.392,
+      "chain token wrong": 0.16,
+      "ranked first, not kept": 0.133,
+      "ranked 2 to 4": 0.195,
+      "ranked 5 or lower": 0.121
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.0815,
+     "rounds_less_far": 0.1914,
+     "tokens_gained_per_round": 0.09,
+     "tokens_lost_per_round": 0.247,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.716,
+      "chain token wrong": 0.258,
+      "ranked first, not kept": 0.026
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.1089,
+     "rounds_less_far": 0.1749,
+     "tokens_gained_per_round": 0.129,
+     "tokens_lost_per_round": 0.357,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.71,
+      "chain token wrong": 0.265,
+      "ranked first, not kept": 0.026
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.06,
+     "rounds_less_far": 0.1209,
+     "tokens_gained_per_round": 0.065,
+     "tokens_lost_per_round": 0.17,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.713,
+      "chain token wrong": 0.26,
+      "ranked first, not kept": 0.026,
+      "ranked 5 or lower": 0.001
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1346,
+     "rounds_less_far": 0.3108,
+     "tokens_gained_per_round": 0.206,
+     "tokens_lost_per_round": 0.536,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.398,
+      "chain token wrong": 0.192,
+      "ranked first, not kept": 0.11,
+      "ranked 2 to 4": 0.185,
+      "ranked 5 or lower": 0.116
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.151,
+     "rounds_less_far": 0.308,
+     "tokens_gained_per_round": 0.209,
+     "tokens_lost_per_round": 0.598,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.459,
+      "chain token wrong": 0.182,
+      "ranked first, not kept": 0.102,
+      "ranked 2 to 4": 0.161,
+      "ranked 5 or lower": 0.096
      }
     }
    },
    "a_round": {
-    "nodes_from_the_first_run": 37.26,
-    "nodes_from_the_second_run": 25.74,
-    "rows_of_the_pass": 93.66,
-    "first_tree_nodes_dropped": 25.74,
+    "nodes_from_the_first_run": 34.64,
+    "nodes_from_the_second_run": 28.36,
+    "rows_of_the_pass": 61.72,
+    "first_tree_nodes_dropped": 28.36
+   }
+  },
+  "stree63p2@opd-e1": {
+   "tokens_per_round": 8.357,
+   "following_the_answer": {
+    "best_1_kept": 6.287,
+    "best_2_kept": 8.494,
+    "best_3_kept": 9.509,
+    "best_4_kept": 10.124,
+    "best_8_kept": 11.299
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0857,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.2059,
+    "share_of_rounds_past_it": 0.7941
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0917,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.521,
+      "after the first fork": 0.479
+     },
+     "forks_passed_before_it": 0.89,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.0857,
+     "tokens_of_the_answer_before_it": 5.37,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.086,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.105,
+      "after the first fork": 0.895
+     },
+     "forks_passed_before_it": 1.81,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "no correction left": {
+     "share_of_rounds": 0.0807,
+     "tokens_of_the_answer_before_it": 8.3,
+     "would_follow_if_mended": 2.54,
+     "tokens_per_round_if_mended": 0.205,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.0,
+      "after the first fork": 1.0
+     },
+     "forks_passed_before_it": 3.68,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.7,
+      "2 to 4": 0.226,
+      "5 or lower": 0.075
+     }
+    },
+    "chain token wrong": {
+     "share_of_rounds": 0.0586,
+     "tokens_of_the_answer_before_it": 7.7,
+     "would_follow_if_mended": 2.07,
+     "tokens_per_round_if_mended": 0.122,
+     "where": {
+      "before the first fork": 0.003,
+      "at the first fork": 0.003,
+      "after the first fork": 0.994
+     },
+     "forks_passed_before_it": 3.01,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.333,
+      "2 to 4": 0.487,
+      "5 or lower": 0.179
+     }
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1467,
+     "tokens_of_the_answer_before_it": 7.27,
+     "would_follow_if_mended": 2.12,
+     "tokens_per_round_if_mended": 0.311,
+     "where": {
+      "before the first fork": 0.068,
+      "at the first fork": 0.044,
+      "after the first fork": 0.887
+     },
+     "forks_passed_before_it": 1.7,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.2966,
+     "tokens_of_the_answer_before_it": 6.55,
+     "would_follow_if_mended": 1.92,
+     "tokens_per_round_if_mended": 0.57,
+     "where": {
+      "before the first fork": 0.023,
+      "at the first fork": 0.164,
+      "after the first fork": 0.813
+     },
+     "forks_passed_before_it": 1.26,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.24,
+     "tokens_of_the_answer_before_it": 5.8,
+     "would_follow_if_mended": 1.62,
+     "tokens_per_round_if_mended": 0.388,
+     "where": {
+      "before the first fork": 0.005,
+      "at the first fork": 0.315,
+      "after the first fork": 0.68
+     },
+     "forks_passed_before_it": 0.99,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4498,
+     "rounds_less_far": 0.0773,
+     "tokens_gained_per_round": 0.821,
+     "tokens_lost_per_round": 0.106,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.326,
+      "ranked 2 to 4": 0.479,
+      "ranked 5 or lower": 0.194
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2674,
+     "rounds_less_far": 0.2242,
+     "tokens_gained_per_round": 0.479,
+     "tokens_lost_per_round": 0.411,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.095,
+      "chain token wrong": 0.047,
+      "ranked first, not kept": 0.28,
+      "ranked 2 to 4": 0.399,
+      "ranked 5 or lower": 0.179
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2669,
+     "rounds_less_far": 0.2272,
+     "tokens_gained_per_round": 0.479,
+     "tokens_lost_per_round": 0.418,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.092,
+      "chain token wrong": 0.046,
+      "ranked first, not kept": 0.28,
+      "ranked 2 to 4": 0.395,
+      "ranked 5 or lower": 0.187
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.2878,
+     "rounds_less_far": 0.1827,
+     "tokens_gained_per_round": 0.508,
+     "tokens_lost_per_round": 0.32,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.115,
+      "chain token wrong": 0.047,
+      "ranked first, not kept": 0.276,
+      "ranked 2 to 4": 0.395,
+      "ranked 5 or lower": 0.167
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.2455,
+     "rounds_less_far": 0.2332,
+     "tokens_gained_per_round": 0.442,
+     "tokens_lost_per_round": 0.423,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.117,
+      "chain token wrong": 0.053,
+      "ranked first, not kept": 0.256,
+      "ranked 2 to 4": 0.383,
+      "ranked 5 or lower": 0.191
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.1914,
+     "rounds_less_far": 0.0815,
+     "tokens_gained_per_round": 0.247,
+     "tokens_lost_per_round": 0.09,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.33,
+      "ranked 2 to 4": 0.502,
+      "ranked 5 or lower": 0.168
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.0496,
+     "rounds_less_far": 0.0635,
+     "tokens_gained_per_round": 0.058,
+     "tokens_lost_per_round": 0.128,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.671,
+      "chain token wrong": 0.213,
+      "ranked first, not kept": 0.116
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.097,
+     "rounds_less_far": 0.0484,
+     "tokens_gained_per_round": 0.115,
+     "tokens_lost_per_round": 0.062,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.159,
+      "chain token wrong": 0.024,
+      "ranked first, not kept": 0.359,
+      "ranked 2 to 4": 0.334,
+      "ranked 5 or lower": 0.124
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1592,
+     "rounds_less_far": 0.2691,
+     "tokens_gained_per_round": 0.258,
+     "tokens_lost_per_round": 0.431,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.11,
+      "chain token wrong": 0.057,
+      "ranked first, not kept": 0.24,
+      "ranked 2 to 4": 0.402,
+      "ranked 5 or lower": 0.192
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.1433,
+     "rounds_less_far": 0.2567,
+     "tokens_gained_per_round": 0.22,
+     "tokens_lost_per_round": 0.451,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.171,
+      "chain token wrong": 0.07,
+      "ranked first, not kept": 0.243,
+      "ranked 2 to 4": 0.355,
+      "ranked 5 or lower": 0.161
+     }
+    }
+   },
+   "a_round": {
+    "nodes_from_the_first_run": 32.24,
+    "nodes_from_the_second_run": 30.76,
+    "rows_of_the_pass": 89.48,
+    "first_tree_nodes_dropped": 30.76,
+    "more_passes": 1.0
+   }
+  },
+  "stree63p16@opd-e1": {
+   "tokens_per_round": 8.427,
+   "following_the_answer": {
+    "best_1_kept": 6.287,
+    "best_2_kept": 8.494,
+    "best_3_kept": 9.509,
+    "best_4_kept": 10.124,
+    "best_8_kept": 11.299
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0862,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.2158,
+    "share_of_rounds_past_it": 0.7842
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0974,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.48,
+      "after the first fork": 0.52
+     },
+     "forks_passed_before_it": 1.29,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.0862,
+     "tokens_of_the_answer_before_it": 5.43,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.086,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.105,
+      "after the first fork": 0.895
+     },
+     "forks_passed_before_it": 1.94,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1842,
+     "tokens_of_the_answer_before_it": 7.56,
+     "would_follow_if_mended": 2.16,
+     "tokens_per_round_if_mended": 0.397,
+     "where": {
+      "before the first fork": 0.063,
+      "at the first fork": 0.039,
+      "after the first fork": 0.898
+     },
+     "forks_passed_before_it": 2.15,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.3691,
+     "tokens_of_the_answer_before_it": 6.86,
+     "would_follow_if_mended": 1.95,
+     "tokens_per_round_if_mended": 0.72,
+     "where": {
+      "before the first fork": 0.021,
+      "at the first fork": 0.148,
+      "after the first fork": 0.83
+     },
+     "forks_passed_before_it": 1.64,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.2631,
+     "tokens_of_the_answer_before_it": 5.98,
+     "would_follow_if_mended": 1.62,
+     "tokens_per_round_if_mended": 0.425,
+     "where": {
+      "before the first fork": 0.005,
+      "at the first fork": 0.294,
+      "after the first fork": 0.701
+     },
+     "forks_passed_before_it": 1.22,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4316,
+     "rounds_less_far": 0.0875,
+     "tokens_gained_per_round": 0.91,
+     "tokens_lost_per_round": 0.125,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.319,
+      "ranked 2 to 4": 0.492,
+      "ranked 5 or lower": 0.189
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2626,
+     "rounds_less_far": 0.2216,
+     "tokens_gained_per_round": 0.538,
+     "tokens_lost_per_round": 0.4,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.332,
+      "ranked 2 to 4": 0.471,
+      "ranked 5 or lower": 0.197
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2621,
+     "rounds_less_far": 0.2242,
+     "tokens_gained_per_round": 0.537,
+     "tokens_lost_per_round": 0.406,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.331,
+      "ranked 2 to 4": 0.466,
+      "ranked 5 or lower": 0.203
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.2863,
+     "rounds_less_far": 0.1765,
+     "tokens_gained_per_round": 0.555,
+     "tokens_lost_per_round": 0.298,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.338,
+      "ranked 2 to 4": 0.477,
+      "ranked 5 or lower": 0.185
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.245,
+     "rounds_less_far": 0.2216,
+     "tokens_gained_per_round": 0.484,
+     "tokens_lost_per_round": 0.395,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.309,
+      "ranked 2 to 4": 0.476,
+      "ranked 5 or lower": 0.215
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.1749,
+     "rounds_less_far": 0.1089,
+     "tokens_gained_per_round": 0.357,
+     "tokens_lost_per_round": 0.129,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.308,
+      "ranked 2 to 4": 0.535,
+      "ranked 5 or lower": 0.156
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.0635,
+     "rounds_less_far": 0.0496,
+     "tokens_gained_per_round": 0.128,
+     "tokens_lost_per_round": 0.058,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.461,
+      "ranked 2 to 4": 0.465,
+      "ranked 5 or lower": 0.074
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.1072,
+     "rounds_less_far": 0.0727,
+     "tokens_gained_per_round": 0.209,
+     "tokens_lost_per_round": 0.086,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.393,
+      "ranked 2 to 4": 0.478,
+      "ranked 5 or lower": 0.129
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1602,
+     "rounds_less_far": 0.2661,
+     "tokens_gained_per_round": 0.31,
+     "tokens_lost_per_round": 0.413,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.296,
+      "ranked 2 to 4": 0.495,
+      "ranked 5 or lower": 0.209
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.14,
+     "rounds_less_far": 0.2355,
+     "tokens_gained_per_round": 0.224,
+     "tokens_lost_per_round": 0.385,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.33,
+      "ranked 2 to 4": 0.483,
+      "ranked 5 or lower": 0.187
+     }
+    }
+   },
+   "a_round": {
+    "nodes_from_the_first_run": 31.36,
+    "nodes_from_the_second_run": 31.64,
+    "rows_of_the_pass": 105.36,
+    "first_tree_nodes_dropped": 31.64,
+    "more_passes": 3.37
+   }
+  },
+  "stree63f255@opd-e1": {
+   "tokens_per_round": 8.304,
+   "following_the_answer": {
+    "best_1_kept": 6.287,
+    "best_2_kept": 8.494,
+    "best_3_kept": 9.509,
+    "best_4_kept": 10.124,
+    "best_8_kept": 11.299
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.0783,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.1993,
+    "share_of_rounds_past_it": 0.8007
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.0904,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.53,
+      "after the first fork": 0.47
+     },
+     "forks_passed_before_it": 0.81,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.0783,
+     "tokens_of_the_answer_before_it": 5.25,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.078,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.115,
+      "after the first fork": 0.885
+     },
+     "forks_passed_before_it": 1.59,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "no correction left": {
+     "share_of_rounds": 0.1512,
+     "tokens_of_the_answer_before_it": 7.17,
+     "would_follow_if_mended": 2.32,
+     "tokens_per_round_if_mended": 0.351,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.0,
+      "after the first fork": 1.0
+     },
+     "forks_passed_before_it": 2.92,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.638,
+      "2 to 4": 0.243,
+      "5 or lower": 0.119
+     }
+    },
+    "chain token wrong": {
+     "share_of_rounds": 0.0899,
+     "tokens_of_the_answer_before_it": 6.88,
+     "would_follow_if_mended": 2.12,
+     "tokens_per_round_if_mended": 0.19,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.0,
+      "after the first fork": 1.0
+     },
+     "forks_passed_before_it": 2.55,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.331,
+      "2 to 4": 0.485,
+      "5 or lower": 0.184
+     }
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1204,
+     "tokens_of_the_answer_before_it": 7.37,
+     "would_follow_if_mended": 2.12,
+     "tokens_per_round_if_mended": 0.255,
+     "where": {
+      "before the first fork": 0.075,
+      "at the first fork": 0.05,
+      "after the first fork": 0.875
+     },
+     "forks_passed_before_it": 1.46,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.2534,
+     "tokens_of_the_answer_before_it": 6.65,
+     "would_follow_if_mended": 1.91,
+     "tokens_per_round_if_mended": 0.483,
+     "where": {
+      "before the first fork": 0.026,
+      "at the first fork": 0.179,
+      "after the first fork": 0.796
+     },
+     "forks_passed_before_it": 1.11,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.2165,
+     "tokens_of_the_answer_before_it": 5.83,
+     "would_follow_if_mended": 1.61,
+     "tokens_per_round_if_mended": 0.348,
+     "where": {
+      "before the first fork": 0.004,
+      "at the first fork": 0.345,
+      "after the first fork": 0.651
+     },
+     "forks_passed_before_it": 0.85,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4652,
+     "rounds_less_far": 0.0702,
+     "tokens_gained_per_round": 0.758,
+     "tokens_lost_per_round": 0.096,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.314,
+      "ranked 2 to 4": 0.486,
+      "ranked 5 or lower": 0.2
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2559,
+     "rounds_less_far": 0.2327,
+     "tokens_gained_per_round": 0.436,
+     "tokens_lost_per_round": 0.42,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.169,
+      "chain token wrong": 0.086,
+      "ranked first, not kept": 0.243,
+      "ranked 2 to 4": 0.345,
+      "ranked 5 or lower": 0.158
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2561,
+     "rounds_less_far": 0.237,
+     "tokens_gained_per_round": 0.437,
+     "tokens_lost_per_round": 0.429,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.172,
+      "chain token wrong": 0.092,
+      "ranked first, not kept": 0.237,
+      "ranked 2 to 4": 0.337,
+      "ranked 5 or lower": 0.162
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.2793,
+     "rounds_less_far": 0.1984,
+     "tokens_gained_per_round": 0.478,
+     "tokens_lost_per_round": 0.343,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.211,
+      "chain token wrong": 0.102,
+      "ranked first, not kept": 0.229,
+      "ranked 2 to 4": 0.319,
+      "ranked 5 or lower": 0.139
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.2387,
+     "rounds_less_far": 0.2472,
+     "tokens_gained_per_round": 0.414,
+     "tokens_lost_per_round": 0.448,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.211,
+      "chain token wrong": 0.108,
+      "ranked first, not kept": 0.209,
+      "ranked 2 to 4": 0.309,
+      "ranked 5 or lower": 0.163
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.1209,
+     "rounds_less_far": 0.06,
+     "tokens_gained_per_round": 0.17,
+     "tokens_lost_per_round": 0.065,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.006,
+      "chain token wrong": 0.008,
+      "ranked first, not kept": 0.362,
+      "ranked 2 to 4": 0.468,
+      "ranked 5 or lower": 0.156
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.0484,
+     "rounds_less_far": 0.097,
+     "tokens_gained_per_round": 0.062,
+     "tokens_lost_per_round": 0.115,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.611,
+      "chain token wrong": 0.291,
+      "ranked first, not kept": 0.072,
+      "ranked 2 to 4": 0.019,
+      "ranked 5 or lower": 0.007
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.0727,
+     "rounds_less_far": 0.1072,
+     "tokens_gained_per_round": 0.086,
+     "tokens_lost_per_round": 0.209,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.645,
+      "chain token wrong": 0.287,
+      "ranked first, not kept": 0.061,
+      "ranked 2 to 4": 0.003,
+      "ranked 5 or lower": 0.005
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.1433,
+     "rounds_less_far": 0.286,
+     "tokens_gained_per_round": 0.235,
+     "tokens_lost_per_round": 0.461,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.207,
+      "chain token wrong": 0.131,
+      "ranked first, not kept": 0.191,
+      "ranked 2 to 4": 0.313,
+      "ranked 5 or lower": 0.158
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.145,
+     "rounds_less_far": 0.2778,
+     "tokens_gained_per_round": 0.217,
+     "tokens_lost_per_round": 0.501,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.274,
+      "chain token wrong": 0.143,
+      "ranked first, not kept": 0.185,
+      "ranked 2 to 4": 0.269,
+      "ranked 5 or lower": 0.129
+     }
+    }
+   },
+   "a_round": {
+    "nodes_from_the_first_run": 47.53,
+    "nodes_from_the_second_run": 15.47,
+    "rows_of_the_pass": 245.94,
+    "first_tree_nodes_dropped": 207.47
+   }
+  },
+  "cstree63@opd-e1c": {
+   "tokens_per_round": 8.53,
+   "following_the_answer": {
+    "best_1_kept": 6.374,
+    "best_2_kept": 8.734,
+    "best_3_kept": 9.822,
+    "best_4_kept": 10.464,
+    "best_8_kept": 11.562
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.1052,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.1896,
+    "share_of_rounds_past_it": 0.8104
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.1061,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.449,
+      "after the first fork": 0.551
+     },
+     "forks_passed_before_it": 1.24,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.1052,
+     "tokens_of_the_answer_before_it": 5.67,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.105,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.089,
+      "after the first fork": 0.911
+     },
+     "forks_passed_before_it": 2.01,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "no correction left": {
+     "share_of_rounds": 0.2095,
+     "tokens_of_the_answer_before_it": 6.71,
+     "would_follow_if_mended": 2.46,
+     "tokens_per_round_if_mended": 0.515,
+     "where": {
+      "before the first fork": 0.014,
+      "at the first fork": 0.013,
+      "after the first fork": 0.974
+     },
+     "forks_passed_before_it": 2.31,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.63,
+      "2 to 4": 0.278,
+      "5 or lower": 0.092
+     }
+    },
+    "chain token wrong": {
+     "share_of_rounds": 0.0459,
+     "tokens_of_the_answer_before_it": 7.09,
+     "would_follow_if_mended": 2.12,
+     "tokens_per_round_if_mended": 0.097,
+     "where": {
+      "before the first fork": 0.007,
+      "at the first fork": 0.025,
+      "after the first fork": 0.967
+     },
+     "forks_passed_before_it": 2.67,
+     "token_not_among_the_first_runs_32": 0.0,
+     "with_a_row_the_answers_token_would_be": {
+      "first": 0.142,
+      "2 to 4": 0.622,
+      "5 or lower": 0.236
+     }
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1117,
+     "tokens_of_the_answer_before_it": 8.07,
+     "would_follow_if_mended": 2.09,
+     "tokens_per_round_if_mended": 0.233,
+     "where": {
+      "before the first fork": 0.064,
+      "at the first fork": 0.049,
+      "after the first fork": 0.886
+     },
+     "forks_passed_before_it": 2.15,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.2283,
+     "tokens_of_the_answer_before_it": 6.76,
+     "would_follow_if_mended": 2.09,
+     "tokens_per_round_if_mended": 0.478,
+     "where": {
+      "before the first fork": 0.027,
+      "at the first fork": 0.164,
+      "after the first fork": 0.809
+     },
+     "forks_passed_before_it": 1.49,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.1933,
+     "tokens_of_the_answer_before_it": 6.03,
+     "would_follow_if_mended": 1.81,
+     "tokens_per_round_if_mended": 0.349,
+     "where": {
+      "before the first fork": 0.003,
+      "at the first fork": 0.355,
+      "after the first fork": 0.641
+     },
+     "forks_passed_before_it": 1.06,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.5111,
+     "rounds_less_far": 0.0805,
+     "tokens_gained_per_round": 1.024,
+     "tokens_lost_per_round": 0.136,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.29,
+      "chain token wrong": 0.021,
+      "ranked first, not kept": 0.137,
+      "ranked 2 to 4": 0.313,
+      "ranked 5 or lower": 0.239
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.3219,
+     "rounds_less_far": 0.0987,
+     "tokens_gained_per_round": 0.386,
+     "tokens_lost_per_round": 0.145,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.007,
+      "ranked first, not kept": 0.447,
+      "ranked 2 to 4": 0.46,
+      "ranked 5 or lower": 0.086
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.3207,
+     "rounds_less_far": 0.1007,
+     "tokens_gained_per_round": 0.381,
+     "tokens_lost_per_round": 0.147,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.454,
+      "ranked 2 to 4": 0.463,
+      "ranked 5 or lower": 0.083
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.3518,
+     "rounds_less_far": 0.1488,
+     "tokens_gained_per_round": 0.628,
+     "tokens_lost_per_round": 0.268,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.314,
+      "chain token wrong": 0.031,
+      "ranked first, not kept": 0.184,
+      "ranked 2 to 4": 0.292,
+      "ranked 5 or lower": 0.178
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.2723,
+     "rounds_less_far": 0.1315,
+     "tokens_gained_per_round": 0.405,
+     "tokens_lost_per_round": 0.213,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.269,
+      "chain token wrong": 0.025,
+      "ranked first, not kept": 0.283,
+      "ranked 2 to 4": 0.339,
+      "ranked 5 or lower": 0.083
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.3108,
+     "rounds_less_far": 0.1346,
+     "tokens_gained_per_round": 0.536,
+     "tokens_lost_per_round": 0.206,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.318,
+      "chain token wrong": 0.03,
+      "ranked first, not kept": 0.109,
+      "ranked 2 to 4": 0.318,
+      "ranked 5 or lower": 0.226
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.2691,
+     "rounds_less_far": 0.1592,
+     "tokens_gained_per_round": 0.431,
+     "tokens_lost_per_round": 0.258,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.447,
+      "chain token wrong": 0.056,
+      "ranked first, not kept": 0.112,
+      "ranked 2 to 4": 0.235,
+      "ranked 5 or lower": 0.15
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.2661,
+     "rounds_less_far": 0.1602,
+     "tokens_gained_per_round": 0.413,
+     "tokens_lost_per_round": 0.31,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.482,
+      "chain token wrong": 0.058,
+      "ranked first, not kept": 0.117,
+      "ranked 2 to 4": 0.209,
+      "ranked 5 or lower": 0.135
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.286,
+     "rounds_less_far": 0.1433,
+     "tokens_gained_per_round": 0.461,
+     "tokens_lost_per_round": 0.235,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.415,
+      "chain token wrong": 0.027,
+      "ranked first, not kept": 0.115,
+      "ranked 2 to 4": 0.263,
+      "ranked 5 or lower": 0.179
+     }
+    },
+    "cstree63p16@opd-e1c": {
+     "rounds_further": 0.1066,
+     "rounds_less_far": 0.0872,
+     "tokens_gained_per_round": 0.125,
+     "tokens_lost_per_round": 0.184,
+     "stopped_by_where_less_far": {
+      "no correction left": 0.874,
+      "chain token wrong": 0.119,
+      "ranked first, not kept": 0.008
+     }
+    }
+   },
+   "a_round": {
+    "nodes_from_the_first_run": 40.58,
+    "nodes_from_the_second_run": 22.42,
+    "rows_of_the_pass": 61.22,
+    "first_tree_nodes_dropped": 22.42
+   }
+  },
+  "cstree63p16@opd-e1c": {
+   "tokens_per_round": 8.589,
+   "following_the_answer": {
+    "best_1_kept": 6.374,
+    "best_2_kept": 8.734,
+    "best_3_kept": 9.822,
+    "best_4_kept": 10.464,
+    "best_8_kept": 11.562
+   },
+   "candidates_reach": 12.377,
+   "stops_at_a_token_not_among_the_first_runs_32": 0.1049,
+   "tokens_past_the_first_fork": {
+    "none (stops before or at it)": 0.2118,
+    "share_of_rounds_past_it": 0.7882
+   },
+   "why_the_path_stops": {
+    "block end": {
+     "share_of_rounds": 0.1062,
+     "tokens_of_the_answer_before_it": 15.0,
+     "would_follow_if_mended": 0.0,
+     "tokens_per_round_if_mended": 0.0,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.448,
+      "after the first fork": 0.552
+     },
+     "forks_passed_before_it": 1.42,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "not a candidate": {
+     "share_of_rounds": 0.1049,
+     "tokens_of_the_answer_before_it": 5.57,
+     "would_follow_if_mended": 1.0,
+     "tokens_per_round_if_mended": 0.105,
+     "where": {
+      "before the first fork": 0.0,
+      "at the first fork": 0.091,
+      "after the first fork": 0.909
+     },
+     "forks_passed_before_it": 2.09,
+     "token_not_among_the_first_runs_32": 1.0
+    },
+    "ranked first, not kept": {
+     "share_of_rounds": 0.1976,
+     "tokens_of_the_answer_before_it": 7.74,
+     "would_follow_if_mended": 2.22,
+     "tokens_per_round_if_mended": 0.438,
+     "where": {
+      "before the first fork": 0.06,
+      "at the first fork": 0.041,
+      "after the first fork": 0.899
+     },
+     "forks_passed_before_it": 2.31,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 2 to 4": {
+     "share_of_rounds": 0.3579,
+     "tokens_of_the_answer_before_it": 6.9,
+     "would_follow_if_mended": 2.15,
+     "tokens_per_round_if_mended": 0.77,
+     "where": {
+      "before the first fork": 0.021,
+      "at the first fork": 0.145,
+      "after the first fork": 0.834
+     },
+     "forks_passed_before_it": 1.81,
+     "token_not_among_the_first_runs_32": 0.0
+    },
+    "ranked 5 or lower": {
+     "share_of_rounds": 0.2333,
+     "tokens_of_the_answer_before_it": 6.04,
+     "would_follow_if_mended": 1.82,
+     "tokens_per_round_if_mended": 0.424,
+     "where": {
+      "before the first fork": 0.004,
+      "at the first fork": 0.319,
+      "after the first fork": 0.677
+     },
+     "forks_passed_before_it": 1.22,
+     "token_not_among_the_first_runs_32": 0.0
+    }
+   },
+   "against": {
+    "tree63": {
+     "rounds_further": 0.4861,
+     "rounds_less_far": 0.0865,
+     "tokens_gained_per_round": 1.083,
+     "tokens_lost_per_round": 0.137,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.264,
+      "ranked 2 to 4": 0.456,
+      "ranked 5 or lower": 0.28
+     }
+    },
+    "ctree63": {
+     "rounds_further": 0.2686,
+     "rounds_less_far": 0.1328,
+     "tokens_gained_per_round": 0.506,
+     "tokens_lost_per_round": 0.206,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.463,
+      "ranked 2 to 4": 0.459,
+      "ranked 5 or lower": 0.078
+     }
+    },
+    "ctree63m32": {
+     "rounds_further": 0.2642,
+     "rounds_less_far": 0.1348,
+     "tokens_gained_per_round": 0.501,
+     "tokens_lost_per_round": 0.209,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.467,
+      "ranked 2 to 4": 0.458,
+      "ranked 5 or lower": 0.074
+     }
+    },
+    "ptree63@opd-p1": {
+     "rounds_further": 0.3294,
+     "rounds_less_far": 0.1488,
+     "tokens_gained_per_round": 0.668,
+     "tokens_lost_per_round": 0.25,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.339,
+      "ranked 2 to 4": 0.449,
+      "ranked 5 or lower": 0.212
+     }
+    },
+    "cptree63@opd-p1c": {
+     "rounds_further": 0.2439,
+     "rounds_less_far": 0.1343,
+     "tokens_gained_per_round": 0.46,
+     "tokens_lost_per_round": 0.21,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.439,
+      "ranked 2 to 4": 0.465,
+      "ranked 5 or lower": 0.096
+     }
+    },
+    "stree63@opd-e1": {
+     "rounds_further": 0.308,
+     "rounds_less_far": 0.151,
+     "tokens_gained_per_round": 0.598,
+     "tokens_lost_per_round": 0.209,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.248,
+      "ranked 2 to 4": 0.487,
+      "ranked 5 or lower": 0.265
+     }
+    },
+    "stree63p2@opd-e1": {
+     "rounds_further": 0.2567,
+     "rounds_less_far": 0.1433,
+     "tokens_gained_per_round": 0.451,
+     "tokens_lost_per_round": 0.22,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.302,
+      "ranked 2 to 4": 0.471,
+      "ranked 5 or lower": 0.227
+     }
+    },
+    "stree63p16@opd-e1": {
+     "rounds_further": 0.2355,
+     "rounds_less_far": 0.14,
+     "tokens_gained_per_round": 0.385,
+     "tokens_lost_per_round": 0.224,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.333,
+      "ranked 2 to 4": 0.462,
+      "ranked 5 or lower": 0.205
+     }
+    },
+    "stree63f255@opd-e1": {
+     "rounds_further": 0.2778,
+     "rounds_less_far": 0.145,
+     "tokens_gained_per_round": 0.501,
+     "tokens_lost_per_round": 0.217,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.28,
+      "ranked 2 to 4": 0.478,
+      "ranked 5 or lower": 0.242
+     }
+    },
+    "cstree63@opd-e1c": {
+     "rounds_further": 0.0872,
+     "rounds_less_far": 0.1066,
+     "tokens_gained_per_round": 0.184,
+     "tokens_lost_per_round": 0.125,
+     "stopped_by_where_less_far": {
+      "ranked first, not kept": 0.433,
+      "ranked 2 to 4": 0.464,
+      "ranked 5 or lower": 0.103
+     }
+    }
+   },
+   "a_round": {
+    "nodes_from_the_first_run": 37.48,
+    "nodes_from_the_second_run": 25.52,
+    "rows_of_the_pass": 93.61,
+    "first_tree_nodes_dropped": 25.52,
     "more_passes": 2.97
    }
   }
