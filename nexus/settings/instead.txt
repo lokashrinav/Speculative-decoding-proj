@@ -165,4 +165,12 @@ live-lean-opd-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --p
 # trees. The speed test (count-tree-opd-0) gets the tree with counts, with those rows, and with the window.
 # (Results in nexus/results/train-depth3b-opd-0: WHAT ADDS TO THE TREE WITH COUNTS, replay.)
 train-depth3b-opd-0: redraft_long.py --draft opd --data-dir ~/specdec-data/long1 --part validation --max-answers 8 --max-hours 2.5 --count-data ~/specdec-data/think1 --settings plain,tree63,ctree63,tree63_echo4r4,ctree63_echo4r4,tree39_echo4r4,ctree39_echo4r4,btree63f40t2n@~opd-s2,cbtree63f40t2n@~opd-s2,btree63f40t2n@~opd-s3,cbtree63f40t2n@~opd-s3,tree95,ctree95
-count-tree-opd-0: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.4 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+ctree63_echo4r4,plain+tree63_echo4r4,plain+tree63_restart4pxt3@opd-m0,plain+btree63f40t2n@~opd-r1,plain+cbtree63f40t2n@~opd-s2,plain+btree63f40t2b8p@opd-m0,plain+tree95,plain:window=4096+ctree63_echo4r4
+# (Nov 19, 00:50 UTC) Both replays are read (docs/DIRECTION.md). DForkTree's counts add 9.6% tokens to DDTree for nothing;
+# on top of them one, two and three trained layers add -0.6%, +0.2% and +0.5%, and the whole drafter with predicted
+# states +2.0% for a whole run. What matters most now is REAL SPEED with the counts, so the speed test takes the next
+# free place (train-more-opd-1, about 01:30 UTC) and the two-layer training on the new text, which no longer decides
+# anything, takes the later, shorter place (count-tree-opd-0).
+# (Results in nexus/results/train-more-opd-1: REAL DECODING with the tree with counts, the rows of what the target
+# already said, the second run; nexus/results/count-tree-opd-0: two layers trained on long1 + think1, opd-s2x.)
+train-more-opd-1: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.6 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+ctree95,plain+ctree63_echo4r4,plain+ctree39_echo4r4,plain+tree63_echo4r4,plain+cbtree63f40t2n@~opd-s2,plain+btree63f40t2n@~opd-r1,plain+tree63_restart4pxt3@opd-m0,plain:window=4096+ctree63,plain:window=4096+ctree63_echo4r4
+count-tree-opd-0: train_second.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --start-from opd-s2 --states-in-block --save opd-s2x --freeze-predictor --no-states 0.3 --real-share 0.2 --max-hours 3.4 --check-answers 12

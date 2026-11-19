@@ -451,7 +451,7 @@ trained layers instead of a whole pass.
    answers of up to 3,072 tokens (`~/specdec-data/think1`), in four jobs: the place of
    `train-depth4-opd-0`, then `gen-think-2`, `gen-think-3` and `gen-think-0`.
 2. *The one- and two-layer restarts trained on all of it* (`train-more-opd-0`: one layer, on from
-   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `train-more-opd-1`: two layers, on from
+   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `count-tree-opd-0`: two layers, on from
    `warm-opd-s2.pt`, saved as `warm-opd-s2x.pt`; `nexus/train_second.py --more-data`), then the
    replay of the tree above. The aim is the whole drafter's +5.0% through two layers.
 3. *The restart inside the first run's pass* (point 3 above), if 2 reaches about +5%.
@@ -521,7 +521,7 @@ trained layers instead of a whole pass.
    answers of up to 3,072 tokens (`~/specdec-data/think1`), in four jobs: the place of
    `train-depth4-opd-0`, then `gen-think-2`, `gen-think-3` and `gen-think-0`.
 2. *The one- and two-layer restarts trained on all of it* (`train-more-opd-0`: one layer, on from
-   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `train-more-opd-1`: two layers, on from
+   `warm-opd-w1.pt`, saved as `warm-opd-w1x.pt`; `count-tree-opd-0`: two layers, on from
    `warm-opd-s2.pt`, saved as `warm-opd-s2x.pt`; `nexus/train_second.py --more-data`), then the
    replay of the tree above. The aim is the whole drafter's +5.0% through two layers.
 3. *The restart inside the first run's pass* (point 3 above), if 2 reaches about +5%.
@@ -548,6 +548,56 @@ predictor's states are made from those same first-run states, so to a layer that
 first run they say nothing new; the frozen drafter needs them only because it cannot go on from
 the first run.
 
+### The second run on top of DForkTree's counts (November 19, 00:50 UTC)
+
+DForkTree's scores were built into our replay (`dflash/follow.py`, `CountTree`) and measured on the
+same 8 validation answers as the tree above (7,915 rounds with DDTree, Draft-OPD, 63 checked tokens
+a round in every row unless said otherwise). The counts come from `long1`'s 366 training answers and
+the new text as far as it was written (760 answers in the first replay, 1,204 in the second:
+4.5M and 5.6M tokens; DForkTree counts over 95.7M).
+
+| Tree | Tokens per round | Against DDTree | Against DDTree with counts |
+| --- | --- | --- | --- |
+| DDTree | 7.56 | | |
+| DDTree with counts, the paper's weights (`ctree63`), 4.5M tokens counted | 8.25 | +9.1% | |
+| The same, 5.6M tokens counted | 8.29 | +9.6% | |
+| One trained layer at every node (`btree63f40t2n@~opd-r1`) | 7.72 | +2.1% | |
+| Two trained layers at every node (`@~opd-s2`) | 7.80 | +3.1% | |
+| Three trained layers at every node (`@~opd-s3`) | 7.80 | +3.2% | |
+| Whole drafter at every node, real states (the limit without counts) | 8.32 | +10.0% | |
+| Counts, then one trained layer at every node (`cbtree63f40t2n@~opd-r1`) | 8.20 | +8.5% | -0.6% |
+| Counts, then two trained layers | 8.30 | +9.8% | +0.2% |
+| Counts, then three trained layers | 8.33 | +10.1% | +0.5% |
+| Counts, then the whole drafter with predicted states | 8.42 | +11.3% | +2.0% |
+| Counts, then the whole drafter with real states (the limit) | 8.88 | +17.5% | +7.6% |
+| Counts and the rows of what the target already said in this answer, about 25 more checked tokens (`ctree63_echo4r4`) | 8.50 | +12.4% | +2.5% |
+| The same at about 63 checked tokens (`ctree39_echo4r4`) | 8.17 | +8.0% | -1.4% |
+| DDTree with counts, 95 nodes (`ctree95`) | 8.56 | +13.2% | +3.3% |
+
+Other weights for the counts do no better than the paper's (0.2 and 0.4: +8.9%; 0.15 and 0.3: +8.0%;
+0.3 and 0.3: +7.4%; 0.45 and 0.9: +6.9%). The gains are the same at every length of context.
+
+What this says:
+
+- **The counts take the gain the cheap second run was built to take.** With a twentieth of the
+  paper's text they add 9.6% tokens, nearly what the whole drafter's restarts with the target's REAL
+  states add without them (10.0%), and they add nothing to a round.
+- **On top of the counts a trained restart adds nothing** (-0.6%, +0.2%, +0.5% for one, two, three
+  layers), and the whole drafter with predicted states adds 2.0% for a run that costs 16% of a
+  round. Both read only what is known before the check: the alternative token and the first run's
+  own states. The counts already use the token; the first run's states add little to it.
+  (DForkTree's own trained head and tuned second pass, on its own data: about 1% and 1.4 to 2.9%.)
+- **7.6% more is there with the target's real states for the branch.** They exist only after the
+  target has read the branch's tokens, which is the check. No second run before the check can have
+  them; the first run of the NEXT round is exactly the run that does.
+- In replay the rows of what the target already said add tokens only by adding checked tokens;
+  real decoding, where the target's words on rejected branches are heard too, showed more before
+  (+5% speed on DDTree, `live-echo2-opd-0`) and is measured again on top of the counts.
+
+Real speed with the counts (our lookup is about thirty small steps on the GPU and a search on the
+CPU each round; DForkTree's is compiled into one), with the rows, with the window and with the
+second run on top: `nexus/results/train-more-opd-1`.
+
 ## The experiments and where their results are
 
 | Experiment | What it asks | Code | Results |
@@ -562,12 +612,12 @@ the first run.
 | The restart second run over whole answers | Accepted tokens with the real states (the limit), with nothing, with crude stand-ins | `dflash/redraft.py` (`Restarts`), `nexus/redraft_long.py` | `nexus/results/restart-replay-pub-0`, `restart-replay-opd-0` (queued) |
 | A predictor of the missing states | Whether a small trained network can stand in for the target's states at a restart | `dflash/stand_in.py`, `nexus/train_restart.py` | `nexus/results/train-restart-pub-0`, `train-restart-opd-0` (queued) |
 | How many layers a restart needs | Restarts through fewer layers, cold and going on from the first run; the time of each part of the second run | `nexus/layer_probe.py` | `nexus/results/live-reanchor-pub-0` (Draft-OPD), `layer-probe-pub-0` |
-| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer that reads the tokens), `bench-pub-0` (one layer, first token only), `layer-probe-pub-0` (one layer, states in the block), `train-depth2-opd-0`, `train-depth3-opd-0`, `train-second-pub-0` (five layers), `train-more-opd-0`, `train-more-opd-1` (one and two layers on the new text) |
+| The tiny second drafter | Trained copies of the drafter's last layers that restart from the first run | `dflash/restart_layers.py`, `nexus/train_second.py` | `nexus/results/bench-opd-0` (one layer that reads the tokens), `bench-pub-0` (one layer, first token only), `layer-probe-pub-0` (one layer, states in the block), `train-depth2-opd-0`, `train-depth3-opd-0`, `train-second-pub-0` (five layers), `train-more-opd-0`, `count-tree-opd-0` (one and two layers on the new text) |
 | Where DDTree's rounds end | What is left to add on top of a tree | `nexus/tree_ends.py` | `nexus/results/live-reanchor-opd-0` |
 | The second run at every node of a tree | Accepted tokens at the same number of tokens checked as DDTree | `dflash/redraft.py` (`BranchTree`), `nexus/redraft_long.py` | `nexus/results/tree-ends-pub-0` (Draft-OPD, replay, through the trained layers) |
 | DForkTree's scores, and the second run on top | Tokens per round of DDTree with counts of which token follows which two, and of the every-node tree built on it | `dflash/follow.py`, `dflash/redraft.py` (`CountTree`), `nexus/redraft_long.py` | `nexus/results/live-lean-opd-0`, `train-depth3b-opd-0` (what adds to it) |
 | More text from the target | About twenty thinking-mode answers at a time, for training and for counts | `nexus/gen_text.py` | `nexus/results/train-depth4-opd-0`, `gen-think-0`, `gen-think-2`, `gen-think-3` (the text is in `~/specdec-data/think1`) |
-| The second run in real decoding | Tokens per second on the same text, alone and on DDTree | `nexus/live_speed.py` | `nexus/results/probe-shift-opd-0` (list 1), `live-second-opd-0`, `live-second-pub-0` (list 2), `probe-shift-pub-0` (ReAnchor on Draft-OPD), `count-tree-opd-0` (the rewritten second run, the one-layer tree, the tree with counts) |
+| The second run in real decoding | Tokens per second on the same text, alone and on DDTree | `nexus/live_speed.py` | `nexus/results/probe-shift-opd-0` (list 1), `live-second-opd-0`, `live-second-pub-0` (list 2), `probe-shift-pub-0` (ReAnchor on Draft-OPD), `train-more-opd-1` (the tree with counts, the rows of what the target already said, the window, the second run on top) |
 | Trained second drafters (October) | Add-ons that read the first draft | `nexus/train_redraft.py`, `nexus/bench_redraft.py` | `nexus/results/train-prefix`, `train-edit`, `train-control`, `diag-a`, `diag-b` |
 | The 3M editor (September) | A small network that imitates a second run | `editor-experiment/` | `results/SUMMARY.md` |
 

@@ -85,3 +85,33 @@ class FollowCounts:
         of shapes that broadcast against each other."""
         a, b, c = torch.broadcast_tensors(a.long(), b.long(), c.long())
         return (self.after_two(a, b, c).log() - self.anywhere[c].log()).clamp(-self.clip, self.clip)
+
+    def _one_table(self):
+        """The three tables of counts as one sorted list of keys (triples, then the pairs that had a token after
+        them, then pairs), so that a round asks all its questions in one lookup."""
+        if getattr(self, "_keys", None) is None or self._keys.device != self.anywhere.device:
+            size = self.vocabulary
+            self._after_triples, self._after_twos = size ** 3, size ** 3 + size ** 2
+            self._keys = torch.cat((self.triple_keys, self.two_keys + self._after_triples, self.pair_keys + self._after_twos))
+            self._values = torch.cat((self.triple_counts, self.two_counts, self.pair_counts))
+            self._log_anywhere = self.anywhere.log()
+        return self._keys, self._values
+
+    def lift_of_places(self, a, b, c):
+        """`lift` for a round's tree in few steps on the GPU. a: [places, A, 1, 1], the tokens two places back;
+        b: [places, 1, B, 1], the tokens one place back; c: [places, 1, 1, C], the candidates. Gives [places, A, B, C]."""
+        keys, values = self._one_table()
+        if keys.shape[0] == 0:
+            return self.lift(a, b, c)
+        size, a, b, c = self.vocabulary, a.long(), b.long(), c.long()
+        two = a * size + b                                   # [places, A, B, 1]
+        pair = b * size + c                                  # [places, 1, B, C]
+        triple = two * size + c                              # [places, A, B, C]
+        asked = torch.cat((triple.reshape(-1), (two + self._after_triples).reshape(-1), (pair + self._after_twos).reshape(-1)))
+        at = torch.searchsorted(keys, asked).clamp_(max=keys.shape[0] - 1)
+        found = torch.where(keys[at] == asked, values[at], torch.zeros((), dtype=values.dtype, device=values.device))
+        first, second = triple.numel(), triple.numel() + two.numel()
+        seen_three, times_two, seen_pair = found[:first].view(triple.shape), found[first:second].view(two.shape), found[second:].view(pair.shape)
+        after_one = (seen_pair + self.strength * self.anywhere[c]) / (self.before_one[b] + self.strength)
+        after_two = (seen_three + self.strength * after_one) / (times_two + self.strength)
+        return (after_two.log() - self._log_anywhere[c]).clamp_(-self.clip, self.clip)

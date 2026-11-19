@@ -1079,8 +1079,8 @@ class CountTree(DraftTree):
             # first token).
             first = s.block_ids[0, :1].to(tokens.device).expand(many)[None]
             a = torch.cat((first, tokens[:-2]))[:, :, None, None]
-            lift = self.follow.lift(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :])
-            lift = lift.double().cpu().numpy()                          # [places - 1, a, b, c]
+            lift = self.follow.lift_of_places(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :])
+            lift = lift.cpu().numpy().astype(numpy.float64)            # [places - 1, a, b, c]
         # The kept nodes of a depth: their score, the candidate they end in, the candidate before it, whether
         # the branch is still the path of first choices, and which kept node of the depth before is their parent.
         order = numpy.argsort(-likely[0], kind="stable")[: self.budget]

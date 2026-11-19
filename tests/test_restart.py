@@ -1897,6 +1897,9 @@ def test_counts_of_which_token_follows_which():
     assert abs(float(lift[0]) - math.log(two / anywhere(3))) < 1e-5
     never = counts.lift(torch.tensor([7]), torch.tensor([8]), torch.tensor([3]))    # an unseen pair: what is known of 3 alone
     assert abs(float(never) - math.log(((0 + 2.0 * anywhere(3)) / (0 + 2.0)) / anywhere(3))) < 1e-5
+    a, b, c = torch.tensor([1, 9, 3]).view(1, 3, 1, 1), torch.tensor([2, 1]).view(1, 1, 2, 1), torch.tensor([3, 4, 5, 1]).view(1, 1, 1, 4)
+    assert torch.allclose(counts.lift_of_places(a, b, c), counts.lift(a, b, c), atol=1e-6)     # all places in one lookup
+    assert counts.lift_of_places(a, b, c).shape == (1, 3, 2, 4)
     assert float(FollowCounts.count([(text, 2)], 10, strength=2.0, clip=0.5).lift(
         torch.tensor([1]), torch.tensor([2]), torch.tensor([3]))) == 0.5
 
