@@ -517,3 +517,85 @@ every node holds clearly more tokens than with one pass, the work is how to give
 correction for the price of one pass or less (a table-shaped form, rows chosen better); if most
 rounds end at a token that is not a candidate, it is the candidates; if they end at tokens the
 scores rank low, it is the predictor (more layers, more of the branch).
+
+## The diagnosis: where the answer's path leaves each tree (November 19, 21:20 UTC)
+
+`fast5-trace` (8 validation answers, 7,900 full rounds, every tree built from the same first run in
+every round; the answer is decoded with DDTree), `fast2-replay` and `fast6-replay` (each tree on its
+own rounds), `fast4-two` (two layers, one hour).
+
+**1. Correcting every depth is worth 2%, not the gap.** Tokens per round in replay, own rounds:
+
+| Tree of 63 nodes | Tokens per round | over DDTree |
+|---|---|---|
+| DDTree | 7.561 | |
+| Tree with counts | 8.305 | +9.8% |
+| Second drafter, one pass (rows for the 63 nodes of the first tree) | 8.207 | +8.5% |
+| ... one pass, rows for a first tree of 127 / 255 nodes | 8.243 / 8.294 | +9.0% / +9.7% |
+| ... one pass, 255 rows, one place asked a row | 8.236 | +8.9% |
+| ... two / three passes | 8.344 / 8.386 | +10.4% / +10.9% |
+| ... a row for every node (3.4 more passes a round, 107 rows) | 8.392 | +11.0% |
+| Second drafter on the counts, one pass / a row for every node | 8.587 / 8.624 | +13.6% / +14.1% |
+
+In the one-pass tree 43% of the rounds end at a node without a correction (30% nothing proposed
+after it, 13% only the chain's token, and it is wrong); in 62% of the first kind a row would have
+put the answer's token first. Giving every node its row moves those stops to the next failure of
+the scores, three quarters of a token later on average: 8.21 becomes 8.39.
+
+**2. The accuracy was the wrong measure.** "Right at 49% of the places after a fork against 39%"
+counts all places of a block after the true tokens; a round does not get to most of them.
+Following the answer through each tree's own scores and keeping the b best children at every node
+(a ceiling: it knows which branch matters), tokens per round:
+
+| Scores | b = 1 | 2 | 3 | 4 | 8 | any of the candidates |
+|---|---|---|---|---|---|---|
+| First run (DDTree) | 6.03 | 7.64 | 8.41 | 8.90 | 9.98 | 14.08 (128) |
+| Pair scores | 5.92 | 8.12 | 9.16 | 9.82 | 11.01 | 12.20 (32) |
+| Counts, 16 / 32 candidates | 6.19 / 6.20 | 8.29 / 8.34 | 9.28 / 9.40 | 9.79 / 10.00 | 10.66 / 11.17 | 11.08 / 12.20 |
+| Second drafter | 6.26 | 8.48 | 9.49 | 10.12 | 11.23 | 12.20 |
+| Second drafter on the counts | 6.36 | 8.75 | 9.83 | 10.46 | 11.49 | 12.20 |
+
+Weighted by what a path reaches, the second drafter's scores are 1 to 2% better than the counts'
+and 3 to 4% better than the pair scores', not 10 points. A chain of first choices (b = 1) gains
+0.2 tokens over the first run with any of them: at the first fork the branch's tokens are the first
+run's own choices, and knowing them does not say which token the target takes. And every tree of
+63 nodes as built holds about what its scores give with the two best children kept (DDTree 7.57,
+pairs 8.07, counts 8.28, second drafter with every row 8.40 on these rounds).
+
+**3. Why the path stops**, as built, share of rounds (in brackets: tokens a round that would follow
+if that stop were mended, the place itself and the first choices after it):
+
+| Reason | DDTree | Counts (32) | Pair scores | Second drafter, one pass | Second drafter, every row |
+|---|---|---|---|---|---|
+| Block end | 7.4% | 10.5% | 9.2% | 8.8% | 10.1% |
+| Not a candidate | 1.1% | 9.6% (0.10) | 8.6% (0.09) | 8.8% (0.09) | 10.0% (0.10) |
+| No correction left / chain token wrong | | | | 29.6% (0.70) / 13.1% (0.28) | |
+| Ranked first, not kept | 8.6% (0.17) | 10.3% (0.22) | 13.1% (0.28) | 6.9% (0.14) | 18.2% (0.39) |
+| Ranked 2 to 4 | 43.0% (0.58) | 42.0% (0.78) | 40.2% (0.79) | 15.6% (0.31) | 36.2% (0.73) |
+| Ranked 5 or lower | 40.0% (0.46) | 27.7% (0.46) | 28.9% (0.45) | 17.2% (0.27) | 25.5% (0.42) |
+
+(DDTree's candidates are all tokens it could pick; at 4.9% of its stops the answer's token is not
+among the first run's 32.) Eight to nine stops of ten are after the first fork. With every node
+corrected, 62% of the rounds end at a token the second drafter ranks second or lower: the
+predictor is the limit, then the node budget (18%), the candidates (10%) and the block (10%).
+
+**4. Damage.** Rounds in which a tree gets less far than DDTree on the same round: second drafter
+one pass 4.9% (0.07 tokens a round lost, 0.65 gained), every row 8.3% (0.12 lost, 0.95 gained),
+counts 9.6% (0.16 lost, 0.88 gained), pair scores 13.0% (0.23 lost, 0.74 gained). The pair scores
+also shorten the chain of first choices (5.92 against the first run's 6.03): they move the first
+run's right choices down.
+
+**5. Two layers** (`opd-e2q`, 1,508 answers in 0.96 hours): right after a fork at 52.2% of the
+places against 49.1% for one layer after 6,405 answers (on the path 88.6% against 88.7%). One layer
+on the first run's old states does hold the predictor back; by how much in tokens is what the
+trace of `diag3-two` and `diag4-four` gives ("following the answer", b = 2, against 8.48).
+
+**What follows.** (a) The second drafter's edge over cheap scores is small where rounds get to, so a
+pass for it is hard to pay for; the lever is the predictor itself (more layers: check running) and
+not the tree's construction (+2%) or the candidates (10% of stops). (b) For the small network: fix
+the damage first (it does not know whether the token before a place was the first run's own sure
+choice; give it how likely the first run found that token), train it as long as the second drafter
+(`diag1-trace` now does that: `opd-p2`), and see from the trainings with only the last one / two
+tokens written in (`diag2-replay`, `diag5-rows`: `opd-e1m1`, `opd-e1m2`) whether two tokens are
+enough when a real layer computes the answer. (c) More rows in the one pass get half of what every
+row gets (8.29 of 8.39) for the price of the rows.
