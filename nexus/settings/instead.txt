@@ -190,3 +190,8 @@ gen-think-0: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-d
 # would be; Weaver, arXiv 2607.06763, trains a new layer on 300,000 answers). Measured while it trains and on the
 # validation answers at the end; not saved. The two-layer training this job was queued for is every-opd-2cb now.
 every-opd-2c: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --fresh --rate 5e-4 --passes 3 --save control-fresh --max-hours 3.2 --check-answers 12
+
+# (November 19, 05:55 UTC) Real speed of the tree whose edges the new second drafter scores. In replay (7 of 8 answers)
+# it holds 13.0% more tokens a round than DDTree where the tree with counts holds 9.3% more; what its pass costs in a
+# round was only estimated. The run on 100 answers this job was queued for is every-opd-100cb now.
+every-opd-100c: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.4 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+cstree63@opd-e1c,plain+cstree63t1@opd-e1c,plain+cstree63f40@opd-e1c,plain+ctree95,plain+cstree95@opd-e1c,plain+stree63@opd-e1,plain:window=4096+ctree63,plain:window=4096+cstree63@opd-e1c
