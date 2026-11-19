@@ -195,3 +195,13 @@ every-opd-2c: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-
 # it holds 13.0% more tokens a round than DDTree where the tree with counts holds 9.3% more; what its pass costs in a
 # round was only estimated. The run on 100 answers this job was queued for is every-opd-100cb now.
 every-opd-100c: live_speed.py --draft opd --data-dir ~/specdec-data/long1 --part validation --rank 16 --min-tokens 2000 --max-answers 8 --max-hours 3.4 --count-data ~/specdec-data/think1 --settings plain,plain+tree63,plain+ctree63,plain+cstree63@opd-e1c,plain+cstree63t1@opd-e1c,plain+cstree63f40@opd-e1c,plain+ctree95,plain+cstree95@opd-e1c,plain+stree63@opd-e1,plain:window=4096+ctree63,plain:window=4096+cstree63@opd-e1c
+
+# (November 19, 06:00 UTC) What limits the tree the second drafter scores. In replay it adds 3.4% tokens to the tree
+# with counts; a tree whose second run reads the target's REAL states adds 7% at the same size. Two cheap levers:
+#   every-opd-300c: a longer chain after every node (4 places asked for in place of 2, weighted 0.7 each further one;
+#     with 1 place the tree held 12.2%, with 2 places 13.0% more than DDTree). Saved opd-e1cr4.
+#   every-opd-2cb: 64 candidates a place in place of 32 (after a branch has left the first run's first choices the
+#     right token is among 32 in 82% of the places). Saved opd-e1ck64.
+# The run on 300 answers is every-opd-300cb now, the two-layer training every-opd-2cc.
+every-opd-300c: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --reach 4 --reach-decay 0.7 --passes 3 --save opd-e1cr4 --max-hours 3.2 --check-answers 12
+every-opd-2cb: train_every.py --draft opd --data-dir ~/specdec-data/long1 --more-data ~/specdec-data/think1 --counts --candidates 64 --said 64 --passes 3 --save opd-e1ck64 --max-hours 3.2 --check-answers 12

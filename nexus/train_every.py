@@ -133,10 +133,11 @@ class TeachEvery:
     """One answer at a time: groups of anchors, the first runs, the rows, the loss; and what is counted."""
 
     def __init__(self, second, optimizer, drafter, target, candidates=32, reach=2, group=32, depths=4, shallow=0.85,
-                 soft=0.5, window=2048, width=16, seed=0, depth_decay=7.0, warm=100):
+                 soft=0.5, window=2048, width=16, seed=0, depth_decay=7.0, warm=100, reach_decay=0.5):
         self.second, self.optimizer, self.drafter, self.target = second, optimizer, drafter, target
         self.candidates, self.reach, self.group, self.depths, self.shallow = candidates, reach, group, depths, shallow
         self.soft, self.window, self.width, self.depth_decay, self.warm = soft, window, width, depth_decay, warm
+        self.reach_decay = reach_decay                 # the weight of each further place asked for after the true tokens
         self.generator = torch.Generator().manual_seed(seed)
         self.rates = [group["lr"] for group in optimizer.param_groups] if optimizer is not None else []
         self.updates, self.rows_seen = 0, 0
@@ -228,7 +229,7 @@ class TeachEvery:
             hard = -log_with.gather(-1, index[..., None])[..., 0]
             soft = -(target_share * log_with).sum(dim=-1)
             weight = inside.float() * torch.exp(-(depths[:, None].float() - 1.0) / self.depth_decay) \
-                * (0.5 ** torch.arange(reach, device=device, dtype=torch.float))[None, :]
+                * (self.reach_decay ** torch.arange(reach, device=device, dtype=torch.float))[None, :]
             loss = (((1.0 - self.soft) * hard + self.soft * soft) * weight).sum() / weight.sum().clamp_min(1e-6)
         if learn:
             self.optimizer.zero_grad(set_to_none=True)
@@ -267,6 +268,13 @@ class TeachEvery:
                 self._add(name + kind, float((right & which).sum()), count)
                 self._add(name + kind + "_log", float((logs[:, 0].gather(-1, index[:, :1])[:, 0] * which).sum()), count)
         self._add("off_share", float((near & off[:, 0]).sum()), int(near.sum()))
+        # The further places asked for (the chain a tree hangs after a node's best child): each is written without
+        # knowing the token of the place before it. How often its first choice is right.
+        for step in range(1, index.shape[1]):
+            count = int(inside[:, step].sum())
+            for name, logs in arms.items():
+                right = (logs[:, step, :top].argmax(dim=-1) == index[:, step]) & (index[:, step] < top) & inside[:, step]
+                self._add(f"{name}_place{step + 1}", float(right.sum()), count)
         if not learn:
             # Every depth was asked: how many tokens in a row are right from the first place, each place knowing the
             # true tokens before it. The first place is the first run's; the place after depth d is row d's.
@@ -304,6 +312,7 @@ def main():
     parser.add_argument("--counts", action="store_true", help="train on top of the counts of the training answers")
     parser.add_argument("--candidates", type=int, default=32, help="tokens of a place the second drafter scores")
     parser.add_argument("--reach", type=int, default=2, help="places after the true tokens that are asked for")
+    parser.add_argument("--reach-decay", type=float, default=0.5, help="weight of each further place against the one before it")
     parser.add_argument("--anchors", type=int, default=256, help="rounds per answer")
     parser.add_argument("--depths", type=int, default=4, help="depths asked per round")
     parser.add_argument("--group", type=int, default=32, help="rounds per pass and update")
@@ -350,7 +359,7 @@ def main():
             raise ValueError("this training is for layers that read the tokens and go on from the first run")
         optimizer = torch.optim.AdamW([{"params": second.trained(), "lr": args.rate}], weight_decay=0.0)
     teach = TeachEvery(second, optimizer, draft, target, args.candidates, args.reach, args.group, args.depths, soft=args.soft,
-                       window=args.window, seed=args.seed)
+                       window=args.window, seed=args.seed, reach_decay=args.reach_decay)
     # The counts: a training answer is scored with the counts of the OTHER half of the answers, a validation
     # answer with the counts of all training answers (as a tree would have them in use).
     follow, half_of, tokens_counted = None, {}, 0
