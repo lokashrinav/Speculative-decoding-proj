@@ -1,7 +1,7 @@
 {
  "done": false,
- "answers": 13,
- "hours": 0.057,
+ "answers": 34,
+ "hours": 0.257,
  "settings": "plain,plain+tree63,plain+ctree63,plain+ptree63@opd-p2s",
  "settings_from": "command line",
  "saved_adapters_used": {},
@@ -25,188 +25,284 @@
  "by_setting": {
   "plain": {
    "0-2k": {
-    "rounds": 1021,
-    "tokens_per_round": 4.737512242899118,
-    "tokens_per_second": 80.05685936304154,
-    "ms_per_round": 59.17684356583945,
+    "rounds": 2768,
+    "tokens_per_round": 5.324421965317919,
+    "tokens_per_second": 90.08500083310328,
+    "ms_per_round": 59.104422668344675,
+    "more_tokens_per_round_than_plain": 0.0,
+    "more_tokens_per_second_than_plain": 0.0
+   },
+   "2k+": {
+    "rounds": 1198,
+    "tokens_per_round": 12.004173622704508,
+    "tokens_per_second": 151.74382181405073,
+    "ms_per_round": 79.10815398741315,
+    "more_tokens_per_round_than_plain": 0.0,
+    "more_tokens_per_second_than_plain": 0.0
+   },
+   "8k+": {
+    "rounds": 781,
+    "tokens_per_round": 10.723431498079385,
+    "tokens_per_second": 120.19014890439331,
+    "ms_per_round": 89.2205525646654,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
    "everything": {
-    "rounds": 1021,
-    "tokens_per_round": 4.737512242899118,
-    "tokens_per_second": 80.05685936304154,
-    "ms_per_round": 59.17684356583945,
+    "rounds": 3966,
+    "tokens_per_round": 7.342158345940494,
+    "tokens_per_second": 112.70157449095946,
+    "ms_per_round": 65.14690126648992,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
-   "answers_with_the_plain_drafters_tokens": 13
+   "16k+": {
+    "rounds": 42,
+    "tokens_per_round": 8.833333333333334,
+    "tokens_per_second": 79.49602025984063,
+    "ms_per_round": 111.11667357008194,
+    "more_tokens_per_round_than_plain": 0.0,
+    "more_tokens_per_second_than_plain": 0.0
+   },
+   "answers_with_the_plain_drafters_tokens": 34
   },
   "plain+tree63": {
    "0-2k": {
-    "rounds": 751,
-    "tokens_per_round": 6.440745672436751,
-    "tokens_per_second": 106.57134627468218,
-    "ms_per_round": 60.43599801991859,
-    "more_tokens_per_round_than_plain": 0.35952063914780297,
-    "more_tokens_per_second_than_plain": 0.33119569169460994
+    "rounds": 2098,
+    "tokens_per_round": 7.029075309818875,
+    "tokens_per_second": 116.21549669709167,
+    "ms_per_round": 60.48311550171071,
+    "more_tokens_per_round_than_plain": 0.32015744725055284,
+    "more_tokens_per_second_than_plain": 0.29006489007420067
+   },
+   "2k+": {
+    "rounds": 1128,
+    "tokens_per_round": 12.74113475177305,
+    "tokens_per_second": 143.46613676703436,
+    "ms_per_round": 88.8093527775309,
+    "more_tokens_per_round_than_plain": 0.06139207514248746,
+    "more_tokens_per_second_than_plain": -0.05455039255014926
+   },
+   "8k+": {
+    "rounds": 724,
+    "tokens_per_round": 11.566298342541437,
+    "tokens_per_second": 113.37730713312176,
+    "ms_per_round": 102.01599098628165,
+    "more_tokens_per_round_than_plain": 0.07860047827162542,
+    "more_tokens_per_second_than_plain": -0.05668386164236228
    },
    "everything": {
-    "rounds": 751,
-    "tokens_per_round": 6.440745672436751,
-    "tokens_per_second": 106.57134627468218,
-    "ms_per_round": 60.43599801991859,
-    "more_tokens_per_round_than_plain": 0.35952063914780297,
-    "more_tokens_per_second_than_plain": 0.33119569169460994
+    "rounds": 3226,
+    "tokens_per_round": 9.026348419094854,
+    "tokens_per_second": 128.23769108288766,
+    "ms_per_round": 70.38763988085677,
+    "more_tokens_per_round_than_plain": 0.2293862368257904,
+    "more_tokens_per_second_than_plain": 0.13785181495556187
    },
-   "answers_with_the_plain_drafters_tokens": 13
+   "16k+": {
+    "rounds": 37,
+    "tokens_per_round": 10.243243243243244,
+    "tokens_per_second": 81.73917821985157,
+    "ms_per_round": 125.31620046010593,
+    "more_tokens_per_round_than_plain": 0.15961244263131058,
+    "more_tokens_per_second_than_plain": 0.028217235940603658
+   },
+   "answers_with_the_plain_drafters_tokens": 34
   },
   "plain+ctree63": {
    "0-2k": {
-    "rounds": 703,
-    "tokens_per_round": 6.8805120910384066,
-    "tokens_per_second": 109.39146364532152,
-    "ms_per_round": 62.898071401137834,
-    "more_tokens_per_round_than_plain": 0.4523470839260313,
-    "more_tokens_per_second_than_plain": 0.366422121922789
+    "rounds": 1966,
+    "tokens_per_round": 7.4974567650050865,
+    "tokens_per_second": 118.44911649607089,
+    "ms_per_round": 63.296856800563695,
+    "more_tokens_per_round_than_plain": 0.4081259550504872,
+    "more_tokens_per_second_than_plain": 0.31485947050737795
+   },
+   "2k+": {
+    "rounds": 993,
+    "tokens_per_round": 14.48036253776435,
+    "tokens_per_second": 157.98417420601464,
+    "ms_per_round": 91.65704483084272,
+    "more_tokens_per_round_than_plain": 0.20627733260842018,
+    "more_tokens_per_second_than_plain": 0.04112426006780656
+   },
+   "8k+": {
+    "rounds": 606,
+    "tokens_per_round": 13.825082508250825,
+    "tokens_per_second": 130.97369074563252,
+    "ms_per_round": 105.5561802492142,
+    "more_tokens_per_round_than_plain": 0.28924053002315153,
+    "more_tokens_per_second_than_plain": 0.08972067960259467
    },
    "everything": {
-    "rounds": 703,
-    "tokens_per_round": 6.8805120910384066,
-    "tokens_per_second": 109.39146364532152,
-    "ms_per_round": 62.898071401137834,
-    "more_tokens_per_round_than_plain": 0.4523470839260313,
-    "more_tokens_per_second_than_plain": 0.366422121922789
+    "rounds": 2959,
+    "tokens_per_round": 9.840824602906387,
+    "tokens_per_second": 135.1498957187402,
+    "ms_per_round": 72.81414869446944,
+    "more_tokens_per_round_than_plain": 0.3403176748901655,
+    "more_tokens_per_second_than_plain": 0.19918374103621295
    },
-   "answers_with_the_plain_drafters_tokens": 13
+   "16k+": {
+    "rounds": 30,
+    "tokens_per_round": 12.333333333333334,
+    "tokens_per_second": 95.66041840388209,
+    "ms_per_round": 128.9282813008564,
+    "more_tokens_per_round_than_plain": 0.39622641509433953,
+    "more_tokens_per_second_than_plain": 0.20333594173905212
+   },
+   "answers_with_the_plain_drafters_tokens": 34
   },
   "plain+ptree63@opd-p2s": {
    "0-2k": {
-    "rounds": 671,
-    "tokens_per_round": 7.208643815201192,
-    "tokens_per_second": 110.95832791639451,
-    "ms_per_round": 64.96712730416054,
-    "more_tokens_per_round_than_plain": 0.5216095380029806,
-    "more_tokens_per_second_than_plain": 0.3859940147442096
+    "rounds": 1868,
+    "tokens_per_round": 7.8961456102783725,
+    "tokens_per_second": 121.2702850394201,
+    "ms_per_round": 65.11195720956418,
+    "more_tokens_per_round_than_plain": 0.4830052279312347,
+    "more_tokens_per_second_than_plain": 0.346176210444761
+   },
+   "2k+": {
+    "rounds": 957,
+    "tokens_per_round": 15.014629049111807,
+    "tokens_per_second": 163.21690398736956,
+    "ms_per_round": 91.9918751202002,
+    "more_tokens_per_round_than_plain": 0.2507840623625579,
+    "more_tokens_per_second_than_plain": 0.0756082325867482
+   },
+   "8k+": {
+    "rounds": 578,
+    "tokens_per_round": 14.487889273356402,
+    "tokens_per_second": 135.7222298374215,
+    "ms_per_round": 106.74661984784,
+    "more_tokens_per_round_than_plain": 0.3510497340288179,
+    "more_tokens_per_second_than_plain": 0.12922923446399404
    },
    "everything": {
-    "rounds": 671,
-    "tokens_per_round": 7.208643815201192,
-    "tokens_per_second": 110.95832791639451,
-    "ms_per_round": 64.96712730416054,
-    "more_tokens_per_round_than_plain": 0.5216095380029806,
-    "more_tokens_per_second_than_plain": 0.3859940147442096
+    "rounds": 2825,
+    "tokens_per_round": 10.307610619469026,
+    "tokens_per_second": 138.88321810800295,
+    "ms_per_round": 74.21782674601681,
+    "more_tokens_per_round_than_plain": 0.4038938053097343,
+    "more_tokens_per_second_than_plain": 0.23230947513642497
    },
-   "answers_with_the_plain_drafters_tokens": 13
+   "16k+": {
+    "rounds": 29,
+    "tokens_per_round": 12.758620689655173,
+    "tokens_per_second": 97.541926629952,
+    "ms_per_round": 130.80140130979748,
+    "more_tokens_per_round_than_plain": 0.44437215354586845,
+    "more_tokens_per_second_than_plain": 0.22700389668723697
+   },
+   "answers_with_the_plain_drafters_tokens": 34
   }
  },
  "by_source": {
   "gsm8k": {
-   "prompts": 4,
+   "prompts": 9,
    "plain": {
-    "tokens_per_round": 5.218934911242603,
-    "tokens_per_second": 88.11188811188812,
+    "tokens_per_round": 5.654708520179372,
+    "tokens_per_second": 95.4218690881574,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
    "plain+tree63": {
-    "tokens_per_round": 6.681818181818182,
-    "tokens_per_second": 110.1123595505618,
-    "more_tokens_per_round_than_plain": 0.2803030303030303,
-    "more_tokens_per_second_than_plain": 0.24968789013732828
+    "tokens_per_round": 7.289017341040463,
+    "tokens_per_second": 120.26704816404389,
+    "more_tokens_per_round_than_plain": 0.2890173410404626,
+    "more_tokens_per_second_than_plain": 0.2603719599427756
    },
    "plain+ctree63": {
-    "tokens_per_round": 7.229508196721311,
-    "tokens_per_second": 114.39688715953308,
-    "more_tokens_per_round_than_plain": 0.38524590163934436,
-    "more_tokens_per_second_than_plain": 0.2983138780804149
+    "tokens_per_round": 7.8566978193146415,
+    "tokens_per_second": 124.23645320197043,
+    "more_tokens_per_round_than_plain": 0.38940809968847345,
+    "more_tokens_per_second_than_plain": 0.30197044334975365
    },
    "plain+ptree63@opd-p2s": {
-    "tokens_per_round": 7.8053097345132745,
-    "tokens_per_second": 119.35047361299051,
-    "more_tokens_per_round_than_plain": 0.49557522123893816,
-    "more_tokens_per_second_than_plain": 0.35453315290933674
+    "tokens_per_round": 8.406666666666666,
+    "tokens_per_second": 128.34605597964378,
+    "more_tokens_per_round_than_plain": 0.4866666666666666,
+    "more_tokens_per_second_than_plain": 0.3450381679389314
    }
   },
   "math500": {
-   "prompts": 3,
+   "prompts": 9,
    "plain": {
-    "tokens_per_round": 6.626865671641791,
-    "tokens_per_second": 111.9327731092437,
+    "tokens_per_round": 9.803874092009686,
+    "tokens_per_second": 138.67388177272417,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
    "plain+tree63": {
-    "tokens_per_round": 8.705882352941176,
-    "tokens_per_second": 144.31202600216685,
-    "more_tokens_per_round_than_plain": 0.3137254901960784,
-    "more_tokens_per_second_than_plain": 0.28927410617551463
+    "tokens_per_round": 11.154269972451791,
+    "tokens_per_second": 142.84202356593525,
+    "more_tokens_per_round_than_plain": 0.13774104683195598,
+    "more_tokens_per_second_than_plain": 0.030057150920764997
    },
    "plain+ctree63": {
-    "tokens_per_round": 9.582733812949641,
-    "tokens_per_second": 151.88141391106043,
-    "more_tokens_per_round_than_plain": 0.446043165467626,
-    "more_tokens_per_second_than_plain": 0.35689851767388836
+    "tokens_per_round": 12.582349285270354,
+    "tokens_per_second": 155.13409961685824,
+    "more_tokens_per_round_than_plain": 0.2834058421379737,
+    "more_tokens_per_second_than_plain": 0.1186973180076627
    },
    "plain+ptree63@opd-p2s": {
-    "tokens_per_round": 9.314685314685315,
-    "tokens_per_second": 142.76527331189712,
-    "more_tokens_per_round_than_plain": 0.4055944055944056,
-    "more_tokens_per_second_than_plain": 0.27545551982851024
+    "tokens_per_round": 12.985888389993585,
+    "tokens_per_second": 158.9588567839196,
+    "more_tokens_per_round_than_plain": 0.3245670301475303,
+    "more_tokens_per_second_than_plain": 0.1462782663316582
    }
   },
   "humaneval": {
-   "prompts": 3,
+   "prompts": 8,
    "plain": {
-    "tokens_per_round": 5.069868995633188,
-    "tokens_per_second": 85.61946902654869,
+    "tokens_per_round": 5.006443298969073,
+    "tokens_per_second": 84.80681074001309,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
    "plain+tree63": {
-    "tokens_per_round": 6.910714285714286,
-    "tokens_per_second": 114.27165354330708,
-    "more_tokens_per_round_than_plain": 0.3630952380952379,
-    "more_tokens_per_second_than_plain": 0.33464566929133843
+    "tokens_per_round": 6.744791666666667,
+    "tokens_per_second": 111.60586038494685,
+    "more_tokens_per_round_than_plain": 0.3472222222222221,
+    "more_tokens_per_second_than_plain": 0.3160011490950876
    },
    "plain+ctree63": {
-    "tokens_per_round": 7.166666666666667,
-    "tokens_per_second": 113.71204701273261,
-    "more_tokens_per_round_than_plain": 0.4135802469135803,
-    "more_tokens_per_second_than_plain": 0.32810969637610166
+    "tokens_per_round": 6.839788732394366,
+    "tokens_per_second": 108.70173475097928,
+    "more_tokens_per_round_than_plain": 0.3661971830985915,
+    "more_tokens_per_second_than_plain": 0.28175713486289866
    },
    "plain+ptree63@opd-p2s": {
-    "tokens_per_round": 7.490322580645161,
-    "tokens_per_second": 115.17857142857143,
-    "more_tokens_per_round_than_plain": 0.47741935483870956,
-    "more_tokens_per_second_than_plain": 0.3452380952380951
+    "tokens_per_round": 7.275280898876405,
+    "tokens_per_second": 111.95965417867434,
+    "more_tokens_per_round_than_plain": 0.45318352059925093,
+    "more_tokens_per_second_than_plain": 0.32017291066282416
    }
   },
   "mt-bench": {
-   "prompts": 3,
+   "prompts": 8,
    "plain": {
-    "tokens_per_round": 3.495260663507109,
-    "tokens_per_second": 59.09455128205128,
+    "tokens_per_round": 3.6833578792341677,
+    "tokens_per_second": 62.27589641434263,
     "more_tokens_per_round_than_plain": 0.0,
     "more_tokens_per_second_than_plain": 0.0
    },
    "plain+tree63": {
-    "tokens_per_round": 4.949664429530201,
-    "tokens_per_second": 81.8989450305386,
-    "more_tokens_per_round_than_plain": 0.41610738255033564,
-    "more_tokens_per_second_than_plain": 0.3858967240421991
+    "tokens_per_round": 5.114519427402863,
+    "tokens_per_second": 84.55037187288708,
+    "more_tokens_per_round_than_plain": 0.38854805725971375,
+    "more_tokens_per_second_than_plain": 0.35767410412440825
    },
    "plain+ctree63": {
-    "tokens_per_round": 5.267857142857143,
-    "tokens_per_second": 84.04558404558404,
-    "more_tokens_per_round_than_plain": 0.5071428571428573,
-    "more_tokens_per_second_than_plain": 0.4222222222222223
+    "tokens_per_round": 5.425162689804773,
+    "tokens_per_second": 86.4201796821009,
+    "more_tokens_per_round_than_plain": 0.4728850325379612,
+    "more_tokens_per_second_than_plain": 0.3876986869384933
    },
    "plain+ptree63@opd-p2s": {
-    "tokens_per_round": 5.673076923076923,
-    "tokens_per_second": 87.79761904761905,
-    "more_tokens_per_round_than_plain": 0.6230769230769233,
-    "more_tokens_per_second_than_plain": 0.485714285714286
+    "tokens_per_round": 5.789351851851852,
+    "tokens_per_second": 89.44921316165951,
+    "more_tokens_per_round_than_plain": 0.5717592592592593,
+    "more_tokens_per_second_than_plain": 0.4363376251788269
    }
   }
  },
@@ -216,5 +312,5 @@
    "ms_per_update": 0.0
   }
  },
- "gpu_memory_peak_gb": 8.93
+ "gpu_memory_peak_gb": 11.63
 }
