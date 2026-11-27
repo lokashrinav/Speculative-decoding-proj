@@ -499,6 +499,31 @@ teacher into a cheap corrector this rules out a ranking (pairwise) loss and leav
 probability-matching KL over the candidates; whether that beats the target's labels at equal data is
 the one open comparison (P7, narrowed).
 
+### C13. The room for branching at the likely breaks, an oracle (November 27, 08:50 UTC)
+
+Setup: Draft-OPD; thinking on; A5000; 8 validation answers, 7,900 rounds of DDTree, every tree on
+the same rounds (`dflash/redraft.py: OracleBranches`, job `oracle3-branches`, trace half; the
+replay half failed on a harness detail and was not needed).
+Inputs: DDTree's tree plus four branches at the drafter's likely breaks (the break-score rule on the
+final layer's confidences); each branch is the first choices before the break, the second choice at
+it, then the ANSWER's own next tokens (an oracle: a perfect continuation whenever the alternative is
+right), 3 tokens (`t3`) or to the block's end (`t15`); either added to the 63 nodes or inside a
+63-node budget with a smaller first tree (`f47`, `f31`).
+Metric: tokens per round; rounds further and less far than DDTree and than the pair scores.
+Timing: none.
+Evidence: `nexus/results/oracle3-branches/trace/trace.json`. DDTree 7.565; oracle branches, 3
+tokens, added 8.369 (+10.6%; further than DDTree in 35.1% of rounds, never less far); inside the
+budget 8.269 (+9.3%); to the block's end 11.546 (added) and 11.355 (inside the budget); the pair
+scores with the flag 8.665 (+14.5%). Against the pair scores, the 3-token oracle is further in 25.8%
+of rounds (gaining 0.49) and less far in 34.7% (losing 0.78). Conclusion supported: the ceiling of
+the four-branch structure with the proposed continuation length, inside the row budget, is +9.3%
+over DDTree, below the corrector in hand (+14.5%); a trained version would be below that ceiling on
+two counts (early readouts find a useful branch 71% as often, C9; real continuations are worse than
+the answer's), against a 5% break-even (C11). Branching inside the drafter stops here, by the rule
+fixed before the probes. The room is in the length of a right continuation (to the block's end, 4
+tokens a round), which is what a drafter cannot write inside the block without the target's states
+(B2, B3).
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -586,14 +611,11 @@ distance from the fork rather than two tokens; two jobs.
 
 P8. A 127-node tree, since the check is flat to the tile (A3); one job.
 
-P10. Branching inside the drafter (proposed November 27). Two checks before any training: C9
-(done: untrained early readouts are poor) and the cost probe `probe2-cost` (queued:
-`nexus/branch_cost.py`, every stage timed on real rounds at 1,024 / 4,096 / 8,192 tokens of
-text, the check by rows, and the token gain each setting needs to break even against DDTree). The
-decision table: useful inputs and affordable cost, train the branching drafter; poor inputs and
-affordable cost, a small early-readout training test first; too expensive, stop. C9 says the inputs
-are poor untrained, so the only path forward is the readout-training test, and only if the cost is
-affordable.
+P10, closed. Branching inside the drafter (proposed November 27): the three checks were run before
+any training. C9: untrained early readouts are poor (a useful branch in 28% of rounds at layer 3
+against 39% at the end). C11: the cost is affordable (about 3 ms, a 5% gain needed inside 64 rows).
+C13: the oracle ceiling of the structure with 3-token continuations inside the budget is +9.3% over
+DDTree, below the corrector in hand. Stopped by the rule fixed in advance; no training was done.
 
 P9. Plain-mode text: generate answers with reasoning off and rerun the main table, since the class
 setting is plain mode and all November numbers are on thinking-mode text.
