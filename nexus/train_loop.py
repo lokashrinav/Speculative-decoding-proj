@@ -211,6 +211,23 @@ class TeachLoop:
             self.plain_walk += walk
 
 
+def load_saved_drafter(draft, folder: str) -> None:
+    """The weights a stopped run saved (safetensors in its folder, as save_pretrained writes them), loaded over the
+    drafter's, so that a run goes on from them."""
+    import glob
+
+    from safetensors.torch import load_file
+
+    loaded = {}
+    for path in sorted(glob.glob(os.path.join(folder, "*.safetensors"))):
+        loaded.update(load_file(path))
+    if not loaded:
+        raise FileNotFoundError(f"no saved weights in {folder}")
+    missing, unexpected = draft.load_state_dict(loaded, strict=False)
+    if unexpected or any("layers" in name for name in missing):
+        raise ValueError(f"the saved drafter does not fit: missing {missing[:5]}, unexpected {unexpected[:5]}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-4B")
@@ -220,6 +237,8 @@ def main():
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--save", required=True, help="saved as lora-<name>.pt in --adapter-dir")
     parser.add_argument("--start-from", default="", help="go on from the saved add-ons lora-<name>.pt")
+    parser.add_argument("--start-from-drafter", default="",
+                        help="with --full: go on from the weights saved in drafter-<name>/ (a run that was stopped)")
     parser.add_argument("--recipe", default="dloop", choices=("dloop", "d2sd"))
     parser.add_argument("--rank", type=int, default=256, help="of the add-ons (0 with --full)")
     parser.add_argument("--full", action="store_true", help="train all of the drafter's weights (saved as a drafter folder, 1.2 GB)")
@@ -260,6 +279,8 @@ def main():
         # All weights trained, in 32-bit numbers (2.1 GB) with the passes in the drafter's 16-bit kind; the saved
         # drafter is written back in 16-bit (1.1 GB).
         saved_dtype = draft.fc.weight.dtype
+        if args.start_from_drafter:
+            load_saved_drafter(draft, os.path.join(args.adapter_dir, f"drafter-{args.start_from_drafter}"))
         draft.float()
         for parameter in draft.parameters():
             parameter.requires_grad_(True)
@@ -282,7 +303,7 @@ def main():
     def report(done, learned, measured=None):
         write_json(status_path, {"done": done, "answers": learned, "answers_to_learn_from": len(answers), "hours": round((time.time() - started) / 3600, 3),
                                  "draft": args.draft, "recipe": args.recipe, "rank": 0 if args.full else args.rank, "full": args.full,
-                                 "beta": args.beta, "tau": args.tau, "gamma": args.gamma, "rate": args.rate, "saved_as": args.save,
+                                 "beta": args.beta, "tau": args.tau, "gamma": args.gamma, "rate": args.rate, "saved_as": args.save, "started_from": args.start_from_drafter or args.start_from or None,
                                  "curve": curve, "validation": measured}, indent=1)
 
     def save(learned):

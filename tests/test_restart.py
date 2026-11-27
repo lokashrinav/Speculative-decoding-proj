@@ -3047,3 +3047,21 @@ def test_oracle_branches_at_the_likely_breaks():
     made = make_method("otree63f47b4t3", "/nowhere")
     assert isinstance(made, OracleBranches) and made.tree.budget == 47 and made.breaks == 4 and made.tail == 3
     assert make_method("otree63", "/nowhere").tree.budget == 63
+
+
+def test_a_stopped_whole_drafter_training_goes_on_from_its_folder(tmp_path):
+    """nexus/train_loop.py: load_saved_drafter puts the weights a run saved (save_pretrained, safetensors) back into
+    the drafter, so that --start-from-drafter continues a stopped training."""
+    from nexus.train_loop import load_saved_drafter
+
+    target, draft = make_models(layers=3)
+    folder = str(tmp_path / "drafter-test")
+    copy = {name: value.detach().clone() for name, value in draft.state_dict().items()}
+    draft.save_pretrained(folder, state_dict=copy, safe_serialization=True)
+    with torch.no_grad():
+        for parameter in draft.parameters():
+            parameter.add_(1.0)
+    load_saved_drafter(draft, folder)
+    assert all(torch.equal(draft.state_dict()[name], value) for name, value in copy.items())
+    with pytest.raises(FileNotFoundError):
+        load_saved_drafter(draft, str(tmp_path / "nowhere"))
