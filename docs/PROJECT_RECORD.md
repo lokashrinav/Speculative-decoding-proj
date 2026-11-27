@@ -404,6 +404,31 @@ same corrector without it; DForkTree's fixed weights are the same idea in a coun
 not new in kind. Open: whether the flag's gain is the same for other correctors (TreeFlash's head,
 GRAFT's), which would make it a general finding about learned correctors rather than ours.
 
+### C9. Can the drafter's alternatives be read out early? (November 27, 07:05 UTC, untrained)
+
+Setup: Draft-OPD (5 layers); thinking on; A5000; 24 validation answers of `long1`, an anchor every
+16 tokens (10,220 first runs); the states after every layer read with the drafter's final norm and
+the output head, untrained (`nexus/early_readout.py`, job `probe1-readout`, 1 minute).
+Inputs: the readouts use only the first run's own states; the answer is used only to score them.
+The four breaks are chosen by each readout's own confidences with the break-score rule (and, for
+comparison, by the last layer's confidences with the early readout's tokens).
+Metric: the right token in the readout's top 1 / 2 / 8 over the block's places 1 to 15; the
+first choices right in a row from the block's start; of the four branches (first choices before
+the break, second choice at it), the share whose whole prefix matches the answer.
+Timing: the readout (norm and head over a block of 16) 1.18 ms, measured.
+Evidence: `nexus/results/probe1-readout/status.json`. Top 1 / top 2 / right in a row: after layer
+1: 3.7% / 5.6% / 0.22; layer 2: 10.1% / 14.9% / 0.66; layer 3: 21.6% / 30.1% / 1.51; layer 4: 33.0%
+/ 42.1% / 2.73; last layer: 44.7% / 53.5% / 5.28. Branches with the whole prefix right, own
+breaks: layer 2 4.7%, layer 3 7.0%, layer 4 7.3%, last layer 9.8%; with the last layer's breaks and
+the early tokens: 2.2%, 4.0%, 6.1%. Conclusion supported: untrained, the early readouts are poor
+(at layer 3 the chain of first choices is right for 1.5 tokens against 5.3 at the end), so the
+untrained version of branching inside the drafter has no useful inputs; the whole-prefix share
+falls less (7.0% against 9.8%) only because the poorer confidences place the breaks earlier
+(mean place 2.6 against 4.3), where short prefixes are easier. Note also the ceiling this metric
+puts on the four-branch structure itself: even the final readout gives 9.8% of branches a right
+whole prefix, about 0.4 useful branches a round. Open: whether a trained intermediate readout
+(LayerSkip-style) closes the gap, which is the next test if the cost probe (P10) is affordable.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -485,6 +510,15 @@ scores told the first run's probability of the whole branch prefix and the dista
 rather than two tokens; two jobs.
 
 P8. A 127-node tree, since the check is flat to the tile (A3); one job.
+
+P10. Branching inside the drafter (proposed November 27). Two checks before any training: C9
+(done: untrained early readouts are poor) and the cost probe `probe2-cost` (queued:
+`nexus/branch_cost.py`, every stage timed on real rounds at 1,024 / 4,096 / 8,192 tokens of
+text, the check by rows, and the token gain each setting needs to break even against DDTree). The
+decision table: useful inputs and affordable cost, train the branching drafter; poor inputs and
+affordable cost, a small early-readout training test first; too expensive, stop. C9 says the inputs
+are poor untrained, so the only path forward is the readout-training test, and only if the cost is
+affordable.
 
 P9. Plain-mode text: generate answers with reasoning off and rerun the main table, since the class
 setting is plain mode and all November numbers are on thinking-mode text.
