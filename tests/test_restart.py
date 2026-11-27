@@ -3066,3 +3066,50 @@ def test_a_stopped_whole_drafter_training_goes_on_from_its_folder(tmp_path):
     assert all(torch.equal(draft.state_dict()[name], value) for name, value in copy.items())
     with pytest.raises(FileNotFoundError):
         load_saved_drafter(draft, str(tmp_path / "nowhere"))
+
+
+def test_pair_scores_taught_by_a_second_drafter():
+    """nexus/train_pairs.py: TeachPairs with a teacher. The KL to the teacher's probabilities of the same candidates at
+    sampled places enters the loss with its weight; with weight 1 the target's labels play no part; it trains."""
+    from dflash.pair_scores import PairScores
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+    from nexus.train_pairs import TeachPairs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    teacher = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True).eval()
+    torch.manual_seed(5)
+    with torch.no_grad():
+        for adapter in teacher.adapters:
+            adapter.up.normal_(std=1.0)
+        teacher.scores.strength.fill_(3.0)                                      # (a teacher that disagrees with the first run)
+    for parameter in teacher.parameters():
+        parameter.requires_grad_(False)
+
+    def trained(weight, steps=8):
+        torch.manual_seed(0)
+        pairs = PairScores(16, rank=8, hidden=12, sure=True)
+        teach = TeachPairs(pairs, torch.optim.AdamW(pairs.parameters(), lr=3e-3), draft, target, candidates=5, group=6, window=64,
+                           width=BLOCK, warm=1, teacher=teacher, teacher_weight=weight, teacher_places=3)
+        kls = []
+        for _ in range(steps):
+            teach.generator.manual_seed(0)
+            teach.learn_from(ids, features, said, length, 12, None)
+            progress = teach.progress()
+            kls.append(progress.get("teacher_kl"))
+        return pairs, kls
+
+    _, none = trained(0.0)
+    assert all(kl is None for kl in none)                                   # no teacher term without a weight
+    _, alone = trained(1.0)
+    assert all(kl is not None and kl >= 0 for kl in alone) and alone[-1] < alone[0]     # taught by the teacher alone, the KL falls
+    _, mixed = trained(0.5)
+    assert all(kl is not None and kl >= 0 for kl in mixed) and mixed[-1] > alone[-1]    # with the labels in the loss it stays further from the teacher
+    with pytest.raises(ValueError):
+        TeachPairs(PairScores(16, rank=8, hidden=12), None, draft, target, teacher=teacher, teacher_weight=2.0)

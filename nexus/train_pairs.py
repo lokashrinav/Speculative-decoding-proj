@@ -38,21 +38,65 @@ class TeachPairs(TeachEvery):
     """As TeachEvery, for scores that read the first run's states: all places of every round, no pass."""
 
     def __init__(self, pairs, optimizer, drafter, target, candidates=32, group=32, soft=0.5, window=2048, width=16, seed=0,
-                 depth_decay=7.0, warm=100):
+                 depth_decay=7.0, warm=100, teacher=None, teacher_weight=0.0, teacher_places=4):
         super().__init__(None, optimizer, drafter, target, candidates, 1, group, 1, soft=soft, window=window, width=width, seed=seed,
                          depth_decay=depth_decay, warm=warm)
         self.pairs = pairs
+        # teacher: a trained second drafter (dflash/restart_layers.py, e.g. warm-opd-e4.pt) whose probabilities of the
+        # same candidates at the same places (given the true tokens before) the scores are taught to match, with a
+        # KL over the candidates and "another token" (C12: its order alone and its strengths alone transfer nothing;
+        # the probabilities do). The loss is (1 - teacher_weight) x the target's labels + teacher_weight x the KL,
+        # at `teacher_places` places of each round (a pass of the teacher costs by its rows).
+        self.teacher, self.teacher_weight, self.teacher_places = teacher, teacher_weight, teacher_places
+        if teacher is not None and not (0.0 <= teacher_weight <= 1.0):
+            raise ValueError("teacher_weight is between 0 and 1")
+
+    def _teacher_log(self, teacher, features, ids, starts, kept, low, best, first_scores, wrong, follow):
+        """The teacher's log-probabilities of the candidates (and "another token") at `teacher_places` places of each
+        round, given the answer's true tokens before them: (owner [rows], column [rows] into the places 2 .. width - 1,
+        log-probabilities [rows, top + 1]). One pass of the teacher's layers for all rows."""
+        from dflash.restart_layers import candidate_scores
+        from nexus.train_every import second_rows
+
+        drafter, target, width, device = self.drafter, self.target, self.width, ids.device
+        head = _output_head(target)
+        anchors = starts.shape[0]
+        per = min(self.teacher_places, width - 2)
+        # depth d: the answer's tokens at places 1 .. d are written in; the row predicts place d + 1 (column d - 1).
+        depths = torch.stack([torch.randperm(width - 2, generator=self.generator)[:per] + 1 for _ in range(anchors)]).to(device)
+        owner = torch.arange(anchors, device=device)[:, None].expand(-1, per).flatten()
+        depths = depths.flatten()
+        states, _ = second_rows(drafter, teacher, target, features, ids, starts[owner], depths, kept[owner], low, 1, width)
+        states = states[:, 0]                                                              # [rows, size]
+        column = depths - 1
+        candidates = best.indices[owner, depths]                                           # (place d + 1 is row d of best)
+        first_log, firsts = best.values[owner, depths], first_scores[owner, depths]
+        if teacher.scores.out is not None:
+            seconds = candidate_scores(drafter, head, teacher.scores.out(states.to(teacher.scores.out.weight.dtype)), candidates)
+            firsts = torch.zeros_like(firsts)
+        else:
+            seconds = candidate_scores(drafter, head, states, candidates)
+        off = wrong[owner, depths - 1] > 0
+        lift = None
+        if follow is not None:
+            position = starts[owner] + depths + 1
+            lift = follow.lift(ids[0][position - 2][..., None], ids[0][position - 1][..., None], candidates)
+        return owner, column, teacher.scores(first_log, firsts, seconds, states, lift, off).detach()
 
     def step(self, ids, features, said, starts, follow=None, learn=True):
         drafter, target, pairs, width, device, top = self.drafter, self.target, self.pairs, self.width, ids.device, self.candidates
         head = _output_head(target)
         scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
         low = max(int(starts.max()) - self.window, 0)
+        teacher = self.teacher
         with torch.no_grad():
-            final, _ = first_runs(drafter, target, features, ids, starts, low, 0, width)
+            final, kept = first_runs(drafter, target, features, ids, starts, low, 0 if teacher is None else teacher.first - 1, width)
             answer = ids[0][starts[:, None] + torch.arange(1, width, device=device)[None, :]]        # the tokens of the places 1 .. width - 1
-            likely = drafter.compute_logits(final[:, 1:], head).float().log_softmax(dim=-1)
+            logits = drafter.compute_logits(final[:, 1:], head).float()
+            likely = logits.log_softmax(dim=-1)
             best = likely.topk(top, dim=-1)
+            first_scores = logits.gather(-1, best.indices) if teacher is not None else None        # (the teacher reads the raw scores)
+            del logits
             before_sure = two_sure = None
             if pairs.sure_before is not None:
                 # How the first run stood to the answer's token of every place: its log-probability of it, whether it
@@ -78,11 +122,21 @@ class TeachPairs(TeachEvery):
             share = (match * told_log.exp()[..., None, :]).sum(dim=-1)
             share = torch.cat((share, (1.0 - share.sum(dim=-1, keepdim=True)).clamp_min(0.0)), dim=-1)
             weight = torch.exp(-torch.arange(width - 2, device=device, dtype=torch.float) / self.depth_decay)[None, :].expand_as(label)
+            taught = None
+            if teacher is not None and self.teacher_weight > 0:
+                taught = self._teacher_log(teacher, features, ids, starts, kept, low, best, first_scores, wrong, follow)
         with torch.set_grad_enabled(learn):
             log_with = pairs(first_log, states, embedded[0], embedded[1], rows, lift, off, before_sure, two_sure)
             hard = -log_with.gather(-1, index[..., None])[..., 0]
             soft = -(share * log_with).sum(dim=-1)
             loss = (((1.0 - self.soft) * hard + self.soft * soft) * weight).sum() / weight.sum()
+            if taught is not None:
+                owner, column, teacher_log = taught
+                student_log = log_with[owner, column]                                      # [rows, top + 1]
+                kl = (teacher_log.exp() * (teacher_log - student_log)).sum(dim=-1)         # KL(teacher || student)
+                kl = (kl * weight[owner, column]).sum() / weight[owner, column].sum()
+                loss = (1.0 - self.teacher_weight) * loss + self.teacher_weight * kl
+                self._add("teacher_kl", float(kl.detach()), 1)
         if learn:
             self.optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -137,6 +191,9 @@ def main():
     parser.add_argument("--sure-inputs", default="all",
                         help='which of the three numbers the scores see: "all", or a comma list of logp, top1, best')
     parser.add_argument("--sure-scalar", action="store_true", help="one scale per token instead of one per rank")
+    parser.add_argument("--teacher", default="", help="a trained second drafter warm-<name>.pt to match (a KL over the candidates)")
+    parser.add_argument("--teacher-weight", type=float, default=0.0, help="the KL's share of the loss, 0 to 1 (1: the teacher alone)")
+    parser.add_argument("--teacher-places", type=int, default=4, help="places of each round the teacher scores")
     parser.add_argument("--anchors", type=int, default=256, help="rounds per answer")
     parser.add_argument("--group", type=int, default=32, help="rounds per update")
     parser.add_argument("--soft", type=float, default=0.5)
@@ -173,7 +230,16 @@ def main():
         pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden, sure=args.sure,
                            sure_inputs=args.sure_inputs, sure_scalar=args.sure_scalar).to(device).train()
         optimizer = torch.optim.AdamW(pairs.parameters(), lr=args.rate, weight_decay=0.0)
-    teach = TeachPairs(pairs, optimizer, draft, target, args.candidates, args.group, soft=args.soft, window=args.window, seed=args.seed)
+    teacher = None
+    if args.teacher:
+        from dflash.restart_layers import load_restart_layers
+
+        teacher, _ = load_restart_layers(os.path.join(args.adapter_dir, f"warm-{args.teacher}.pt"), draft)
+        teacher.eval()
+        for parameter in teacher.parameters():
+            parameter.requires_grad_(False)
+    teach = TeachPairs(pairs, optimizer, draft, target, args.candidates, args.group, soft=args.soft, window=args.window, seed=args.seed,
+                       teacher=teacher, teacher_weight=args.teacher_weight, teacher_places=args.teacher_places)
     follow, half_of, parts, tokens_counted = None, {}, None, 0
     if args.counts:
         which = halves(answers)
@@ -188,6 +254,7 @@ def main():
             "done": done, "answers": learned, "answers_to_learn_from": len(answers), "updates": teach.updates, "rows": teach.rows_seen,
             "draft": args.draft, "what": "pair scores", "rank": args.rank, "hidden": args.hidden, "sure": bool(args.sure),
             "sure_inputs": args.sure_inputs, "sure_scalar": bool(args.sure_scalar),
+            "teacher": args.teacher or None, "teacher_weight": args.teacher_weight, "teacher_places": args.teacher_places,
             "saved_as": args.save,
             "candidates": args.candidates, "soft": args.soft, "counts": bool(args.counts), "tokens_counted": tokens_counted,
             "trained_numbers": sum(value.numel() for value in pairs.parameters()),
