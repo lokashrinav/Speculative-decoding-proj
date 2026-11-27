@@ -429,6 +429,26 @@ puts on the four-branch structure itself: even the final readout gives 9.8% of b
 whole prefix, about 0.4 useful branches a round. Open: whether a trained intermediate readout
 (LayerSkip-style) closes the gap, which is the next test if the cost probe (P10) is affordable.
 
+### C10. Real speed on the standard benchmark prompts, thinking off (November 27, 07:40 UTC)
+
+Setup: Draft-OPD; target with thinking OFF (the class setting); A5000; 10 prompts each of GSM8K,
+MATH-500, HumanEval and MT-Bench (the first turn, `dflash/benchmark.py`'s fixed selection), the
+target's own answers, every setting writing the same text; counts from `long1` train and `think1`
+(job `conf3-bench`, 17 minutes; 3,095 to 4,355 rounds).
+Inputs: no oracle. Note that the drafter and the corrector were trained on thinking-mode text and
+are used here on non-thinking answers.
+Metric: tokens per round and real tokens per second over plain, all rounds.
+Timing: full rounds (eager).
+Evidence: `nexus/results/conf3-bench/status.json`. Over all 40 prompts: plain 7.17 tokens a round
+at 64.6 ms; DDTree 8.89 at 69.6 ms, +15.1%; count table 9.64 at 72.0 ms, +20.6%; pair scores
+with the flag (`opd-p2s`) 10.09 at 73.4 ms, +23.8%. By benchmark (DDTree / count table / pair
+scores over plain): GSM8K +25.6 / +29.4 / +33.6%; MATH-500 +3.9 / +12.6 / +15.1%; HumanEval
++32.9 / +28.6 / +32.5%; MT-Bench +35.7 / +38.4 / +43.2%. Conclusion supported: on the standard
+prompts with thinking off, the corrector is +7.6% over DDTree and +2.7% over the count table in
+real speed (eager), the same picture as on the long thinking answers (+8.7% over DDTree on 3
+answers); it loses nothing on code (HumanEval ties DDTree where the count table falls behind).
+Its extra cost is 3.8 ms a round. Open: 10 prompts a benchmark; graphed timing (`cost2-search`).
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
