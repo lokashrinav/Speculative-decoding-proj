@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/loop5-dloop-8595504/nexus/train_loop.py", line 360, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/loop5-dloop-8595504/nexus/train_loop.py", line 332, in main
+    teach.learn_from(ids, features, prompt_length, args.anchors)
+  File "/tmp/specdec-code-sloka/loop5-dloop-8595504/nexus/train_loop.py", line 136, in learn_from
+    self.step(ids, features, starts, prefixes)
+  File "/tmp/specdec-code-sloka/loop5-dloop-8595504/nexus/train_loop.py", line 167, in step
+    prefix_states = views(self.drafter, self.target, features, ids, starts, torch.zeros_like(prefixes), low, width)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/loop5-dloop-8595504/nexus/train_loop.py", line 72, in views
+    final = drafter(target_hidden=features[:, low:high].to(kind), noise_embedding=entering, position_ids=_positions(low, high, starts, width),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+--
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 260.00 MiB. GPU 0 has a total capacity of 23.57 GiB of which 242.81 MiB is free. Including non-PyTorch memory, this process has 23.32 GiB memory in use. Of the allocated memory 22.72 GiB is allocated by PyTorch, and 351.00 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
