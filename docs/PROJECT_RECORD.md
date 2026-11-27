@@ -606,6 +606,36 @@ alone in both tokens and speed. By P4's rule the main line stays with the pass-f
 (Lane B). D2SD's own paper reports +20% speed for its second pass on a stack where the pass costs
 about 4 ms; on an eager 65 ms round with a 14 ms pass it cannot pay.
 
+### C17. Where the missing tokens sit (November 27, 17:40 UTC)
+
+Setup: as C4 (Draft-OPD, 7,900 rounds of DDTree, 8 validation answers); the trace records, for a
+stop at a token not among the first run's 32 candidates, that token's rank in the first run's whole
+vocabulary and the distance past the chain of first choices (job `diag6-rank`).
+Evidence: `nexus/results/diag6-rank/trace/trace.json`. For the pair network with the flag (929
+such stops, 11.8% of rounds): rank 33 to 64 in 52 to 60% of them, 65 to 128 in 20 to 28%, 129 to
+1,024 in 16 to 20%, beyond 1,024 in 2 to 3%, the median rank 56 to 63, the same at every distance
+past the chain (0 to 4 or more). The same for DDTree's 84 such stops and the four-layer drafter's
+1,217. Conclusion supported: staleness does not push the missing tokens far down the vocabulary;
+widening the candidates to 64 at every node would recover about half of these stops and 128 about
+three quarters, with no stored text; the prize is about +0.07 tokens a round at 64 and +0.09 at 128
+(each stop is worth about one token), against a scoring lattice two or four times larger. A trigram
+proposer is not needed. Open: the cost of the wider lattice in the graphed search.
+
+### C18. A 127-node corrector tree is slower as the pipeline stands (November 27, 17:40 UTC)
+
+Setup: Draft-OPD; A5000; the pair network with the flag as a CUDA graph with 63 and 127 nodes;
+20 benchmark prompts with thinking off (5 each of GSM8K, MATH-500, HumanEval, MT-Bench) and 4 long
+validation answers, the same text in every row (job `cost3-tree127`).
+Evidence: `nexus/results/cost3-tree127/status.json` and `long/status.json`. Benchmark prompts:
+plain 8.27 tokens a round at 67.5 ms; DDTree 9.86 at 74.0, +8.6%; 63 nodes 11.39 at 74.9, +24.1%;
+127 nodes 11.72 at 87.7, +9.0%. Long answers: plain 5.71 at 68.5; DDTree 7.50 at 74.9, +20.0%; 63
+nodes 8.64 at 76.7, +35.0%; 127 nodes 9.14 at 94.0, +16.5%. Conclusion supported: 127 nodes gains
+3 to 6% tokens and loses 13 to 17 ms a round, far more than the check's 1 to 7.5 ms (C11): the
+rest is our tree build and the host-side trie and mask for twice the rows. A larger tree pays only
+if the build and the mask are made as cheap as the check; a context-gated 127/63 rule is moot until
+then. Also on these runs the graphed 63-node corrector is +14.3% over DDTree on the benchmark
+prompts and +12.5% on the long answers.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -686,8 +716,11 @@ line after the class moves to the drafter.
 P5. The budget cause (C4's 12.5%, 0.28 tokens a round): a few learned temperatures over depth and
 on/off the path on top of `opd-p2s`, fit on training answers; one job.
 
-P6. The coverage cause (C4's 12.1%): 4 to 8 trigram-proposed candidates at nodes after a fork
-(DForkTree reports they hold 37 to 41% of the missing tokens); one job.
+P6, redirected by C17: widen the candidates to 64 (or 128) in the graphed search instead of
+trigram proposals; worth about +0.07 to +0.09 tokens a round if the lattice stays cheap; one job.
+
+P8, closed by C18: a 127-node tree loses 13 to 17 ms a round in our build and mask; only worth
+revisiting with a GPU-side mask and trie.
 
 P7. The ranking cause, narrowed by C12: the four-layer drafter as a teacher for the pair scores
 with a probability-matching KL over the candidates (not a ranking loss, which C12 rules out), at
