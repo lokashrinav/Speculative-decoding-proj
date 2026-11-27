@@ -515,14 +515,19 @@ Evidence: `nexus/results/oracle3-branches/trace/trace.json`. DDTree 7.565; oracl
 tokens, added 8.369 (+10.6%; further than DDTree in 35.1% of rounds, never less far); inside the
 budget 8.269 (+9.3%); to the block's end 11.546 (added) and 11.355 (inside the budget); the pair
 scores with the flag 8.665 (+14.5%). Against the pair scores, the 3-token oracle is further in 25.8%
-of rounds (gaining 0.49) and less far in 34.7% (losing 0.78). Conclusion supported: the ceiling of
-the four-branch structure with the proposed continuation length, inside the row budget, is +9.3%
-over DDTree, below the corrector in hand (+14.5%); a trained version would be below that ceiling on
-two counts (early readouts find a useful branch 71% as often, C9; real continuations are worse than
-the answer's), against a 5% break-even (C11). Branching inside the drafter stops here, by the rule
-fixed before the probes. The room is in the length of a right continuation (to the block's end, 4
-tokens a round), which is what a drafter cannot write inside the block without the target's states
-(B2, B3).
+of rounds (gaining 0.49) and less far in 34.7% (losing 0.78). Conclusion, stated precisely: with the tested four branch locations, three-token continuations
+and the 64-row budget, perfect continuations raise acceptance from 7.57 to 8.27 tokens a round.
+That leaves 9.3% headroom over DDTree and remains below the existing corrector's 8.67 on the same
+rounds. This configuration is not pursued, and nothing was trained. Two qualifications keep the
+conclusion honest. First, the bound is for these selected branches and this construction; training
+that changed the branch selection would change the bound. Second, lower acceptance alone does not
+prove lower speed; a sufficiently cheaper method could still win, and C11 gives the cost of this
+construction (about 3 ms, a 5% gain needed) but no trained version was timed, so stopping is a
+research-priority decision on limited headroom, not a demonstrated speed impossibility. Neither
+qualification obliges further work on it. What the oracle also shows: the room is in the length of a
+right continuation (to the block's end, 4 tokens a round), which a drafter cannot write inside the
+block without the target's states (B2, B3). This result does not by itself send the project back
+to a corrector; it eliminates one concrete way of avoiding the second pass.
 
 ### C6. The published second passes made here (D2SD, D-Loop)
 
@@ -615,7 +620,13 @@ P10, closed. Branching inside the drafter (proposed November 27): the three chec
 any training. C9: untrained early readouts are poor (a useful branch in 28% of rounds at layer 3
 against 39% at the end). C11: the cost is affordable (about 3 ms, a 5% gain needed inside 64 rows).
 C13: the oracle ceiling of the structure with 3-token continuations inside the budget is +9.3% over
-DDTree, below the corrector in hand. Stopped by the rule fixed in advance; no training was done.
+DDTree, below the corrector in hand. Stopped on limited headroom, by the rule fixed in advance; no
+training was done; the two qualifications are in C13.
+
+P4 is now the next milestone: the D2SD training (`loop6-d2sd`, resumed) and, when it ends, its
+acceptance and full decoding speed against the matched baselines on the same answers (plain,
+DDTree, the count table, the corrector). That is the test of whether learned branch continuations
+give enough extra progress to justify their computation.
 
 P9. Plain-mode text: generate answers with reasoning off and rerun the main table, since the class
 setting is plain mode and all November numbers are on thinking-mode text.
