@@ -1195,6 +1195,13 @@ class CountTree(DraftTree):
             worth[node] = -negative
         return chosen, worth
 
+    def _constant(self, name: str, make):
+        """A constant tensor made once per device (a recorded graph may hold no copy from the CPU)."""
+        store = self.__dict__.setdefault("_constants", {})
+        if name not in store:
+            store[name] = make()
+        return store[name]
+
     def _pair_tables_tensors(self, s: SimpleNamespace, tokens: torch.Tensor, values: torch.Tensor):
         """As _pair_tables, but the tables stay on the device, in float32."""
         pairs, target, drafter = self.pairs, s.target, s.first_drafter
@@ -1208,7 +1215,8 @@ class CountTree(DraftTree):
             first_choice = torch.zeros_like(values)
             first_choice[:, 0] = 1.0
             sure = torch.stack((values, first_choice, values[:, :1].expand_as(values)), dim=-1)
-            given = torch.tensor([0.0, 1.0, 0.0], device=values.device).expand(1, values.shape[1], 3)
+            given = self._constant(f"given:{values.device}", lambda: torch.tensor([0.0, 1.0, 0.0], device=values.device))
+            given = given.expand(1, values.shape[1], 3)
             sure_before, sure_two = sure[:-1], torch.cat((given, sure[:-2]))
         pair, skip, rest = pairs.tables(states, embedded[1:], embedded[:-1], _output_head(target).weight[tokens[1:]], sure_before, sure_two)
         return pair.float(), skip.float(), rest.float().exp(), pairs.on_path.float(), pairs.off_path.float()
@@ -1224,7 +1232,10 @@ class CountTree(DraftTree):
         budget, device, dtype = self.budget, likely.device, likely.dtype
         kept = min(budget, many)
         minus = torch.finfo(dtype).min
-        on_weight, off_weight = (torch.as_tensor(w, device=device, dtype=dtype) for w in (on_weight, off_weight))
+        on_weight, off_weight = (
+            w.to(device=device, dtype=dtype) if isinstance(w, torch.Tensor)
+            else self._constant(f"weight:{float(w)}:{device}:{dtype}", lambda w=w: torch.tensor(float(w), device=device, dtype=dtype))
+            for w in (on_weight, off_weight))
         # The kept nodes of a depth, padded to `budget` (score minus, no rank): score, the candidate they end in, the
         # one before it, whether the branch is still the path of first choices, and the ranks of their tokens so far.
         score = torch.full((budget,), minus, device=device, dtype=dtype)
