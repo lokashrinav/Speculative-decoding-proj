@@ -233,10 +233,13 @@ round); its targets at training time are the real vectors (oracle in training on
 Metric: tokens right of the three checked after the restart's first token; share of the gap
 between "nothing" and "real states" closed.
 Timing: none.
-Evidence: `docs/SECOND_RUN_RESTART.md`, "the second predictor's result"; `docs/DIRECTION.md`,
-November 18 night. Predicted states close 28% of the gap on Draft-OPD (2.07 against 1.11 with
-nothing and 4.51 with real states) and 49% on the public drafter (1.40 against 0.59 and 2.24); the
-frozen whole drafter gets 1.37 right of 3 with predicted states, 2.09 with real, 0.75 with none.
+Evidence: `docs/SECOND_RUN_RESTART.md`, "the second predictor's result" and "the states, final
+numbers" (`probe-more-opd-0`, `probe-more-pub-0`, 30 answers each); `docs/DIRECTION.md`, November
+18 night. Tokens accepted after the restart's first token, Draft-OPD (public drafter in brackets):
+nothing 0.97 (0.60), the predictor's states 2.01 (1.32), the target's real states 3.69 (2.11); the
+predictor closes about a third of the gap (an earlier probe on 12 answers: 2.07 against 1.11 and
+4.51, 28%). Of the three tokens checked after the restart's first token, the frozen whole drafter
+gets 1.37 right with predicted states, 2.09 with real, 0.75 with none.
 Conclusion supported: a predictor recovers a third to a half; the states cannot be predicted well
 enough from what the drafter has. This is the "hidden states" lever and it did not pay.
 

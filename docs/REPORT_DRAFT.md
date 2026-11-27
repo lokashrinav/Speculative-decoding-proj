@@ -1,19 +1,15 @@
-Notes for Shrinav, not part of the report. Your text through Experiment 3 is kept word for word below.
-Two numbers in it need a check against the record (docs/PROJECT_RECORD.md): in Experiment 2, "2.17 and
-3.65" are the public drafter and Draft-OPD respectively (B3), so the sentence should say which is which;
-in Experiment 3, the record has the three Draft-OPD numbers as 1.11 with nothing, 2.07 predicted, 4.51 real
-(B6, the three tokens after the restart's first token), and 0.93 / 3.65 for the restart study (B3), so
-"0.97, 2.01, 3.69" should be traced to a job or replaced. Everything from Experiment 4 on is new and uses
-the record's numbers. Numbers still to land (the D2SD runs, the staleness gate, the 127-node tree) are
-marked [pending].
+Overview
 
----
+A drafter guesses a block of 16 tokens and the target checks them in one pass. We asked whether a second look at the draft could speed decoding up. We found that a second run of the drafter helps mainly by handing the target one more candidate at the place where the draft breaks, that the ending it writes after that token is bad because the target's hidden states for the new tokens do not exist yet, and that no second run, predictor of those states, or teacher of a small network earns back its cost in real time. What does pay is a small network that corrects the scores of a tree built from the first draft, told whether the token before each place was the drafter's own first choice: it is 6.3% faster than DDTree on 30 long answers in plain PyTorch, about 12% faster with its work recorded as a CUDA graph on 4 answers, and it keeps its gain on code and chat, where a published count table built on math text falls below DDTree.
 
 Configurations for Experiments:
 GPU: RTX A5000
 Target: Qwen3-4B, thinking mode, greedy decoding
 Drafter: the public DFlash checkpoint (z-lab/Qwen3-4B-DFlash-b16), 5 layers, 16-token block, not retrained.
 Baseline/Plain Draft: 3.31 accepted tokens per round
+Data: answers the target wrote in thinking mode to prompts from AIME (before 2024), MATH level 5, LongWriter and UltraChat, up to 16,384 tokens each (the long1 set: 366 training answers, 100 validation answers), plus about 8,000 shorter answers of the same kinds for training only (think1). Every answer is assigned by a hash of its prompt to a training, validation or test split (60/20/20); everything trained learned from training answers, every number below is on validation answers, and the test split has not been used.
+Out-of-domain suite: 40 prompts of the standard benchmarks with thinking off, 10 each of GSM8K, MATH-500, HumanEval and MT-Bench, the target's own answers.
+Rule: greedy and lossless, so every method writes exactly the target's text; no oracle input in any speed measurement. Plain-draft acceptance differs between subsets of answers (3.31 on 50 public-drafter answers, 4.82 on 16 long Draft-OPD answers, 5.22 on 30, 5.72 on the 8 replay answers), so every comparison below is between methods on the same answers and the same text.
 
 What happens when you run a second drafter again?
 
@@ -31,6 +27,8 @@ In this manner, we've delved into a few experiments:
 
 Experiment 1. What is the second run's gain made of?
 
+(The +8.4% above is the second run left free: shown its own first draft, it usually repeats its first choice at the break. The +20.2% below is the second run given the drafter's second choice at the break and rewriting the rest. Both are on the same 50 answers.)
+
 The second run does two things at once: it puts a new token at the break, and it writes a new ending after that token. To measure each part on its own, we ran three settings on the same 50 answers (public drafter): the plain draft; the plain draft with the drafter's second choice swapped in at the four likely breaks, and nothing written after it; and the full second run, which swaps the token and rewrites the ending.
 
 In our experiment, the plain draft accepted 3.31 tokens per round. With the drafter's second choice swapped in at the four likely breaks and nothing written after it, 3.93 tokens were accepted per round, +18.8%. With the full second run, which swaps the token and rewrites the ending, 3.98 tokens per round, +20.2%.
@@ -43,7 +41,7 @@ Experiment 2. Does the second run write the ending badly, or is the ending not w
 
 To settle it, we took answers the target had already written, ran the drafter over them, and collected every round where the draft broke, since there we knew the right token. In each of those rounds we restarted the drafter from the right token in two ways. First, as a second run in the same round, with the new tokens given as tokens only. Second, as the next round's draft, with the target's hidden states for the new tokens, which the target produces when it checks them. Then we counted the tokens the target accepted after the restart.
 
-In the same round, the restart added 0.59 tokens on the public drafter. With the target's hidden states, it added 2.17 and 3.65. Same drafter, same starting point, three to four times the result.
+In the same round, the restart added 0.59 tokens on the public drafter and 0.93 on Draft-OPD. With the target's hidden states, it added 2.17 and 3.65. Same drafter, same starting point, nearly four times the result.
 
 So the second run writes the ending badly, and the ending is worth fixing. The cause is a single missing input: the target's hidden states for the new tokens. They cannot exist in the same round, because the target makes them in the check, after the drafting.
 
@@ -55,7 +53,7 @@ Experiment 2 showed the second run is bad because the new tokens have no hidden 
 
 Then we ran the same test as experiment 2. At every round where the draft broke, we did the second run from the right token three times, with three inputs: no hidden state for the new tokens, the predicted one from our network, and the real one taken from the target's later check, which gives the ceiling. We counted how many of the new tokens the target accepted.
 
-On Draft-OPD, the second run adds 0.97 tokens with nothing, 2.01 with the predicted states, and 3.69 with the real ones. So the predictor closes about a third of the gap.
+On Draft-OPD, over 30 validation answers, the restart adds 0.97 accepted tokens after its first token with nothing, 2.01 with the predicted states, and 3.69 with the real ones. So the predictor closes about a third of the gap.
 
 A predictor that closes a third of the gap is not enough, because the second run still has to be paid for. We measured that in real decoding on Draft-OPD, 16 long answers, every method writing the same text. The plain draft accepted 4.82 tokens per round. The second run at the four likely breaks, with the predicted states, accepted 6.24 tokens per round, 30% more, but it cost 14.7 ms on a round of about 70 ms, so the real speed was only 4% higher. DDTree, which builds a tree of 63 candidates from the first draft's own scores and costs 1.6 ms, accepted 6.59 tokens per round and was 26% faster. The second run on top of DDTree accepted 7.14 tokens per round and was 12% faster, which is slower than DDTree alone.
 
@@ -75,9 +73,9 @@ Experiment 6. Can a small network learn the correction instead of looking it up?
 
 The count table needs stored text and fails where the text does not cover the task. We replaced it with a small network that scores a candidate from the two tokens before it, the drafter's state at the place, and the candidate's row of the output head, trained on the target's own answers. It is right after a fork 42.4% of the time, accepts 8.19 tokens per round, and gets less far than DDTree in 10% of rounds, because it corrects the first draft's good guesses as much as its bad ones.
 
-Telling the network whether the token before the place was the first draft's own first choice fixed that. With that input it is right after a fork 47.5% of the time and accepts 8.67 tokens per round on the same 8 answers. In real decoding on 30 long answers it is 32.9% faster than the plain draft, against 25.0% for DDTree and 30.7% for the count table, at a cost of 4.4 ms per round for the scoring. Recording the whole scoring and tree build as one CUDA graph brings that cost to 1.7 ms with the same tokens; on 4 answers the graphed version is 34.7% faster than plain against 19.7% for DDTree.
+Telling the network whether the token before the place was the first draft's own first choice fixed that. With that input it is right after a fork 47.5% of the time and accepts 8.67 tokens per round on the same 8 answers. In real decoding on 30 long answers it is 32.9% faster than the plain draft, against 25.0% for DDTree and 30.7% for the count table, at a cost of 4.4 ms per round for the scoring. Recording the whole scoring and tree build as one CUDA graph brings that cost to 1.7 ms with the same tokens; on 4 answers the graphed version is 34.7% faster than plain against 19.7% for DDTree, about 12% over DDTree, a number that is preliminary until the graphed version is timed on the full 30 answers and the benchmark prompts.
 
-We also gave the network the first draft's probability of the token before and of its first choice, as numbers. They add nothing: trained four ways and with two seeds, the versions with and without the numbers are within 0.04 tokens per round of each other. The whole gain is the yes-or-no flag, which is the same distinction DForkTree makes with two fixed weights. So this network is not a new idea; it is the known idea in a learned form, without stored text.
+We also gave the network the first draft's probability of the token before and of its first choice, as numbers. They add nothing: trained four ways and with two seeds, the versions with and without the numbers are within 0.04 tokens per round of each other. The whole gain is the yes-or-no flag, which is the same distinction DForkTree makes with two fixed weights. So the on-path and off-path gating itself is not new; it is a learned form of DForkTree's two-weight split. What is new is replacing the stored count table with a small network over the drafter's own states and output embeddings, which needs no stored text and transfers out of domain.
 
 Where the stored text matters is out of domain. On 40 prompts of the standard benchmarks with thinking off, the network is 23.8% faster than plain, the count table 20.6%, DDTree 15.1%. On HumanEval, which is code, the count table falls below DDTree (28.6% against 32.9%) while the network accepts 7.1% more tokens per round than DDTree and ties it in speed only because the 4.4 ms scoring was not graphed in that run.
 
@@ -102,6 +100,20 @@ We also asked whether the drafter could write the branches after its likely brea
 Experiment 10. Does a retrained drafter do better than a corrector?
 
 D2SD and D-Loop retrain a drafter for the second pass and have no released weights. We trained D2SD's separate second drafter with its recipe on the cluster (D-Loop did not fit in memory). Its probe with no states, predicted states and real states, and its real speed against DDTree, the count table and the network on the same answers: [pending].
+
+Main results
+
+The methods side by side, all on Draft-OPD. Long thinking answers: tokens per round on the 8 replay answers, and real speed over the plain draft on the 30 long answers (plain PyTorch) with the graphed numbers on 4 answers in brackets. Benchmark prompts: real speed over plain on the 40 prompts with thinking off, plain PyTorch.
+
+| Method | Tokens a round (8 answers) | Speed over plain, 30 long answers | Speed over plain, 40 benchmark prompts |
+| --- | --- | --- | --- |
+| Plain draft | 5.72 | 0 | 0 |
+| DDTree (63 nodes) | 7.56 | +25.0% [+19.7%] | +15.1% |
+| Count table (DForkTree) | 8.31 | +30.7% [+30.1% graphed] | +20.6% |
+| One-layer second run | 8.21 | +21.3% (3 answers) | not run |
+| Four-layer second run, every node | 8.98 | −0.6% (3 answers) | not run |
+| Pair network without the flag | 8.19 | +28.1% | not run |
+| Pair network with the flag | 8.67 | +32.9% [+34.7% graphed] | +23.8% |
 
 What we know
 
