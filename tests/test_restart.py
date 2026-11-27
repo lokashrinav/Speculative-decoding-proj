@@ -2671,3 +2671,43 @@ def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
         SecondTree(12, 0)
     save_restart_layers(str(tmp_path / "warm-tiny1.pt"), second, {"reach": 2, "candidates": 8, "reveal_last": 1})
     assert make_method("stree12@tiny1", str(tmp_path), draft).reveal_last == 1 and named.reveal_last == 0
+
+
+def test_a_whole_second_drafter_trained_as_the_published_ones(tmp_path):
+    """nexus/train_loop.py: the views with nothing filled in are the first run; the loss falls; a d2sd drafter
+    saved as a folder loads as a second drafter (replay: branches4@FOLDER; the probe: --second-draft)."""
+    from dflash.adapt import attach_adapters
+    from dflash.replay import target_features
+    from nexus.train_every import first_runs
+    from nexus.train_loop import TeachLoop, prefix_law, views
+
+    law = prefix_law(16, 0.7)
+    assert law.shape == (15,) and abs(float(law.sum()) - 1.0) < 1e-6 and law[0] > law[1] > law[14]
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    starts = torch.tensor([length + 2, length + 9, length + 20])
+    with torch.no_grad():
+        final, _ = first_runs(draft, target, features, ids, starts, 0, 0, BLOCK)
+        same = views(draft, target, features, ids, starts, torch.zeros(3, dtype=torch.long), 0, BLOCK)
+        assert torch.allclose(final, same, atol=1e-5)
+        shown = views(draft, target, features, ids, starts, torch.tensor([3, 0, 5]), 0, BLOCK)
+        assert torch.allclose(shown[1], same[1], atol=1e-5) and not torch.allclose(shown[0], same[0], atol=1e-3)
+    for parameter in target.parameters():
+        parameter.requires_grad_(False)
+    adapters = attach_adapters(draft, rank=4)
+    parameters = [p for adapter in adapters for p in (adapter.down, adapter.up)]
+    for recipe in ("dloop", "d2sd"):
+        teach = TeachLoop(draft, target, torch.optim.AdamW(parameters, lr=3e-3), recipe=recipe, group=4, width=BLOCK, window=64)
+        losses = []
+        for _ in range(10):
+            teach.generator.manual_seed(0)
+            teach.learn_from(ids, features, length, 8)
+            losses.append(teach.progress()["loss"])
+        assert losses[-1] < losses[0]
+        teach.reset()
+        with torch.no_grad():
+            teach.learn_from(ids, features, length, 0, learn=False, every=7)
+        progress = teach.progress()
+        assert progress["second_right"] >= 0 and len(progress["second_right_by_prefix"]) == BLOCK - 1 and progress["first_walk"] >= 0

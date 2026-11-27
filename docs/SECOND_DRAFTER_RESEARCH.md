@@ -599,3 +599,39 @@ choice; give it how likely the first run found that token), train it as long as 
 tokens written in (`diag2-replay`, `diag5-rows`: `opd-e1m1`, `opd-e1m2`) whether two tokens are
 enough when a real layer computes the answer. (c) More rows in the one pass get half of what every
 row gets (8.29 of 8.39) for the price of the rows.
+
+## The published second passes made here, and whether a trained pass still needs the states (November 27, 02:00 UTC)
+
+Shrinav's question: the untrained second run is missing the target's hidden states for the new tokens
+(0.59 tokens after the break with tokens only, 2.17 with the real states on the public drafter; 0.93
+and 3.65 on Draft-OPD). Does a TRAINED second pass, D-Loop's or D2SD's, still gain from them? If it
+does, a predictor of the states is a lever for their methods, which pay the pass anyway, and not only
+for ours. The literature (two research reports, November 26): DForkTree (2611.12356) states the cause
+and measures it as top-1 accuracy (29% to 84% with the target's features, 37 to 39% with tokens
+only); JetSpec++ (2610.19792) predicts the target's states for an unverified block with a 12-layer
+adapter, for drafting ahead; nobody has measured accepted tokens with and without the states, a
+small in-round predictor against the oracle, or whether a trained second pass still gains from the
+states. Our trained one-layer second drafter ignores them (0.87 predicted, 0.90 real, 0.86 none);
+a trained whole pass is unmeasured. Neither D-Loop nor D2SD has released weights (D2SD's come
+"with the camera-ready"), so both are made here (`nexus/train_loop.py`):
+
+- `loop1-d2sd`: a separate whole drafter, started from Draft-OPD, all weights trained to fill the end
+  of a block given the true beginning (prefix lengths ~ 0.85^l, cross-entropy decaying from the first
+  masked place, tau 7, lr 1e-4, up to 2 passes over long1's training answers and think1, 5 hours).
+  D2SD's own recipe is only partly published (beta, tau, lr and the start are not stated); the
+  choice follows the research report (full fine-tune, start from the released drafter, a longer
+  mean prefix for thinking-mode text). Then the probe with the trained drafter making the restarts
+  (nothing / predicted `opd-m0` / real states), and replay of `branches4` (the unchanged drafter as
+  the second drafter: D2SD's control, +14% tokens on their 8B) against `branches4@drafter-opd-d2sd`.
+- `loop2-dloop`: Draft-OPD itself retrained with the paper's two views (an ordinary block, and a block
+  with the true beginning filled in; 0.7^l, decays 7, lr 2e-4), one set of weights for both passes.
+  Then the probe and replay with the retrained drafter, and `plain,branches4` with the original for
+  the comparison (does the retraining hurt the first pass).
+
+Why D2SD first (the report's reasoning): the first pass stays the released drafter, so every gain is
+the second pass's; under greedy decoding D2SD's gain over its own baseline is the larger (+33% tokens,
++20% speed against D-Loop's +18% tokens, +4% speed on Qwen3-4B); retraining the shared weights on
+11M tokens could drift a drafter trained on far more. What to expect, as extrapolation only: tokens
+between the untrained reuse (+14%) and the full-data result (+33%); speed on a 4B target a few
+percent, since D-Loop turned +17.7% tokens into +3.7% speed there. Memory: the 537M-parameter
+drafter in 32-bit with AdamW is about 8.6 GB next to the 8 GB target.

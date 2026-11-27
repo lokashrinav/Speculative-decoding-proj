@@ -94,8 +94,9 @@ MOST_ROUNDS_PER_FILE = 12000
 class Restart:
     """The replay's plug-in: makes no second draft, measures the restarts of every round with a break."""
 
-    def __init__(self, k=4, width=WIDTH, predictor=None, reanchor=False, more=False):
+    def __init__(self, k=4, width=WIDTH, predictor=None, reanchor=False, more=False, second=None):
         self.inner, self.k, self.rows, self.width, self.predictor = SelfRedraft(), k, [], width, predictor
+        self.second = second                   # a SEPARATE drafter for the restarts (a trained second drafter), or None
         self.arms = ARMS + (("predicted",) if predictor is not None else ())
         self.columns = COLUMNS + (("predicted",) if predictor is not None else ())
         self.reanchor = () if not reanchor else REANCHOR + (("reanchor_predicted",) if predictor is not None else ())
@@ -152,6 +153,9 @@ class Restart:
         correct[0, broke + 1] = token
         rest = slice(broke + 2, full)
         record["old_rest"] = _matches(correct[:, rest], after)
+        first_drafter = s.first_drafter
+        if self.second is not None:
+            s.first_drafter = self.second      # (the passes below take the drafter from the round's state)
         made, _ = self.inner.redraft_together(s, [broke + 1], correct)
         record["new_rest"] = _matches(made[:, rest], after)
         if "shift_del1" in record:
@@ -226,6 +230,7 @@ class Restart:
                 given.append(earlier[name] if missing > 1 else None)
             record["rank"] = min(int((first[broke] > first[broke, token]).sum()), 99)
         tokens = restarts(s, anchors, begin, given, full)
+        s.first_drafter = first_drafter
         for number, name in enumerate(self.arms):
             record[name] = _matches(tokens[number : number + 1], after)
         from_the_break = self.ids[:, restart : restart + full - 1]
@@ -316,6 +321,7 @@ def main():
     parser.add_argument("--predictor", default="", help="a saved predictor of the missing states: restart-<name>.pt in --adapter-dir")
     parser.add_argument("--reanchor", action="store_true", help="also restart from the last right token (see REANCHOR above)")
     parser.add_argument("--more", action="store_true", help="also stand-ins that are real states of other places or layers (see MORE above)")
+    parser.add_argument("--second-draft", default="", help="a saved drafter folder (under --adapter-dir, or a path) that makes the restarts")
     parser.add_argument("--rank", type=int, default=16, help="of the saved add-on weights")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--num-shards", type=int, default=1)
@@ -346,7 +352,13 @@ def main():
     predictor, predictor_notes = None, {}
     if args.predictor:
         predictor, predictor_notes = load_predictor(os.path.join(args.adapter_dir, f"restart-{args.predictor}.pt"), device)
-    probe = Restart(predictor=predictor, reanchor=args.reanchor, more=args.more)
+    second = None
+    if args.second_draft:
+        from nexus import bench_redraft
+
+        path = os.path.expanduser(args.second_draft)
+        second = bench_redraft.load_second(path if os.path.isdir(path) else os.path.join(args.adapter_dir, args.second_draft)).to(draft.fc.weight)
+    probe = Restart(predictor=predictor, reanchor=args.reanchor, more=args.more, second=second)
     records, written, started = [], [0, 0], time.time()          # written: files, rounds in them
 
     def report(done):
@@ -357,7 +369,7 @@ def main():
             written[0] += 1
             written[1] += len(fresh)
         status = {"done": done, "answers": len(records), "answers_in_this_job": len(answers), "part": args.part,
-                  "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed,
+                  "hours": round((time.time() - started) / 3600, 3), "draft": args.draft, "fixed": args.fixed, "second_draft": args.second_draft,
                   "sharp": args.sharp, "saved_adapters_used": notes, "columns": probe.columns,
                   "target_layers_the_drafter_reads": list(draft.target_layer_ids), "files": written[0],
                   "predictor": args.predictor, "predictor_notes": predictor_notes,
