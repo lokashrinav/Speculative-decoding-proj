@@ -1,6 +1,6 @@
 Overview
 
-A drafter guesses a block of 16 tokens and the target checks them in one pass. We asked whether a second look at the draft could speed decoding up. We found that a second run of the drafter helps mainly by handing the target one more candidate at the place where the draft breaks, that the ending it writes after that token is bad because the target's hidden states for the new tokens do not exist yet, and that no second run, predictor of those states, or teacher of a small network earns back its cost in real time. What does pay is a small network that corrects the scores of a tree built from the first draft, told whether the token before each place was the drafter's own first choice: it is 6.3% faster than DDTree on 30 long answers in plain PyTorch, about 12% faster with its work recorded as a CUDA graph on 4 answers, and it keeps its gain on code and chat, where a published count table built on math text falls below DDTree.
+A drafter guesses a block of 16 tokens and the target checks them in one pass. We asked whether a second look at the draft could speed decoding up. We found that a second run of the drafter helps mainly by handing the target one more candidate at the place where the draft breaks, that the ending it writes after that token is bad because the target's hidden states for the new tokens do not exist yet, and that no second run, predictor of those states, or teacher of a small network earns back its cost in real time. What does pay is a small network that corrects the scores of a tree built from the first draft, told whether the token before each place was the drafter's own first choice: it is 6.3% faster than DDTree on 30 long answers in plain PyTorch, about 12% faster with its work recorded as a CUDA graph on 4 answers, 13.6 points over DDTree on 40 standard benchmark prompts with the graph, and it keeps its gain on code and chat, where a published count table built on math text falls below DDTree.
 
 Configurations for Experiments:
 GPU: RTX A5000
@@ -79,6 +79,8 @@ We also gave the network the first draft's probability of the token before and o
 
 Where the stored text matters is out of domain. On 40 prompts of the standard benchmarks with thinking off, the network is 23.8% faster than plain, the count table 20.6%, DDTree 15.1%. On HumanEval, which is code, the count table falls below DDTree (28.6% against 32.9%) while the network accepts 7.1% more tokens per round than DDTree and ties it in speed only because the 4.4 ms scoring was not graphed in that run.
 
+With the scoring recorded as a CUDA graph (second run of the same 40 prompts), the network is 28.8% faster than plain, the count table 25.0%, DDTree 15.2%, so the network is 13.6 points over DDTree and 3.8 over the count table. On HumanEval it is then 38.4% against 32.9% for DDTree and 32.7% for the count table, and on MT-Bench 49.9% against 35.8% and 41.3%. The graphed count table takes the same 69.9 ms a round as DDTree, so its gain is all tokens, and the network's extra 1.1 ms a round buys 0.45 more tokens.
+
 Experiment 7. Why does the answer's path leave each tree?
 
 To see what was left, we built every tree on the same rounds and recorded why the answer's path stopped in each: the block ended; the right token was not among the first draft's 32 candidates; it was ranked first but the tree's budget went elsewhere; it was ranked second to fourth; it was ranked fifth or lower. For the network with the flag, on 7,900 rounds: block end 12%, not a candidate 12%, ranked first but budget elsewhere 12.5%, ranked second to fourth 39%, ranked fifth or lower 25%.
@@ -105,22 +107,24 @@ In real decoding on 7 long answers, the trained second drafter at the four likel
 
 Main results
 
-The methods side by side, all on Draft-OPD. Long thinking answers: tokens per round on the 8 replay answers, and real speed over the plain draft on the 30 long answers (plain PyTorch) with the graphed numbers on 4 answers in brackets. Benchmark prompts: real speed over plain on the 40 prompts with thinking off, plain PyTorch.
+The methods side by side, all on Draft-OPD. Long thinking answers: tokens per round on the 8 replay answers, and real speed over the plain draft on the 30 long answers (plain PyTorch) with the graphed numbers on 4 answers in brackets. Benchmark prompts: real speed over plain on the 40 prompts with thinking off, plain PyTorch, with the graphed numbers from a second run in brackets.
 
 | Method | Tokens a round (8 answers) | Speed over plain, 30 long answers | Speed over plain, 40 benchmark prompts |
 | --- | --- | --- | --- |
 | Plain draft | 5.72 | 0 | 0 |
-| DDTree (63 nodes) | 7.56 | +25.0% [+19.7%] | +15.1% |
-| Count table (DForkTree) | 8.31 | +30.7% [+30.1% graphed] | +20.6% |
+| DDTree (63 nodes) | 7.56 | +25.0% [+19.7%] | +15.1% [+15.2%] |
+| Count table (DForkTree) | 8.31 | +30.7% [+30.1% graphed] | +20.6% [+25.0% graphed] |
 | One-layer second run | 8.21 | +21.3% (3 answers) | not run |
 | Four-layer second run, every node | 8.98 | −0.6% (3 answers) | not run |
 | Pair network without the flag | 8.19 | +28.1% | not run |
-| Pair network with the flag | 8.67 | +32.9% [+34.7% graphed] | +23.8% |
+| Pair network with the flag | 8.67 | +32.9% [+34.7% graphed] | +23.8% [+28.8% graphed] |
 
 What we know
 
-A second draft helps because it hands the target one more candidate at the break; the second run itself adds about a tenth of that unless it has the target's hidden states for the new tokens, which cannot exist in the same round. A predictor of those states closes a third of the gap, and a second run at any depth loses in real speed to a free tree built from the first draft. The cheapest correction that beats that tree is a small network that scores a candidate from the branch's last two tokens and the drafter's state, told whether the token before was the drafter's own first choice: 6.3% faster than DDTree in eager timing on 30 long answers, about 12% with the scoring recorded as a CUDA graph on 4, and it transfers to code and chat where a count table built on math text does not. What it cannot learn is the knowledge of a second run that sees the branch, by ordering or by probabilities; that knowledge comes with the branch's tokens inside the pass, and it does not pay for its pass on this target.
+A second draft helps because it hands the target one more candidate at the break; the second run itself adds about a tenth of that unless it has the target's hidden states for the new tokens, which cannot exist in the same round. A predictor of those states closes a third of the gap, and a second run at any depth loses in real speed to a free tree built from the first draft. The cheapest correction that beats that tree is a small network that scores a candidate from the branch's last two tokens and the drafter's state, told whether the token before was the drafter's own first choice: 6.3% faster than DDTree in eager timing on 30 long answers, about 12% with the scoring recorded as a CUDA graph on 4 and 13.6 points on the 40 benchmark prompts, and it transfers to code and chat where a count table built on math text does not. What it cannot learn is the knowledge of a second run that sees the branch, by ordering or by probabilities; that knowledge comes with the branch's tokens inside the pass, and it does not pay for its pass on this target.
 
 What is still running
 
-The staleness inputs (how far and how often the branch has left the first draft's path) as a learned strength of the correction [pending]; where the missing tokens sit in the first draft's vocabulary, which decides whether widening the candidates or a token-only proposer recovers the 12% of coverage stops [pending]; a 127-node tree where the target's check is flat [pending]; and the graphed network on the 40 benchmark prompts [pending].
+Four more checks were run after the main results. Telling the network how stale the branch is (how far and how often it has left the first draft's path), as a learned strength of its correction, gave 8.72 tokens per round against 8.67 and 8.70 for two seeds of the flag network, and the budget stops it was meant to reduce did not fall; this is within seed noise and is not a gain. Where the missing tokens sit in the first draft's own ranking: about 55% of them are ranked 33 to 64, 24% at 65 to 128, 19% deeper, so widening the candidates to 64 is worth about 0.07 tokens per round at most. A 127-node tree gains 3 to 6% tokens but costs 13 to 17 ms per round in our tree build and mask, and loses. The graphed network on the 40 benchmark prompts is in the table above.
+
+Still open: the graphed timing of the network on the full 30 long answers (the 4-answer graphed number is the only one), and the plain-mode rerun of the main table, since all the long-answer numbers are on thinking-mode text.

@@ -636,6 +636,47 @@ if the build and the mask are made as cheap as the check; a context-gated 127/63
 then. Also on these runs the graphed 63-node corrector is +14.3% over DDTree on the benchmark
 prompts and +12.5% on the long answers.
 
+### C19. The staleness gate on the correction adds nothing real (November 27, 20:10 UTC)
+
+Setup: Draft-OPD; thinking on; A5000; the pair network with the flag retrained with a learned
+gate on the strength of its correction, fed four numbers about the branch (how many places since
+it first left the first draft's path, how many since it last left it, how many forks, and the
+first draft's log-probability gap), zero-started so it begins as the flag network (`opd-p2s-b`;
+job `stale1-branch`, 2.01 hours, 5,235 answers, the same recipe as `opd-p2s`).
+Inputs: the same training text as C3 and C8.
+Metric: right-after-fork accuracy on the validation places; replay tokens a round on the 8 replay
+answers; the trace on the same 7,900 rounds against `opd-p2s`.
+Timing: no new timing; the gate is four numbers through a 4-32-1 network, inside the graphed
+scoring.
+Evidence: `nexus/results/stale1-branch/status.json`, `replay/`, `trace/`. Validation after a
+fork 48.06% (flag network 47.46%). Replay 8.721 tokens a round against 8.667 for the flag network
+and 8.695 for its second seed (C8). On the same rounds 8.709 against 8.665: further in 12.7% of
+rounds, less far in 9.7%, gaining 0.191 and losing 0.147 tokens a round, net +0.044. Stop causes
+unchanged: budget 13.3% against 12.7%, ranked 2 to 4 at 37.7% against 38.9%, 5 and beyond 24.6%
+against 24.7%.
+Conclusion supported: the gate moves the result by about 0.04 to 0.05 tokens a round, the size
+of the seed difference between two flag networks (0.03), and the budget stops it was meant to
+reduce did not fall. Knowing how stale the branch is does not tell the corrector anything the
+flag did not. The flag network stays the method; the gate is not reported as a gain.
+
+### C20. The graphed count table and corrector on the 40 benchmark prompts (November 27, 20:10 UTC)
+
+Setup: as C10 (40 prompts, thinking off, 10 each of GSM8K, MATH-500, HumanEval, MT-Bench),
+with the count table and the flag network recorded as CUDA graphs (`gctree63`,
+`gptree63@opd-p2s`; job `zbench-graph`, 19 minutes). DDTree is eager as in C10.
+Evidence: `nexus/results/zbench-graph/status.json`. Over all 40: plain 7.17 tokens a round at
+65.0 ms; DDTree 8.89 at 69.9, +15.2%; graphed count table 9.65 at 69.9, +25.0%; graphed flag
+network 10.10 at 71.0, +28.8%. By source (tokens a round, speed over plain): GSM8K DDTree 7.27
++25.8%, count 7.84 +34.2%, network 8.38 +41.1%; MATH-500 DDTree 11.05 +4.0%, count 12.48 +17.2%,
+network 12.83 +19.1%; HumanEval DDTree 6.64 +32.9%, count 6.70 +32.7%, network 7.10 +38.4%;
+MT-Bench DDTree 5.27 +35.8%, count 5.53 +41.3%, network 5.95 +49.9%.
+Conclusion supported: with its scoring graphed the network is +13.6 points over DDTree on the
+standard prompts (C10 eager: +8.7) and +3.8 over the graphed count table, and it is now above
+both on HumanEval in speed, not only in tokens (C10's tie was the 4.4 ms eager scoring). The
+graphed count table costs the same time as DDTree (69.9 ms both), so the whole of its gain and
+most of the network's is tokens, not timing. This replaces the 4-answer graphed numbers of C7 as
+the benchmark figure; the 30 long answers are still eager only (C14).
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -714,7 +755,8 @@ answers. Rule: if a retrained drafter with plain DDTree is close to or above `op
 line after the class moves to the drafter.
 
 P5. The budget cause (C4's 12.5%, 0.28 tokens a round): a few learned temperatures over depth and
-on/off the path on top of `opd-p2s`, fit on training answers; one job.
+on/off the path on top of `opd-p2s`, fit on training answers; one job. Not built. The staleness
+gate (C19) aimed at the same stops and did not move them, which lowers the odds for P5.
 
 P6, redirected by C17: widen the candidates to 64 (or 128) in the graphed search instead of
 trigram proposals; worth about +0.07 to +0.09 tokens a round if the lattice stays cheap; one job.
