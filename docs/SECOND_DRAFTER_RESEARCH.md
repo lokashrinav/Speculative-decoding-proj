@@ -666,3 +666,58 @@ the most tokens and lose the most time: their passes cost 16 and 27 ms a round h
 target, as experiment 3 said. Caveats: 2 answers for the speed, 4 for the replay; the rest of the runs
 and a 30-answer confirmation follow. Next: the count table as an input to the scores, a three-token
 window, the four-layer drafter as a teacher, and the scores' step made cheaper than 4.5 ms.
+
+## What is new in the win, what is not, and the plan to a publishable number (November 27, 04:30 UTC)
+
+A reading of the 2026 trees and correctors (DForkTree 2611.12356 v2, GRAFT 2608.20375, UBTree 2609.39972,
+Weaver 2607.06763, CPA 2611.31112, TreeSpark 2609.22098 and 2610.20175, DSpark 2607.05147, the DFlash 2
+selector, "Beyond Parallel Blindness" 2608.27339, D2SD 2606.04446, "Give the Drafter a Second Chance"
+2611.05724) against the win above.
+
+**New, as far as the reading found.** No published corrector is told, as a number, how sure the first run
+was of the token before a place. The nearest is DForkTree's pair of fixed weights (0.3 on the path of first
+choices, 0.6 off it) and the on-path flag its distilled head reads; GRAFT scales its correction by one
+constant; UBTree scales by depth; the DFlash 2 selector drops the tail mass; CPA starts its corrections at
+zero. All of these are fixed structure, none a learned input. DForkTree's own appendix reports the fact
+that makes the input worth having: right after a fork the drafter's accuracy "rises from 18% to 48% with
+the marginal probability of the fork token", and it did not feed that probability to its head. Our gain is
+also larger than fork accuracy explains: +5.1 points right after a fork gave +0.45 tokens a round (+5.5%),
+where DForkTree's rule of thumb (five points of closure, about 1%) predicts a fifth of that; the four-layer
+second drafter is more accurate at the fork (57.3%) and holds fewer tokens (8.49 against 8.65); and 18% of
+our stops were "ranked first, the node budget went elsewhere". So the three numbers most likely fix the
+scores' calibration between on-path and off-path nodes (DForkTree's Table 12: on-path nodes accepted 1.20
+times what their scores say, off-path 0.71 times) and the budget's allocation, not only the ranking at the
+fork. That is a hypothesis to test with the ablations below, and the paper's claim if it holds.
+
+**Not new.** Distilling a re-anchored (second) drafter into a cheap head: DForkTree's appendix does it
+(its head closes 34–38% of the gap after a fork, 41–49% with the PMI as input), and reports that the
+drafter's hidden state is worth 1–2 points to that head. It never compared the head with the same head
+trained on the target's own labels; that comparison is open. A second pass through the drafter not paying
+for itself: DForkTree's LoRA second pass (+1–2.9% tokens, 2.5–6.2 ms with CUDA graphs) and our experiment 3.
+One token before a place carrying most of the information: 2608.27339 (one realised token removes 86–100%
+of the floor); the second token helps, a third does not (DForkTree Tables 2 and 9); attention over the whole
+branch is worth about +5% tokens / +4.8% speed in CPA, mostly on chat text.
+
+**The bar.** Over DDTree with the same drafter, published: DForkTree +15.1% throughput on Qwen3.5-4B,
+UBTree +25.3% on thinking Qwen3-4B with a retrained drafter, Weaver +6–15%, TreeSpark +9–16% tokens. Ours:
++9.1% real speed (1.325 / 1.214) on 2 answers, eager timing; +14.4% tokens a round on 8 (8.65 / 7.56). The
+corrector's cost is the gap: 4.3 ms more than DDTree a round here, where GRAFT's edge scorer costs 0.3 ms,
+DForkTree's whole tree build 0.9 ms, DSpark's Markov head 0.2–1.3% of a round. At the same 8.14 tokens a
+round, a corrector of 0.8 ms would make the round about 71 ms and the gain about +15% over DDTree. A
+workshop paper needs: graphed real speed ≥ +12–15% over DDTree on the 7-benchmark suite of DFlash/DDTree,
+a clear +3–5% over the count table on the same drafter, the corrector ≤ 1 ms, and the ablation that says
+where the gain comes from.
+
+**Queued (04:30 UTC).** `cost1-search`: the search in tensors of fixed shape on the GPU (`qctree63`,
+`qptree63@opd-p2s`) and the same recorded as one CUDA graph (`gctree63`, `gptree63@opd-p2s`) against the
+numpy search, 4 answers, same trees, only the milliseconds should differ. `conf1-speed`: real speed on up to
+30 long validation answers (DDTree, count table, `opd-p2`, `opd-p2s`). `conf2-bench`: the same four on 40
+prompts of GSM8K, MATH-500, HumanEval and MT-Bench, thinking off. `abl1-top1` (only "first choice or not",
+DForkTree's flag), `abl2-logp` (that and the token's log-probability), `abl3-scalar` (all three, one scale per
+token instead of per rank: a gate, not a shape), `abl4-seed` (all three, another seed: how much two trainings
+differ), each trained as `opd-p2s` and replayed on the 8 answers. After these: the four-layer drafter as a
+teacher at α ∈ {0, 0.25, 0.5, 1} against the target's labels alone at equal data; the window at one, two and
+three tokens at equal cost; 4–8 trigram candidates at nodes after a fork (DForkTree: they hold 37–41% of the
+missing tokens) for the 10% of stops whose token is not among the 32; then Qwen3-8B and bootstrap intervals.
+The runner on nexusclass01 went quiet at 00:36 UTC (the Slurm status commands had no time limit; fixed);
+until it is restarted the jobs wait in the queue folder and the four running ones keep their results.
