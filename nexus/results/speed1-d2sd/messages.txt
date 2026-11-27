@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/speed1-d2sd-8596323/nexus/live_speed.py", line 283, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/speed1-d2sd-8596323/nexus/live_speed.py", line 195, in main
+    swaps = {name: swap_of(name, args.adapter_dir, draft) for name in names}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/speed1-d2sd-8596323/nexus/live_speed.py", line 66, in swap_of
+    return found[1], make_method(found[2], ckpt_dir, like)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/speed1-d2sd-8596323/nexus/redraft_long.py", line 380, in make_method
+    model = saved(second) if second else None
+            ^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/speed1-d2sd-8596323/nexus/redraft_long.py", line 232, in saved
+    model = bench_redraft.load_second(path if os.path.isdir(path) else os.path.join(ckpt_dir, folder))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--
+AttributeError: 'NoneType' object has no attribute 'from_pretrained'

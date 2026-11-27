@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/loop6-d2sd-8595868/nexus/restart_probe.py", line 404, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/loop6-d2sd-8595868/nexus/restart_probe.py", line 360, in main
+    second = bench_redraft.load_second(path if os.path.isdir(path) else os.path.join(args.adapter_dir, args.second_draft)).to(draft.fc.weight)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/loop6-d2sd-8595868/nexus/bench_redraft.py", line 43, in load_second
+    _second_models[path] = _draft_class.from_pretrained(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'from_pretrained'
