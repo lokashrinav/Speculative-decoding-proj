@@ -538,12 +538,52 @@ tokens over DDTree, near 8.1, below the corrector's 8.67. The decision stands; w
 is a continuation far better than a drafter writes inside the block, which is the hidden-states
 question (B2, B3, and the D2SD probe of P4).
 
+### C14. The confirmation on 30 answers (November 27, 11:40 UTC)
+
+Setup: Draft-OPD; thinking on; A5000, eager; 30 long validation answers (over 2,000 tokens each),
+the same text in every row, 29,060 to 44,187 rounds per setting (job `conf1-speed`, 3.3 hours).
+Inputs: no oracle. Metric: tokens per round and real tokens per second over plain, all rounds.
+Timing: full rounds. Evidence: `nexus/results/conf1-speed/status.json`. Plain 5.22 tokens a round
+at 65.9 ms; DDTree 7.03 at 71.0 ms, +25.0%; count table 7.58 at 73.3 ms, +30.7%; pair scores
+without the flag (`opd-p2`) 7.55 at 74.5 ms, +28.1%; with the flag (`opd-p2s`) 7.93 at 75.4 ms,
++32.9%. Conclusion supported: the corrector's confirmed margin in eager timing is +6.3% over DDTree
+and +1.7% over the count table; the flag is worth +4.7% in real speed (+0.38 tokens a round). The
+3-answer numbers of C3 (+8.7% over DDTree) were an overestimate. Open: the graphed timing (C7's
+`cost2-search`, 4 answers: the corrector's cost 1.7 ms instead of 4.4, about +12% over DDTree and
++3.5% over a graphed count table) on these 30 answers.
+
+### C15. Teacher and student: the target's labels are as good as the teacher (November 27, 15:30 UTC)
+
+Setup: Draft-OPD; thinking on; A5000; the pair scores with the three numbers trained as `opd-p2s`
+(two passes) with a KL to the four-layer second drafter's probabilities of the same 32 candidates
+(and "another token") at 4 places of each round, mixed with the target's labels at weights 0.25,
+0.5 and 1 (`train_pairs --teacher opd-e4`; jobs `dist1-a25`, `dist2-a50`, `dist3-a100`, 3.4 hours
+each, 6,150 to 6,170 answers; the weight-0 controls `opd-p2s` and `opd-p2s-s1` had 2 hours and
+5,230 to 5,260 answers, so the teacher runs saw about 17% more text). Fork accuracy on 12 validation
+answers; replay on the same 8.
+Inputs: the teacher scores the candidates given the answer's true tokens before the place (its
+rows cost by their number, hence 4 places a round); no oracle at use time.
+Metric: accuracy right after a fork; tokens per round in replay.
+Timing: none (the student's cost is unchanged).
+Evidence: `nexus/results/dist1-a25`, `dist2-a50`, `dist3-a100` (`status.json`, `replay/status.json`).
+Weight 0.25: 47.7% after a fork, 8.696 tokens a round; 0.5: 47.1%, 8.673; 1 (the teacher alone):
+45.1%, 8.512; the controls: 47.5% / 8.667 and 47.0% / 8.695. Conclusion supported: matching the
+teacher's probabilities adds nothing within seed noise (0.03) even with more text, and the teacher
+alone is worse by 0.18 tokens a round and 2.4 points at the fork. For this cheap corrector the
+target's own labels are as good as or better than the four-layer teacher. With C12 (a ranking loss
+transfers nothing) this closes the distillation route. This is the controlled comparison the
+November 26 reading found unpublished, and its answer is negative.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
 with prefix and suffix views, β = 0.7, τ = γ = 7, learning rate 2e-4; D2SD: a separate drafter
 trained the same way, β = 0.85, rate 1e-4, all weights).
-Status: no completed result. D-Loop ran out of memory three times (all weights, two passes of the
+Status: D2SD trained (`loop6-d2sd`, 3.68 hours after the resume, 7,690 answers, loss 2.11; on
+12 validation answers its second pass is right at 79.3% of places after a restart given true
+prefixes, 80.9% after one revealed token); its probe, replay and speed comparison died on a loading
+bug (a saved drafter could not be loaded outside the benchmark script; fixed) and are queued again
+(`d2sd1-probe`, `speed2-d2sd`). D-Loop ran out of memory three times (all weights, two passes of the
 same drafter backed through, with the target loaded; 24 GB), down to 4 blocks an update and a
 1,024-token window, and is not reproduced here. D2SD fits; its run was stopped at 1.3 hours on
 November 27 to free a GPU for the probes of C9 and C11 and resumes from its saved weights
@@ -632,9 +672,7 @@ C13: the oracle ceiling of the structure with 3-token continuations inside the b
 DDTree, below the corrector in hand. Stopped on limited headroom, by the rule fixed in advance; no
 training was done; the two qualifications are in C13.
 
-P7, running: `dist1-a25`, `dist2-a50`, `dist3-a100` (the pair scores taught by the four-layer
-drafter's candidate probabilities with a KL at weights 0.25, 0.5, 1 against the target's labels,
-equal data; the weight-0 controls are `opd-p2s` and `opd-p2s-s1`), each replayed on the 8 answers.
+P7, done: see C15 (the teacher adds nothing; the teacher alone is worse). P2, done: see C14.
 
 P4 is now the next milestone: the D2SD training (`loop6-d2sd`, resumed) and, when it ends, its
 acceptance and full decoding speed against the matched baselines on the same answers (plain,
