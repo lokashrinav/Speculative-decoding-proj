@@ -529,6 +529,15 @@ right continuation (to the block's end, 4 tokens a round), which a drafter canno
 block without the target's states (B2, B3). This result does not by itself send the project back
 to a corrector; it eliminates one concrete way of avoiding the second pass.
 
+The sweep (`oracle4-sweep`, same rounds): inside the 64-row budget, 4 breaks × 3 tokens 8.27
+(+9.3%), 8 × 3 8.36 (+10.4%), 4 × 6 9.32 (+23.2%), 8 × 6 9.38 (+24.0%); with rows added +10.6%,
++13.1%, +25.5%, +29.8%. The room is in the continuation length, not the number of breaks. Read
+against B2 (a drafter's continuation after the right token is worth 0.64 tokens where the answer's
+own tokens are worth 2.03, about a third), a third of the 6-token oracle's room is about +0.5
+tokens over DDTree, near 8.1, below the corrector's 8.67. The decision stands; what would change it
+is a continuation far better than a drafter writes inside the block, which is the hidden-states
+question (B2, B3, and the D2SD probe of P4).
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -622,6 +631,10 @@ against 39% at the end). C11: the cost is affordable (about 3 ms, a 5% gain need
 C13: the oracle ceiling of the structure with 3-token continuations inside the budget is +9.3% over
 DDTree, below the corrector in hand. Stopped on limited headroom, by the rule fixed in advance; no
 training was done; the two qualifications are in C13.
+
+P7, running: `dist1-a25`, `dist2-a50`, `dist3-a100` (the pair scores taught by the four-layer
+drafter's candidate probabilities with a KL at weights 0.25, 0.5, 1 against the target's labels,
+equal data; the weight-0 controls are `opd-p2s` and `opd-p2s-s1`), each replayed on the 8 answers.
 
 P4 is now the next milestone: the D2SD training (`loop6-d2sd`, resumed) and, when it ends, its
 acceptance and full decoding speed against the matched baselines on the same answers (plain,
