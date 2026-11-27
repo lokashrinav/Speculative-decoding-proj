@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/oracle3-branches-8596229/nexus/redraft_long.py", line 748, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/oracle3-branches-8596229/nexus/redraft_long.py", line 729, in main
+    result = replay_decode(draft, target, ids, prompt_length, ended=ended, features=features, improver=watched,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/oracle3-branches-8596229/dflash/replay.py", line 101, in replay_decode
+    improver.start(model)
+  File "/tmp/specdec-code-sloka/oracle3-branches-8596229/nexus/redraft_long.py", line 448, in start
+    self.improver.start(first_drafter)
+  File "/tmp/specdec-code-sloka/oracle3-branches-8596229/dflash/redraft.py", line 1833, in start
+    raise ValueError("the oracle branches need the answer (answer_ids): replay only")
+ValueError: the oracle branches need the answer (answer_ids): replay only
