@@ -47,15 +47,22 @@ while true; do
     [ "$waiting" = 1 ] && continue    # a job it depends on has no job number yet: look again next minute
     [ -n "$after" ] && after="--dependency=afterany$after"
     mkdir -p "nexus/results/$name"
-    sbatch --parsable $after --job-name="$name" --output="$LOGDIR/$name.log" \
+    timeout -k 5 120 sbatch --parsable $after --job-name="$name" --output="$LOGDIR/$name.log" \
       --export=ALL,JOB_NAME="$name",RESULTS_DIR="$PWD/nexus/results/$name" "$f" \
       > "nexus/status/$name.jobid" 2>&1
+    if [ $? = 124 ]; then   # sbatch gave no answer: try this file again next minute
+      mv "nexus/status/$name.jobid" "nexus/status/$name.jobid.noanswer.$(date +%s)"
+      continue
+    fi
     submitted=1
   done
   # Push status every 5 minutes, or right away after a new submission.
   if [ "$submitted" = 1 ] || [ $((tick % 5)) = 0 ]; then
-    squeue -u "$USER" -o "%i %j %T %M %l %R" > nexus/status/squeue.txt 2>&1
-    sacct -u "$USER" -S now-3days -X -n -o JobID,JobName%30,State,Elapsed,ExitCode > nexus/status/sacct.txt 2>&1
+    # The Slurm commands can hang when the controller is busy; a hang must not stop the loop.
+    timeout -k 5 60 squeue -u "$USER" -o "%i %j %T %M %l %R" > nexus/status/squeue.txt 2>&1 \
+      || echo "squeue gave no answer at $(date -u +%FT%TZ)" >> nexus/status/squeue.txt
+    timeout -k 5 60 sacct -u "$USER" -S now-3days -X -n -o JobID,JobName%30,State,Elapsed,ExitCode > nexus/status/sacct.txt.new 2>&1 \
+      && mv nexus/status/sacct.txt.new nexus/status/sacct.txt
     date -u +%FT%TZ > nexus/status/heartbeat.txt
     hostname >> nexus/status/heartbeat.txt
     for l in "$LOGDIR"/*.log; do
