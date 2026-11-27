@@ -2565,10 +2565,11 @@ def test_tracing_where_the_answers_path_leaves_a_tree(tmp_path):
 
     places, reasons = BLOCK - 1, set()
     for method, rows, truth, row, last in trace.seen_rows:
-        got, cause, where, forks, would, mended, beyond, reach, *kept = row
+        got, cause, where, forks, would, mended, beyond, reach, *kept, missing_rank, past_chain = row
         accepted = max(_matches(rows[at : at + 1, 1:], torch.tensor([truth])) for at in range(rows.shape[0]))
         assert beyond in (0, 1) and (not beyond or cause in (1, 5, 6))          # (a token past the 32 is never ranked first)
         assert got == accepted <= reach <= places and len(kept) == len(KEPT)
+        assert (missing_rank >= 32) == bool(beyond) and (missing_rank == -1) != bool(beyond)   # the rank only of a missing token
         assert kept == sorted(kept) and kept[-1] <= reach                       # more children kept: at least as far
         assert (cause == 0) == (got == places) and (cause == 1) == (got < places and got == reach)
         assert forks <= got and (mended >= 1) == (cause != 0) and (mended == 1 or got + mended <= reach)
@@ -3128,3 +3129,108 @@ def test_a_saved_second_drafter_loads_without_the_benchmark_script(tmp_path):
     assert type(loaded).__name__ == type(draft).__name__
     assert all(torch.allclose(a.float(), b.float(), atol=1e-2) for a, b in zip(loaded.state_dict().values(), draft.state_dict().values()))
     bench._second_models.clear()
+
+
+def test_pair_scores_gated_by_the_branch():
+    """dflash/pair_scores.py branch gate; dflash/redraft.py: the numpy search and the tensor search track the branch's
+    four numbers and gate the correction alike; children() with the ranks agrees with the search; the trainer computes
+    the same numbers from the answer; a gate at its start changes nothing."""
+    from dflash.pair_scores import PairScores, load_pair_scores, save_pair_scores
+    from dflash.redraft import CountTree
+    from dflash.replay import target_features
+    from nexus.train_pairs import TeachPairs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    for parameter in list(draft.parameters()) + list(target.parameters()):
+        parameter.requires_grad_(False)
+    # The four numbers of a branch.
+    likely = [[0.0, -1.0, -2.0], [-0.1, -0.5, -3.0], [0.0, -2.0, -2.5], [-0.2, -0.3, -4.0]]
+    assert CountTree.branch_numbers((0, 0, 0), likely) == (0.0, 0.0, 0.0, 0.0)
+    assert CountTree.branch_numbers((0, 1, 0, 2), likely) == (3.0, 1.0, 2.0, -0.4 - 3.8)
+    numbers = PairScores.branch_inputs(torch.tensor([3.0]), torch.tensor([1.0]), torch.tensor([2.0]), torch.tensor([-50.0]))
+    assert numbers.tolist() == [[3 / 16, 1 / 16, 0.5, -3.0]]
+
+    torch.manual_seed(0)
+    pairs = PairScores(16, rank=8, hidden=12, sure=True, branch=True)
+    with torch.no_grad():
+        for part in (pairs.here[2], pairs.sure_before[2]):
+            part.weight.normal_(std=0.5)
+    gate_start = pairs.gate(numbers)
+    assert torch.allclose(gate_start, torch.ones(1))                               # 1 at the start: nothing changes
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, rows.clone()))
+            return rows
+
+    def run(tree):
+        kept = Kept(tree)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+        return {start: prefixes(rows) for start, rows in kept.rounds}
+
+    plain_tree = CountTree(12, None, candidates=8)
+    plain_tree.pairs = PairScores(16, rank=8, hidden=12, sure=True)
+    plain_tree.pairs.load_state_dict({k: v for k, v in pairs.state_dict().items() if not k.startswith("branch_gate")}, strict=False)
+    gated = CountTree(12, None, candidates=8)
+    gated.pairs = pairs
+    same = run(plain_tree)
+    with_gate = run(gated)
+    shared = set(same) & set(with_gate)
+    assert len(shared) > 3 and sum(int(same[k] == with_gate[k]) for k in shared) >= len(shared) - 1   # a gate at 1 is no gate
+    # A gate that does something: the numpy search and the tensor search agree, and children() with the ranks too.
+    with torch.no_grad():
+        pairs.branch_gate[2].weight.normal_(std=2.0)
+        pairs.branch_gate[2].bias.fill_(-0.5)
+    slow, fast = CountTree(12, None, candidates=8), CountTree(12, None, candidates=8, fast=True)
+    slow.pairs = fast.pairs = pairs
+    a, b = run(slow), run(fast)
+    shared = set(a) & set(b)
+    assert len(shared) > 3 and sum(int(a[k] == b[k]) for k in shared) >= len(shared) - 1
+    assert sum(int(a[k] == same.get(k)) for k in shared) < len(shared) - 1       # the gate changed the trees
+    slow.keep_last = True
+    # children with ranks: the search's numbers for a branch (from a whole round's tables)
+    whole = {}
+
+    class Catch(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            if "seen" not in whole and len(self.inner.seen["tokens"]) == BLOCK - 1:
+                whole["seen"] = dict(self.inner.seen)
+            return rows
+
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=Catch(slow), block_size=BLOCK)
+    slow.seen = whole["seen"]
+    with pytest.raises(ValueError):
+        slow.children(2, 0, 1, False)                                             # the gate needs the ranks
+    got = slow.children(2, 0, 1, False, (0, 1))
+    assert got.shape == (8,)
+    # Saved and loaded with its gate.
+    import tempfile, os
+    with tempfile.TemporaryDirectory() as folder:
+        save_pair_scores(os.path.join(folder, "g.pt"), pairs, {})
+        back, _ = load_pair_scores(os.path.join(folder, "g.pt"), "cpu")
+        assert back.branch_gate is not None and torch.allclose(back.gate(numbers), pairs.gate(numbers), atol=1e-2)
+    # The trainer computes the numbers and trains.
+    torch.manual_seed(1)
+    student = PairScores(16, rank=8, hidden=12, sure=True, branch=True)
+    teach = TeachPairs(student, torch.optim.AdamW(student.parameters(), lr=3e-3), draft, target, candidates=5, group=6, window=64,
+                       width=BLOCK, warm=1)
+    losses = []
+    for _ in range(6):
+        teach.learn_from(ids, features, said, length, 12, None)
+        losses.append(teach.progress()["loss"])
+    assert losses[-1] < losses[0]

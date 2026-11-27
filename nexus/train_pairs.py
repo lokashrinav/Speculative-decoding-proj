@@ -96,6 +96,7 @@ class TeachPairs(TeachEvery):
             likely = logits.log_softmax(dim=-1)
             best = likely.topk(top, dim=-1)
             first_scores = logits.gather(-1, best.indices) if teacher is not None else None        # (the teacher reads the raw scores)
+            likely_of_answer = likely.gather(-1, answer[..., None])[..., 0]
             del logits
             before_sure = two_sure = None
             if pairs.sure_before is not None:
@@ -111,6 +112,21 @@ class TeachPairs(TeachEvery):
             candidates, first_log, states = best.indices[:, 1:], best.values[:, 1:], final[:, 2:]
             before, two_before = answer[:, :-1], torch.cat((ids[0][starts][:, None], answer[:, :-2]), dim=1)
             label, off = answer[:, 1:], wrong[:, :-1] > 0
+            branch = None
+            if pairs.branch_gate is not None:
+                # The branch before each place, from the answer's tokens: a fork is a place where the answer's token
+                # was not the first choice (dflash/pair_scores.py: branch_inputs; dflash/redraft.py: branch_numbers).
+                places = answer.shape[1]
+                forked = best.indices[..., 0] != answer                                      # [anchors, places 1 .. width - 1]
+                index = torch.arange(places, device=device)[None, :].expand_as(forked)
+                first_at = torch.where(forked, index, torch.full_like(index, places)).cummin(dim=1).values
+                last_at = torch.where(forked, index, torch.full_like(index, -1)).cummax(dim=1).values
+                gaps = torch.where(forked, likely_of_answer - best.values[..., 0], torch.zeros_like(best.values[..., 0])).cumsum(dim=1)
+                # For the place at column c (place c + 2, index c + 1 here) the branch is the places up to index c.
+                depth = torch.arange(1, places, device=device, dtype=torch.float)[None, :].expand(forked.shape[0], -1)
+                since_first = torch.where(first_at[:, :-1] < places, depth - first_at[:, :-1].float(), torch.zeros_like(depth))
+                since_last = torch.where(last_at[:, :-1] >= 0, depth - last_at[:, :-1].float(), torch.zeros_like(depth))
+                branch = pairs.branch_inputs(since_first, since_last, wrong[:, :-1], gaps[:, :-1])
             position = starts[:, None] + torch.arange(2, width, device=device)[None, :]
             embedded = _raw_input_embeddings(target, torch.stack((before, two_before)), scale)
             rows = head.weight[candidates]
@@ -126,7 +142,7 @@ class TeachPairs(TeachEvery):
             if teacher is not None and self.teacher_weight > 0:
                 taught = self._teacher_log(teacher, features, ids, starts, kept, low, best, first_scores, wrong, follow)
         with torch.set_grad_enabled(learn):
-            log_with = pairs(first_log, states, embedded[0], embedded[1], rows, lift, off, before_sure, two_sure)
+            log_with = pairs(first_log, states, embedded[0], embedded[1], rows, lift, off, before_sure, two_sure, branch)
             hard = -log_with.gather(-1, index[..., None])[..., 0]
             soft = -(share * log_with).sum(dim=-1)
             loss = (((1.0 - self.soft) * hard + self.soft * soft) * weight).sum() / weight.sum()
@@ -154,7 +170,7 @@ class TeachPairs(TeachEvery):
                 fixed = first_log + torch.where(off[..., None], 0.6, 0.3) * lift.float()
                 arms["first_counts"] = torch.cat((fixed, rest), dim=-1).log_softmax(dim=-1)
                 arms["second_counts"] = log_with
-                arms["second"] = pairs(first_log, states, embedded[0], embedded[1], rows, None, off, before_sure, two_sure)
+                arms["second"] = pairs(first_log, states, embedded[0], embedded[1], rows, None, off, before_sure, two_sure, branch)
             else:
                 arms["second"] = log_with
             covered = index < top
@@ -191,6 +207,7 @@ def main():
     parser.add_argument("--sure-inputs", default="all",
                         help='which of the three numbers the scores see: "all", or a comma list of logp, top1, best')
     parser.add_argument("--sure-scalar", action="store_true", help="one scale per token instead of one per rank")
+    parser.add_argument("--branch", action="store_true", help="a learned gate on the correction from the branch's four numbers")
     parser.add_argument("--teacher", default="", help="a trained second drafter warm-<name>.pt to match (a KL over the candidates)")
     parser.add_argument("--teacher-weight", type=float, default=0.0, help="the KL's share of the loss, 0 to 1 (1: the teacher alone)")
     parser.add_argument("--teacher-places", type=int, default=4, help="places of each round the teacher scores")
@@ -228,7 +245,7 @@ def main():
         parameter.requires_grad_(False)
     with torch.inference_mode(False):
         pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden, sure=args.sure,
-                           sure_inputs=args.sure_inputs, sure_scalar=args.sure_scalar).to(device).train()
+                           sure_inputs=args.sure_inputs, sure_scalar=args.sure_scalar, branch=args.branch).to(device).train()
         optimizer = torch.optim.AdamW(pairs.parameters(), lr=args.rate, weight_decay=0.0)
     teacher = None
     if args.teacher:
@@ -254,7 +271,7 @@ def main():
             "done": done, "answers": learned, "answers_to_learn_from": len(answers), "updates": teach.updates, "rows": teach.rows_seen,
             "draft": args.draft, "what": "pair scores", "rank": args.rank, "hidden": args.hidden, "sure": bool(args.sure),
             "sure_inputs": args.sure_inputs, "sure_scalar": bool(args.sure_scalar),
-            "teacher": args.teacher or None, "teacher_weight": args.teacher_weight, "teacher_places": args.teacher_places,
+            "branch": bool(args.branch), "teacher": args.teacher or None, "teacher_weight": args.teacher_weight, "teacher_places": args.teacher_places,
             "saved_as": args.save,
             "candidates": args.candidates, "soft": args.soft, "counts": bool(args.counts), "tokens_counted": tokens_counted,
             "trained_numbers": sum(value.numel() for value in pairs.parameters()),

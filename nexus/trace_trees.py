@@ -86,6 +86,7 @@ class Trace:
                 raise ValueError("only trees of drafts can be traced")
             method.keep_last = True
         self.ids = None                                 # the answer (the replay sets it as answer_ids; the methods that read it get it)
+        self._truth_rank = None
         # per round: (tokens, reason, where, forks passed, would, mended, beyond the 32, reach, kept ...)
         self.rounds = {name: [] for name in methods}
         self.first_run = []                             # per round: (first choices right in a row, candidates of 32 right in a row)
@@ -118,6 +119,11 @@ class Trace:
             logits = s.draft_logits[0].float()
             ranked = logits.log_softmax(dim=-1).topk(min(128, logits.shape[-1]), dim=-1).indices.tolist()
             plain = _leading([row[0] for row in ranked], truth)
+            # The first run's rank of the answer's token at every place, over the whole vocabulary (0: first choice):
+            # where a token the tree could not hold sits, for the stops at a token not among the candidates.
+            here = logits[: width - 1]
+            wanted = here.gather(1, torch.tensor(truth, device=here.device)[:, None])
+            self._truth_rank = (here > wanted).sum(dim=1).tolist()
             among = 0
             while among < width - 1 and truth[among] in ranked[among][:32]:
                 among += 1
@@ -139,7 +145,7 @@ class Trace:
             return ranks[: min(reach, 1)] + [given[tuple(ranks[:place])][1].index(ranks[place]) for place in range(1, reach)]
         if isinstance(method, CountTree):
             return [_position(method.children(place, ranks[place - 2] if place >= 2 else 0, ranks[place - 1] if place else 0,
-                                              not any(ranks[:place])), ranks[place]) for place in range(reach)]
+                                              not any(ranks[:place]), tuple(ranks[:place])), ranks[place]) for place in range(reach)]
         return ranks[:reach]
 
     def record(self, method, rows, truth: list, ranked: list, plain: int):
@@ -185,7 +191,8 @@ class Trace:
         forks = sum(1 for place in range(got) if truth[place] != ranked[place][0])
         kept = [_leading([int(position < most) for position in positions], [1] * reach) for most in KEPT]
         beyond = int(got < places and truth[got] not in ranked[got][:32])      # the same for every tree: not among the first run's 32
-        return (got, cause, where, forks, would, mended, beyond, reach, *kept)
+        missing_rank = self._truth_rank[got] if beyond else -1                  # its rank in the first run's whole vocabulary
+        return (got, cause, where, forks, would, mended, beyond, reach, *kept, missing_rank, got - plain)
 
 
 def _mean(values) -> float:
@@ -202,7 +209,18 @@ def summarize(trace: Trace) -> dict:
     for name in names:
         rows = trace.rounds[name]
         count = max(len(rows), 1)
+        missing = [row for row in rows if row[6]]
+        by_distance = {}
+        for label, low, high in (("at the chain's end", -99, 0), ("1 past", 1, 1), ("2 past", 2, 2), ("3 past", 3, 3), ("4 or more past", 4, 99)):
+            mine = [row[-2] for row in missing if low <= row[-1] <= high]
+            if mine:
+                by_distance[label] = {"stops": len(mine), "rank 33 to 64": round(sum(1 for r in mine if r < 64) / len(mine), 3),
+                                      "65 to 128": round(sum(1 for r in mine if 64 <= r < 128) / len(mine), 3),
+                                      "129 to 1024": round(sum(1 for r in mine if 128 <= r < 1024) / len(mine), 3),
+                                      "beyond 1024": round(sum(1 for r in mine if r >= 1024) / len(mine), 3),
+                                      "median rank": sorted(mine)[len(mine) // 2] + 1}
         tree = {"tokens_per_round": round(_mean(row[0] for row in rows) + 1, 3),
+                "where_the_missing_token_ranks": by_distance,
                 "following_the_answer": {f"best_{most}_kept": round(_mean(row[8 + at] for row in rows) + 1, 3) for at, most in enumerate(KEPT)},
                 "candidates_reach": round(_mean(row[7] for row in rows) + 1, 3),
                 "stops_at_a_token_not_among_the_first_runs_32": round(_mean(row[6] for row in rows), 4),
@@ -285,7 +303,8 @@ def main():
         write_json(os.path.join(args.results_dir, "rounds.json"),
                    {"reasons": CAUSES, "first_run": {"first_choices": [row[0] for row in trace.first_run],
                                                      "of_32_candidates": [row[1] for row in trace.first_run]},
-                    "trees": {name: {"tokens": [row[0] for row in rows], "reason": [row[1] for row in rows]}
+                    "trees": {name: {"tokens": [row[0] for row in rows], "reason": [row[1] for row in rows],
+                                     "missing_rank": [row[-2] for row in rows], "past_chain": [row[-1] for row in rows]}
                               for name, rows in trace.rounds.items()}}, separators=(",", ":"))
 
     for name, index, sequence, prompt_length, source in answers:

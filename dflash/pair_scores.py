@@ -27,7 +27,7 @@ from torch import nn
 
 class PairScores(nn.Module):
     def __init__(self, size: int, rank: int = 256, hidden: int = 1024, on_path: float = 0.3, off_path: float = 0.6,
-                 sure: bool = False, sure_inputs: str = "all", sure_scalar: bool = False):
+                 sure: bool = False, sure_inputs: str = "all", sure_scalar: bool = False, branch: bool = False):
         super().__init__()
 
         def code(last_zero: bool = False):
@@ -69,6 +69,18 @@ class PairScores(nn.Module):
                 return layers
 
             self.sure_before, self.sure_two = scale(), scale()
+        # branch: the strength of the whole correction is a learned function of how far the branch has strayed from
+        # the first run's path of first choices, which a flag about the token before cannot say (the first run's
+        # states get staler with every token of a detour, docs/WHY_A_SECOND_DRAFT_HELPS.md): four numbers of the
+        # branch, branch_inputs(): places since its first fork, places since its last fork, forks so far, and the
+        # sum over its tokens of the first run's log-probability of the token taken minus its first choice's.
+        # The gate is 1 + tanh(mlp(numbers)), 1 at the start.
+        self.branch_gate = None
+        if branch:
+            self.sizes["branch"] = True
+            self.branch_gate = nn.Sequential(nn.Linear(4, 32), nn.SiLU(), nn.Linear(32, 1))
+            nn.init.zeros_(self.branch_gate[2].weight)
+            nn.init.zeros_(self.branch_gate[2].bias)
         self.before, self.two_before = code(), code()     # phi, phi2: of the token before, of the token two before
         self.here = code(last_zero=True)                  # psi: of a candidate; starts at nothing, so the scores start as the first run's
         self.state, self.state_two = nn.Linear(size, rank), nn.Linear(size, rank)
@@ -103,14 +115,31 @@ class PairScores(nn.Module):
         skip = torch.einsum("...ar,...cr->...ac", code_two * self.state_two(states)[..., None, :], coded)
         return pair, skip, self.rest(states)[..., 0]
 
-    def forward(self, first_log, states, before, two_before, here, lift=None, off=None, before_sure=None, two_before_sure=None):
+    @staticmethod
+    def branch_inputs(since_first, since_last, forks, gap):
+        """The gate's four numbers, scaled: places since the first fork and since the last (0 on the path), forks so far,
+        the summed log-probability gap (at most 0, cut at -30). Tensors of one shape; returns [..., 4]."""
+        return torch.stack((since_first.float() / 16.0, since_last.float() / 16.0, forks.float() / 4.0,
+                            gap.float().clamp(min=-30.0) / 10.0), dim=-1)
+
+    def gate(self, branch):
+        """The strength of the correction for branches described by `branch` ([..., 4], branch_inputs): [...]."""
+        return 1.0 + torch.tanh(self.branch_gate(branch.float())[..., 0])
+
+    def forward(self, first_log, states, before, two_before, here, lift=None, off=None, before_sure=None, two_before_sure=None,
+                branch=None):
         """For places whose two tokens before are KNOWN (training, and measuring): first_log [..., C]: the first
         run's log-probabilities of the candidates; before, two_before [..., size]: the input embeddings of the two
         tokens; here [..., C, size]; lift [..., C], off [...] as in CandidateScores. Log-probabilities [..., C + 1]."""
         pair, skip, rest = self.tables(states, before[..., None, :], two_before[..., None, :], here,
                                        None if before_sure is None else before_sure[..., None, :],
                                        None if two_before_sure is None else two_before_sure[..., None, :])
-        raised = first_log.float() + pair[..., 0, :] + skip[..., 0, :]
+        correction = pair[..., 0, :] + skip[..., 0, :]
+        if self.branch_gate is not None:
+            if branch is None:
+                raise ValueError("these scores need the branch's four numbers (branch_inputs)")
+            correction = correction * self.gate(branch)[..., None]
+        raised = first_log.float() + correction
         if lift is not None:
             raised = raised + torch.where(off[..., None], self.off_path, self.on_path) * lift.float()
         rest = torch.log1p(-first_log.float().exp().sum(dim=-1).clamp(max=1.0 - 1e-6)) + rest

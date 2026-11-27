@@ -1103,11 +1103,12 @@ class CountTree(DraftTree):
         return (pair.double().cpu().numpy(), skip.double().cpu().numpy(), rest.double().exp().cpu().numpy(),
                 float(pairs.on_path), float(pairs.off_path))
 
-    def children(self, place: int, before: int, last: int, on_path: bool):
+    def children(self, place: int, before: int, last: int, on_path: bool, ranks: tuple = None):
         """For tracing, after a round with keep_last set: the log-probabilities this tree's scores give the candidates
         of `place` (0: the block's first drafted place) after a node that ends in candidate `last` of the place before,
         with candidate `before` at the place before that (any, at place 1), on the path of first choices or off it.
-        The same numbers the search of the round used."""
+        The same numbers the search of the round used. ranks: the node's whole branch (needed by scores with a branch
+        gate: pairs.branch_gate)."""
         likely, rest, lift, extra, on_weight, off_weight = self.seen["tables"]
         if place == 0:
             return likely[0]
@@ -1115,9 +1116,34 @@ class CountTree(DraftTree):
         if lift is not None:
             raised = raised + (on_weight if on_path else off_weight) * lift[place - 1][before, last]
         if extra is not None:
-            raised = raised + extra[0][place - 1][last] + extra[1][place - 1][before]
+            correction = extra[0][place - 1][last] + extra[1][place - 1][before]
+            if self.pairs is not None and self.pairs.branch_gate is not None:
+                if ranks is None:
+                    raise ValueError("scores with a branch gate need the node's ranks")
+                correction = correction * self._gate_of(self.branch_numbers(ranks, likely))
+            raised = raised + correction
             others = others * extra[2][place - 1]
         return raised - numpy.log(others + numpy.exp(raised).sum())
+
+    @staticmethod
+    def branch_numbers(ranks: tuple, likely) -> tuple:
+        """The four numbers of a branch (dflash/pair_scores.py: branch_inputs) from the ranks of its tokens and the
+        first run's log-probabilities of the candidates ([places, candidates]): places since the first fork, since the
+        last fork, forks so far, and the summed gap between the token taken and the first choice."""
+        depth = len(ranks)
+        forks = [place for place, rank in enumerate(ranks) if rank != 0]
+        gap = float(sum(likely[place][rank] - likely[place][0] for place, rank in enumerate(ranks) if rank != 0))
+        if not forks:
+            return (0.0, 0.0, 0.0, 0.0)
+        return (float(depth - forks[0]), float(depth - forks[-1]), float(len(forks)), gap)
+
+    def _gate_of(self, numbers) -> float:
+        """The gate for one branch's numbers, computed on the CPU (tracing, mixing)."""
+        with torch.no_grad():
+            pairs = self.pairs
+            device = pairs.on_path.device
+            inputs = pairs.branch_inputs(*(torch.tensor([n], device=device) for n in numbers))
+            return float(pairs.gate(inputs)[0])
 
     @staticmethod
     def _final_states(s: SimpleNamespace) -> torch.Tensor:
@@ -1156,6 +1182,14 @@ class CountTree(DraftTree):
         order = numpy.argsort(-likely[0], kind="stable")[: self.budget]
         score, last = likely[0][order], order
         before, on_path, parent = numpy.zeros_like(last), last == 0, numpy.full(len(last), -1)
+        gated = self.pairs is not None and self.pairs.branch_gate is not None
+        if gated:
+            # The branch's four numbers of every kept node: the place of its first fork and of its last (-1: none),
+            # its forks, its summed gap (dflash/pair_scores.py: branch_inputs).
+            forked = last != 0
+            first_fork = numpy.where(forked, 0, -1)
+            last_fork, forks = first_fork.copy(), forked.astype(numpy.float64)
+            gap = numpy.where(forked, likely[0][last] - likely[0][0], 0.0)
         depths, so_far = [(score, last, parent)], score
         for place in range(1, places):
             # A node never scores above its parent: once `budget` kept nodes score above the best node of this
@@ -1166,7 +1200,17 @@ class CountTree(DraftTree):
             if lift is not None:
                 raised = raised + numpy.where(on_path, on_weight, off_weight)[:, None] * lift[place - 1][before, last]
             if extra is not None:
-                raised = raised + extra[0][place - 1][last] + extra[1][place - 1][before]
+                correction = extra[0][place - 1][last] + extra[1][place - 1][before]
+                if gated:
+                    depth = float(place)
+                    numbers = self.pairs.branch_inputs(
+                        torch.tensor(numpy.where(first_fork >= 0, depth - first_fork, 0.0)),
+                        torch.tensor(numpy.where(last_fork >= 0, depth - last_fork, 0.0)),
+                        torch.tensor(forks), torch.tensor(gap))
+                    with torch.no_grad():
+                        strength = self.pairs.gate(numbers.to(self.pairs.on_path.device)).double().cpu().numpy()
+                    correction = correction * strength[:, None]
+                raised = raised + correction
                 others = others * extra[2][place - 1]
             given = raised - numpy.log(others + numpy.exp(raised).sum(axis=-1))[:, None]
             total = (score[:, None] + given).ravel()
@@ -1174,6 +1218,12 @@ class CountTree(DraftTree):
             parent, chosen_candidate = keep // many, keep % many
             score, before, last = total[keep], last[parent], chosen_candidate
             on_path = on_path[parent] & (chosen_candidate == 0)
+            if gated:
+                forked = chosen_candidate != 0
+                first_fork = numpy.where((first_fork[parent] < 0) & forked, place, first_fork[parent])
+                last_fork = numpy.where(forked, place, last_fork[parent])
+                forks = forks[parent] + forked
+                gap = gap[parent] + numpy.where(forked, likely[place][chosen_candidate] - likely[place][0], 0.0)
             depths.append((score, last, parent))
             so_far = numpy.concatenate((so_far, score))
         # The best `budget` of all kept nodes; of equal scores the shallower first, so a parent comes before its child.
@@ -1246,6 +1296,12 @@ class CountTree(DraftTree):
         on_path = last == 0
         ranks = torch.full((budget, places), -1, dtype=torch.long, device=device)
         ranks[:kept, 0] = last[:kept]
+        gated = self.pairs is not None and self.pairs.branch_gate is not None and extra is not None
+        if gated:
+            forked = last != 0
+            first_fork = torch.where(forked, torch.zeros_like(last), torch.full_like(last, -1))
+            last_fork, forks = first_fork.clone(), forked.to(dtype)
+            gap = torch.where(forked, likely[0][last] - likely[0][0], torch.zeros_like(score))
         all_scores, all_ranks = [score], [ranks]
         for place in range(1, places):
             raised = likely[place][None, :].expand(budget, many)
@@ -1253,7 +1309,13 @@ class CountTree(DraftTree):
             if lift is not None:
                 raised = raised + torch.where(on_path, on_weight, off_weight)[:, None] * lift[place - 1][before, last]
             if extra is not None:
-                raised = raised + extra[0][place - 1][last] + extra[1][place - 1][before]
+                correction = extra[0][place - 1][last] + extra[1][place - 1][before]
+                if gated:
+                    none = torch.zeros_like(first_fork)
+                    numbers = self.pairs.branch_inputs(torch.where(first_fork >= 0, place - first_fork, none),
+                                                       torch.where(last_fork >= 0, place - last_fork, none), forks, gap)
+                    correction = correction * self.pairs.gate(numbers).to(dtype)[:, None]
+                raised = raised + correction
                 others = others * extra[2][place - 1]
             given = raised - torch.log(others + raised.exp().sum(dim=-1))[:, None]
             total = (score[:, None] + given).reshape(-1)
@@ -1261,6 +1323,13 @@ class CountTree(DraftTree):
             parent, candidate = keep // many, keep % many
             score, before, last = total[keep], last[parent], candidate
             on_path = on_path[parent] & (candidate == 0)
+            if gated:
+                forked = candidate != 0
+                here = torch.full_like(first_fork, place)
+                first_fork = torch.where((first_fork[parent] < 0) & forked, here, first_fork[parent])
+                last_fork = torch.where(forked, here, last_fork[parent])
+                forks = forks[parent] + forked.to(dtype)
+                gap = gap[parent] + torch.where(forked, likely[place][candidate] - likely[place][0], torch.zeros_like(score))
             ranks = ranks[parent].clone()
             ranks[:, place] = candidate
             all_scores.append(score)
@@ -1794,7 +1863,7 @@ class SecondTree(BranchTree):
         """The children's scores with `mix` applied (see __init__): ranked (values, indices) of the second drafter's
         log-probabilities `likely` [nodes, top], and the cheap scorer's of the same candidates."""
         cheap = numpy.stack([self.cheap.children(len(ranks), ranks[-2] if len(ranks) > 1 else 0, ranks[-1],
-                                                 not any(ranks)) for ranks in ask])                 # [nodes, top]
+                                                 not any(ranks), ranks) for ranks in ask])          # [nodes, top]
         cheap = torch.as_tensor(cheap, device=likely.device, dtype=likely.dtype)
         cheap_ranked = cheap.sort(dim=-1, descending=True)
         if self.mix == "teacher_order":
