@@ -1543,6 +1543,17 @@ class SecondTree(BranchTree):
         # passes: after the first pass the nodes of the tree that had no row get one and the tree is chosen anew,
         # up to this many passes in all (1: the one pass). For measuring what the scores are worth at every depth.
         self.passes = 1
+        # mix: an offline test of WHAT in the second drafter's scores is worth having, against a cheap scorer (`cheap`,
+        # a CountTree with pair scores) on the same candidates of the same nodes. A node's children are scored by
+        # the second drafter; the cheap scorer's log-probabilities of the same candidates are computed as well, and:
+        #   "teacher_order": the second drafter's ORDER of the candidates with the cheap scorer's sorted values
+        #   "cheap_order":   the cheap scorer's order with the second drafter's sorted values
+        #   "cheap_both":    the cheap scorer's order and values (the cheap tree, built in this harness: a check)
+        #   "teacher_both":  the second drafter's order and values (the harness with nothing swapped)
+        # With a mix the chains after a node's best child are not used (the best child may change), so every
+        # node of the tree needs a row: use with passes=16. The values are each scorer's log-probabilities over the
+        # same `top` candidates, each normalized with its own "another token" mass.
+        self.mix, self.cheap = None, None
         self.counts = {"rounds": 0, "nodes_from_the_first_run": 0, "nodes_from_the_second_run": 0, "rows_of_the_pass": 0,
                        "first_tree_nodes_dropped": 0}
 
@@ -1564,6 +1575,13 @@ class SecondTree(BranchTree):
         clock = _cuda_time() if self.timed else None
         chosen, _ = self.tree.choose(s, best, scores)
         nodes = [ranks for ranks in chosen if len(ranks) < width - 1 and max(ranks) < top]
+        if self.mix is not None:
+            if self.cheap is None or self.cheap.pairs is None:
+                raise ValueError("a mix needs the cheap scorer: a CountTree with pair scores (`cheap`)")
+            if min(self.cheap.candidates, best.indices.shape[1]) != top:
+                raise ValueError("the cheap scorer must score the same candidates as the second drafter (top)")
+            self.cheap.keep_last = True
+            self.cheap.choose(s, best, scores)                        # its tables of this round, for children()
         self.counts["rounds"] += 1
         if self.timed:
             clock = self._lap("ms_first_tree", clock)
@@ -1737,6 +1755,8 @@ class SecondTree(BranchTree):
             likely = second.scores(first_log[:, step], first_scores[:, step], seconds[:, step], states[:, step], lift, off)[:, :top]
             if step == 0:
                 ranked = likely.sort(dim=-1, descending=True)
+                if self.mix is not None:
+                    ranked = self._mixed(ask, likely, ranked)
                 results.append((ranked.values, ranked.indices))
                 chosen_here = ranked.indices[:, 0]
             else:                                                     # the chain after a node's best child: one token a place
@@ -1752,11 +1772,29 @@ class SecondTree(BranchTree):
             for number, ranks in enumerate(ask):
                 if step == 0:
                     full[ranks] = (values[number], indices[number])
-                elif inside[number][step]:
+                elif inside[number][step] and self.mix is None:
                     chain[(ranks, step)] = (values[number], indices[number])
         if clock is not None:
             clock = self._lap("ms_scores", clock)
         return clock
+
+
+    def _mixed(self, ask: list, likely: torch.Tensor, ranked):
+        """The children's scores with `mix` applied (see __init__): ranked (values, indices) of the second drafter's
+        log-probabilities `likely` [nodes, top], and the cheap scorer's of the same candidates."""
+        cheap = numpy.stack([self.cheap.children(len(ranks), ranks[-2] if len(ranks) > 1 else 0, ranks[-1],
+                                                 not any(ranks)) for ranks in ask])                 # [nodes, top]
+        cheap = torch.as_tensor(cheap, device=likely.device, dtype=likely.dtype)
+        cheap_ranked = cheap.sort(dim=-1, descending=True)
+        if self.mix == "teacher_order":
+            return SimpleNamespace(values=cheap_ranked.values, indices=ranked.indices)
+        if self.mix == "cheap_order":
+            return SimpleNamespace(values=ranked.values, indices=cheap_ranked.indices)
+        if self.mix == "cheap_both":
+            return cheap_ranked
+        if self.mix == "teacher_both":
+            return ranked
+        raise ValueError(f"unknown mix {self.mix!r}")
 
 
 class EchoRows:

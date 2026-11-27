@@ -307,7 +307,7 @@ def make_method(name, ckpt_dir, like=None):
                            fast=bool(found[1]), graph=found[1] == "g")
         method.pairs = pairs
         return method
-    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(?:p(\d+))?(x?)@(.+)", name)
+    found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(?:p(\d+))?(x?)(?:m([tcbx]))?@(.+?)(?:~(.+))?", name)
     if found:
         # streeB@SECOND: a tree of B nodes in which the second drafter warm-SECOND.pt (trained at every place,
         # nexus/train_every.py) scores every edge (dflash/redraft.py: SecondTree); fF: rows for a first tree of F
@@ -320,7 +320,10 @@ def make_method(name, ckpt_dir, like=None):
         # G hundredths (the first tree is used as it is there).
         # pP: up to P passes: the nodes of the tree that had no row get one and the tree is chosen anew (a measurement
         # of what the scores are worth at every depth; p16 goes on until no node is left without a row).
-        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[8]}.pt"), like)
+        # mM@SECOND~PAIRS: the ordering-against-strength test (SecondTree.mix) with the pair scores pairs-PAIRS.pt as
+        # the cheap scorer: mt = the second drafter's order with the cheap values, mc = the cheap order with the second
+        # drafter's values, mb = the cheap scorer alone in this harness, mx = the second drafter alone without chains.
+        second, notes = load_restart_layers(os.path.join(ckpt_dir, f"warm-{found[9]}.pt"), like)
         method = SecondTree(int(found[2]), None if found[3] is None else int(found[3]),
                             tail=int(found[4] or notes.get("reach", 2)), top=int(notes.get("candidates", 32)))
         method.second, method.timed = second.merge(), bool(found[7])        # x: the milliseconds of each part are counted
@@ -329,6 +332,15 @@ def make_method(name, ckpt_dir, like=None):
         method.reveal_last = int(notes.get("reveal_last", 0) or 0)           # (rows see what the layer was shown in training)
         if found[1]:                                   # (the first tree scores as many candidates as the second drafter: one lookup for both)
             method.tree, method.follow = CountTree(method.first, FOLLOW.get("counts"), candidates=method.top), FOLLOW.get("counts")
+        if found[8]:
+            if not found[10]:
+                raise ValueError("a mix (m...) needs the pair scores after ~, as in stree63p16mt@opd-e4~opd-p2s")
+            from dflash.pair_scores import load_pair_scores
+
+            pairs, pair_notes = load_pair_scores(os.path.join(ckpt_dir, f"pairs-{found[10]}.pt"), like.fc.weight.device)
+            method.cheap = CountTree(method.budget, None, candidates=int(pair_notes.get("candidates", 32)))
+            method.cheap.pairs = pairs
+            method.mix = {"t": "teacher_order", "c": "cheap_order", "b": "cheap_both", "x": "teacher_both"}[found[8]]
         return method
     found = re.fullmatch(r"(c?)tree(\d+)_((?:restart|echo|reanchor).+)", name)
     if found:                                                       # DDTree with restarts on top, in the same check

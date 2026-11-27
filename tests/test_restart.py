@@ -2816,3 +2816,88 @@ def test_tree_with_counts_searched_in_tensors():
     expected = {path: -negative for negative, path in every[:12]}
     found = {tuple(r for r in row.tolist() if r >= 0): float(value) for row, value in zip(ranks, scores)}
     assert set(found) == set(expected) and all(abs(found[p] - expected[p]) < 1e-9 for p in found)
+
+
+def test_ordering_against_strength_in_the_second_drafters_tree():
+    """dflash/redraft.py: SecondTree.mix. On the same rounds, a node's children scored by the second drafter and by the
+    cheap pair scores on the same candidates; the cheap scorer alone in this harness (every node given a row) gives
+    the pair scores' own tree; the swapped arms lie between; the names parse."""
+    from dflash.pair_scores import PairScores
+    from dflash.redraft import CountTree, SecondTree
+    from dflash.replay import target_features
+    from dflash.restart_layers import RestartLayers
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids)
+    second = RestartLayers(draft, count=1, rank=4, reveal=True, scores=True).eval()
+    torch.manual_seed(3)
+    with torch.no_grad():
+        for adapter in second.adapters:
+            adapter.up.normal_(std=0.3)
+        second.scores.strength.fill_(1.0)
+    pairs = PairScores(16, rank=8, hidden=12, sure=True)
+    with torch.no_grad():
+        for part in (pairs.here[2], pairs.sure_before[2], pairs.sure_two[2]):
+            part.weight.normal_(std=0.5)
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, rows.clone()))
+            return rows
+
+    def run(method):
+        kept = Kept(method)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=kept, block_size=BLOCK)
+        return {start: prefixes(rows) for start, rows in kept.rounds}          # by where the round starts: comparable rounds
+
+    cheap_alone = CountTree(12, None, candidates=8)
+    cheap_alone.pairs = pairs
+    arms = {}
+    for mix in ("cheap_both", "teacher_both", "teacher_order", "cheap_order"):
+        method = SecondTree(12, 8, tail=2, top=8)
+        method.second, method.passes, method.mix = second, 16, mix
+        method.cheap = CountTree(12, None, candidates=8)
+        method.cheap.pairs = pairs
+        arms[mix] = run(method)
+    own = run(cheap_alone)
+
+    def same(a, b):
+        shared = set(a) & set(b)
+        return sum(int(a[start] == b[start]) for start in shared), len(shared)
+
+    alike, shared = same(arms["cheap_both"], own)                                # the harness rebuilds the cheap tree
+    assert shared > 3 and alike >= shared - 1
+    alike, shared = same(arms["teacher_both"], own)                              # the second drafter's tree differs
+    assert alike < shared - 1
+    for swapped in ("teacher_order", "cheap_order"):
+        assert same(arms[swapped], own)[0] < same(arms["cheap_both"], own)[0] or \
+               same(arms[swapped], arms["teacher_both"])[0] < same(arms["teacher_both"], arms["teacher_both"])[0]
+    # A mix needs the cheap scorer, and the same candidates.
+    bare = SecondTree(12, 8, tail=2, top=8)
+    bare.second, bare.mix = second, "teacher_order"
+    with pytest.raises(ValueError):
+        run(bare)
+    bare.cheap = CountTree(12, None, candidates=6)
+    bare.cheap.pairs = pairs
+    with pytest.raises(ValueError):
+        run(bare)
+
+    from nexus.redraft_long import make_method
+    import re
+    pattern = re.compile(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(?:p(\d+))?(x?)(?:m([tcbx]))?@(.+?)(?:~(.+))?")
+    found = pattern.fullmatch("stree63p16mt@opd-e4~opd-p2s")
+    assert found and found[6] == "16" and found[8] == "t" and found[9] == "opd-e4" and found[10] == "opd-p2s"
+    found = pattern.fullmatch("stree63p16@opd-e4")
+    assert found and found[8] is None and found[9] == "opd-e4" and found[10] is None
