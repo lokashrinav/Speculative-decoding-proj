@@ -3047,6 +3047,7 @@ def test_oracle_branches_at_the_likely_breaks():
     made = make_method("otree63f47b4t3", "/nowhere")
     assert isinstance(made, OracleBranches) and made.tree.budget == 47 and made.breaks == 4 and made.tail == 3
     assert make_method("otree63", "/nowhere").tree.budget == 63
+    assert isinstance(make_method("tree63", "/nowhere"), DraftTree)          # (a local import once shadowed DraftTree here)
 
 
 def test_a_stopped_whole_drafter_training_goes_on_from_its_folder(tmp_path):

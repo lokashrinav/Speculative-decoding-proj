@@ -258,7 +258,7 @@ def make_method(name, ckpt_dir, like=None):
         # otreeB: DDTree with B nodes plus four oracle branches at the drafter's likely breaks (dflash/redraft.py:
         # OracleBranches, replay only: the answer's own tokens continue each branch); fF: a first tree of F nodes so that
         # the whole stays near B; bK: K breaks (4); tT: T tokens of continuation (3).
-        from dflash.redraft import DraftTree, OracleBranches
+        from dflash.redraft import OracleBranches
 
         return OracleBranches(DraftTree(int(found[2] or found[1])), breaks=int(found[3] or 4), tail=int(found[4] or 3))
     found = re.fullmatch(r"([qg]?)ctree(\d+)(?:l(\d+)_(\d+))?(?:m(\d+))?", name)
