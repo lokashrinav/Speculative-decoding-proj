@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/oracle2-branches-8596043/nexus/trace_trees.py", line 307, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/oracle2-branches-8596043/nexus/trace_trees.py", line 298, in main
+    replay_decode(draft, target, ids, prompt_length, ended=generated[-1] in stop_set,
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/oracle2-branches-8596043/dflash/replay.py", line 155, in replay_decode
+    alternative = improver(SimpleNamespace(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/oracle2-branches-8596043/nexus/trace_trees.py", line 130, in __call__
+    self.rounds[name].append(self.record(method, rows, truth, ranked, plain))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/oracle2-branches-8596043/nexus/trace_trees.py", line 165, in record
+--
+IndexError: list index out of range
