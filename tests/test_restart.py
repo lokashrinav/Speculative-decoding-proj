@@ -2901,3 +2901,37 @@ def test_ordering_against_strength_in_the_second_drafters_tree():
     assert found and found[6] == "16" and found[8] == "t" and found[9] == "opd-e4" and found[10] == "opd-p2s"
     found = pattern.fullmatch("stree63p16@opd-e4")
     assert found and found[8] is None and found[9] == "opd-e4" and found[10] is None
+
+
+def test_early_readout_of_the_drafters_alternatives(tmp_path):
+    """nexus/early_readout.py: the first run with the states after every layer; the readouts' tallies; the last layer's
+    readout is the drafter's own output; a full status is written."""
+    import json
+    import subprocess
+    import sys
+    from dflash.model import _draft_value, _output_head, _raw_input_embeddings
+    from dflash.replay import target_features
+    from nexus.early_readout import Tally, first_run_all_layers
+    from nexus.train_every import first_runs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=120)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids, top=0).clone()
+    starts = torch.tensor([length + 2, length + 20, length + 40])
+    with torch.no_grad():
+        states = first_run_all_layers(draft, target, features, ids, starts, 0, BLOCK)
+        assert len(states) == len(draft.layers) and states[-1].shape == (3, BLOCK, draft.config.hidden_size)
+        final, kept = first_runs(draft, target, features, ids, starts, 0, 1, BLOCK)
+    assert torch.allclose(draft.norm(states[-1]), final, atol=1e-4) and torch.allclose(states[1], kept, atol=1e-5)
+
+    tally = Tally(layers=3, width=BLOCK, breaks=2)
+    ranks = torch.tensor([[0, 0, 1, 5, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0]])     # right token's rank at places 1 .. 7
+    breaks = torch.tensor([[2, 3], [0, 1]])                                     # a break expected after 2 and 3 accepted; after 0 and 1
+    tally.add(2, ranks, breaks, own=True)
+    got = tally.summary()["last_layer"]
+    assert got["top1"] == round(11 / 14, 4) and got["top2"] == round(13 / 14, 4)
+    # anchor 0: break at place 2 (prefix right, second choice right: whole prefix right, real break); at place 3 (prefix wrong:
+    # the chain broke at 2). anchor 1: at place 0 (nothing before, second choice right); at place 1 (prefix wrong at 0).
+    assert got["own_breaks"]["share_whole_prefix_right"] == 0.5 and got["own_breaks"]["share_real_break_of_this_readouts_chain"] == 0.5
+    assert got["tokens_right_in_a_row"] == round((2 + 0) / 2, 3)
