@@ -1067,7 +1067,7 @@ class CountTree(DraftTree):
     exact). Nothing is trained and no pass is added: one lookup in the counts for all places."""
 
     def __init__(self, budget: int, follow=None, candidates: int = 16, on_path: float = 0.3, off_path: float = 0.6,
-                 fast: bool = False):
+                 fast: bool = False, graph: bool = False):
         super().__init__(budget)
         self.follow, self.candidates, self.on_path, self.off_path = follow, candidates, on_path, off_path
         self.table = None                              # the last round's lifts [places - 1, a, b, c], where they were computed
@@ -1076,7 +1076,10 @@ class CountTree(DraftTree):
         self.pairs = None
         # fast: the search runs on the GPU in tensors of fixed shape (search_tensors) and the rows come back in one
         # copy; the search on the CPU in numpy costs a few milliseconds a round in small operations and copies.
-        self.fast = fast
+        # graph: the whole of it (the scores' tables, the counts' lookup, the search, the rows) is recorded once as a
+        # CUDA graph and replayed every round: the many small operations are then launched as one.
+        self.fast, self.graph = fast or graph, graph
+        self._graphed = None                           # (key of the shapes, the graph, the static inputs, the static rows)
 
     def _pair_tables(self, s: SimpleNamespace, tokens: torch.Tensor, values: torch.Tensor):
         """The pair scores of all candidates of all places after the first: [places - 1, before, here],
@@ -1261,6 +1264,38 @@ class CountTree(DraftTree):
             return super().__call__(s)
         if self.follow is None and self.pairs is None:
             raise ValueError("the tree with counts needs the counts (dflash/follow.py: FollowCounts)")
+        if self.graph and s.draft_logits.is_cuda:
+            rows = self._replayed(s)
+        else:
+            rows = self._rows_in_tensors(s)
+        self.nodes = int((rows[:, 1] >= 0).sum())
+        return rows
+
+    def _replayed(self, s: SimpleNamespace) -> torch.Tensor:
+        """The rows from the recorded graph, recorded first if the shapes are new (a block of another width, say)."""
+        states = self._final_states(s)
+        key = (tuple(s.draft_logits.shape), tuple(states.shape), tuple(s.block_ids.shape), s.draft_logits.dtype, states.dtype)
+        if self._graphed is None or self._graphed[0] != key:
+            static = SimpleNamespace(draft_logits=s.draft_logits.clone(), draft_states=states.clone(), block_ids=s.block_ids.clone(),
+                                     target=s.target, first_drafter=s.first_drafter)
+            stream = torch.cuda.Stream()
+            stream.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(stream):
+                for _ in range(3):                                   # warming up on a side stream, as the recording needs
+                    self._rows_in_tensors(static)
+            torch.cuda.current_stream().wait_stream(stream)
+            graph = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(graph):
+                rows = self._rows_in_tensors(static)
+            self._graphed = (key, graph, static, rows)
+        _, graph, static, rows = self._graphed
+        static.draft_logits.copy_(s.draft_logits)
+        static.draft_states.copy_(states)
+        static.block_ids.copy_(s.block_ids)
+        graph.replay()
+        return rows.clone()
+
+    def _rows_in_tensors(self, s: SimpleNamespace) -> torch.Tensor:
         logits = s.draft_logits[0].float()
         many = min(self.candidates, self.budget, logits.shape[-1])
         best = logits.log_softmax(dim=-1).topk(many, dim=-1)
@@ -1276,7 +1311,6 @@ class CountTree(DraftTree):
             lift = self.follow.lift_of_places(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :]).float()
             self.table = lift
         ranks, _ = self.search_tensors(likely, rest, lift, extra, on_weight, off_weight)
-        self.nodes = int((ranks[:, 0] >= 0).sum())
         # One row per node (a node's row is the start of its children's rows: the tree read from the rows is the same).
         width = s.block_ids.shape[1]
         chosen = tokens.gather(1, ranks.clamp(min=0).t()).t()                # [budget, places]
