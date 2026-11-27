@@ -1,9 +1,9 @@
 {
- "done": false,
- "answers": 7,
+ "done": true,
+ "answers": 8,
  "answers_in_this_job": 100,
  "part": "validation",
- "hours": 0.035,
+ "hours": 0.04,
  "draft": "opd",
  "settings": "ptree63@opd-p2s-t",
  "settings_from": "command line",
@@ -20,20 +20,20 @@
  "by_setting": {
   "ptree63@opd-p2s-t": {
    "0-2k": {
-    "rounds": 1561,
-    "tokens_per_round": 8.30621396540679
+    "rounds": 1769,
+    "tokens_per_round": 8.461842849067269
    },
    "2k+": {
-    "rounds": 4544,
-    "tokens_per_round": 8.75462147887324
+    "rounds": 5131,
+    "tokens_per_round": 8.746832976028065
    },
    "8k+": {
     "rounds": 1599,
     "tokens_per_round": 8.128205128205128
    },
    "everything": {
-    "rounds": 6105,
-    "tokens_per_round": 8.63996723996724
+    "rounds": 6900,
+    "tokens_per_round": 8.673768115942028
    },
    "16k+": {
     "rounds": 47,
@@ -44,33 +44,33 @@
  "in_real_time": {
   "ptree63@opd-p2s-t": {
    "0-2k": {
-    "tokens_per_second": 135.09148838188196,
-    "extra_drafter_ms_per_round": 5.1286995515695075,
+    "tokens_per_second": 137.59498778843337,
+    "extra_drafter_ms_per_round": 5.140700960994912,
     "extra_tokens_checked_per_round": 48.0,
     "extra_check_ms_per_round": 0.0,
-    "check_and_first_draft_ms_per_round": 56.357142857142854,
+    "check_and_first_draft_ms_per_round": 56.35749010740531,
     "redrafts": {
-     "rounds_counted": 1561,
-     "first_draft_broke": 0.9237668161434978,
+     "rounds_counted": 1769,
+     "first_draft_broke": 0.9191633691351045,
      "the_break_was_redrafted_from": 0.0,
      "that_redraft_got_past_the_break": 0.0,
-     "a_redraft_got_further": 0.7648942985265855,
-     "tokens_added_when_it_did": 3.19179229480737
+     "a_redraft_got_further": 0.7654041831543245,
+     "tokens_added_when_it_did": 3.274002954209749
     }
    },
    "2k+": {
-    "tokens_per_second": 115.63149384373695,
-    "extra_drafter_ms_per_round": 5.067055457746479,
-    "extra_tokens_checked_per_round": 48.002640845070424,
-    "extra_check_ms_per_round": 3.2366791373239434,
-    "check_and_first_draft_ms_per_round": 67.40765845070423,
+    "tokens_per_second": 117.41383778587641,
+    "extra_drafter_ms_per_round": 5.0731241473397,
+    "extra_tokens_checked_per_round": 48.00233872539466,
+    "extra_check_ms_per_round": 3.0311713116351586,
+    "check_and_first_draft_ms_per_round": 66.39146365230948,
     "redrafts": {
-     "rounds_counted": 4542,
-     "first_draft_broke": 0.9498018494055482,
+     "rounds_counted": 5129,
+     "first_draft_broke": 0.9491128875024372,
      "the_break_was_redrafted_from": 0.0,
      "that_redraft_got_past_the_break": 0.0,
-     "a_redraft_got_further": 0.8082342580361075,
-     "tokens_added_when_it_did": 3.2307273222555164
+     "a_redraft_got_further": 0.8079547670111132,
+     "tokens_added_when_it_did": 3.225627413127413
     }
    },
    "8k+": {
@@ -89,18 +89,18 @@
     }
    },
    "everything": {
-    "tokens_per_second": 119.87633876248357,
-    "extra_drafter_ms_per_round": 5.082817362817362,
-    "extra_tokens_checked_per_round": 48.0019656019656,
-    "extra_check_ms_per_round": 2.409085995085995,
-    "check_and_first_draft_ms_per_round": 64.58209664209664,
+    "tokens_per_second": 121.88512124177701,
+    "extra_drafter_ms_per_round": 5.090449275362318,
+    "extra_tokens_checked_per_round": 48.001739130434785,
+    "extra_check_ms_per_round": 2.2540492753623185,
+    "check_and_first_draft_ms_per_round": 63.818971014492746,
     "redrafts": {
-     "rounds_counted": 6103,
-     "first_draft_broke": 0.9431427166967066,
+     "rounds_counted": 6898,
+     "first_draft_broke": 0.9414322992171644,
      "the_break_was_redrafted_from": 0.0,
      "that_redraft_got_past_the_break": 0.0,
-     "a_redraft_got_further": 0.7971489431427167,
-     "tokens_added_when_it_did": 3.2211716341212746
+     "a_redraft_got_further": 0.7970426210495796,
+     "tokens_added_when_it_did": 3.2375409239723534
     }
    },
    "16k+": {
@@ -152,8 +152,8 @@
  "timed_in_this_job_ms": [],
  "replay_ms_per_round": {
   "ptree63@opd-p2s-t": {
-   "draft": 8.446514914208912,
-   "improve": 7.537267490917089
+   "draft": 8.441281971180866,
+   "improve": 7.5230090721321385
   }
  },
  "gpu_memory_peak_gb": 11.9
