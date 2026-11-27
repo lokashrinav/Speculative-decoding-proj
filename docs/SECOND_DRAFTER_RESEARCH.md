@@ -635,3 +635,34 @@ the second pass's; under greedy decoding D2SD's gain over its own baseline is th
 between the untrained reuse (+14%) and the full-data result (+33%); speed on a 4B target a few
 percent, since D-Loop turned +17.7% tokens into +3.7% speed there. Memory: the 537M-parameter
 drafter in 32-bit with AdamW is about 8.6 GB next to the 8 GB target.
+
+## The pair scores told how sure the first run was: the first clear win (November 27, 02:45 UTC, partial)
+
+`next1-trace` (DDTree's rounds, 7 of 8 answers), `next2-replay` (own rounds, 4 of 8 answers), `next3-speed`
+(real decoding, 2 of 6 answers): Draft-OPD, the pair scores trained two hours with the three "how sure" numbers
+(`opd-p2s`: the first run's log-probability of the token before the place, whether it was its first choice, the
+first choice's log-probability) against the same scores without them (`opd-p2`), the earlier ones (`opd-p1`,
+0.6 hours), and the one-, two- and four-layer second drafters.
+
+| Method (63 nodes) | Right after a fork | Tokens a round, DDTree's rounds | Own rounds | Real speed over plain | ms a round |
+|---|---|---|---|---|---|
+| DDTree | 20.7% | 7.53 | 7.56 | +21.4% | 70.4 |
+| Count table (earlier runs) | 39.5% | ~8.28 | 8.31 | +28 to +30% | |
+| Pair scores, 0.6 h (`opd-p1`) | 40.2% | 8.06 | 8.09 | +25.8% | 74.0 |
+| Pair scores, 2 h (`opd-p2`) | 42.4% | 8.22 | 8.20 | | |
+| **Pair scores told how sure (`opd-p2s`)** | **47.5%** | **8.63** | **8.65** | **+32.5%** | 74.7 |
+| Second drafter, last token only (`opd-e1m1`) | 46.2% | 8.00 | 8.03 | | |
+| Second drafter, one layer (`opd-e1`) | 49.1% | 8.15 | 8.21 | +21.6% | 77.0 |
+| Second drafter, two layers (`opd-e2`) | 55.6% | 8.29 (8.79 every node) | 8.35 (8.68) | +11.6% | 86.7 |
+| Second drafter, four layers (`opd-e4`) | 57.3% | 8.39 (8.94) | 8.49 (8.97) | +0.4% | 97.9 |
+
+What it says. (1) The three "how sure" numbers are worth more than any architecture change tried: +0.45
+tokens a round over the same scores without them, and the pair scores now hold more tokens than the
+one-pass four-layer second drafter (8.65 against 8.49) at 4.5 ms against about 30 ms. (2) In real speed
+the fixed pair scores are the first method of ours clearly past DDTree (+11 points) and past the count
+table's earlier +28 to +30%, with no stored text and no extra pass. (3) The deeper second drafters hold
+the most tokens and lose the most time: their passes cost 16 and 27 ms a round here, so two layers are
+10 points below DDTree and four layers tie the plain drafter. A whole second pass does not pay on this
+target, as experiment 3 said. Caveats: 2 answers for the speed, 4 for the replay; the rest of the runs
+and a 30-answer confirmation follow. Next: the count table as an input to the scores, a three-token
+window, the four-layer drafter as a teacher, and the scores' step made cheaper than 4.5 ms.
