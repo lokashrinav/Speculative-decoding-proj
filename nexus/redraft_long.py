@@ -221,7 +221,7 @@ def follow_counts(data_dir, more, vocabulary, device):
 
 def with_counts(name):
     """Whether a method's name has a tree with counts in it."""
-    return re.search(r"(?:^|[+_])c(?:b|s|p)?tree\d", name) is not None
+    return re.search(r"(?:^|[+_])q?c(?:b|s|p)?tree\d", name) is not None
 
 
 def make_method(name, ckpt_dir, like=None):
@@ -253,15 +253,16 @@ def make_method(name, ckpt_dir, like=None):
         number = lambda at: None if found[at] is None else int(found[at])
         return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
                         whole=bool(found[2]))
-    found = re.fullmatch(r"ctree(\d+)(?:l(\d+)_(\d+))?(?:m(\d+))?", name)
+    found = re.fullmatch(r"(q?)ctree(\d+)(?:l(\d+)_(\d+))?(?:m(\d+))?", name)
     if found:
         # ctreeB: DDTree with B nodes whose scores are corrected by counts of which token follows which two
         # (dflash/redraft.py: CountTree, the scores of DForkTree); lX_Y: the weights on and off the path of first
         # choices, in hundredths (30_60 without); mN: the N most probable tokens of a place are scored (16 without).
+        # qctree...: the quick search, in tensors of fixed shape on the GPU (the same tree).
         from dflash.redraft import CountTree
 
-        return CountTree(int(found[1]), FOLLOW.get("counts"), candidates=int(found[4] or 16),
-                         on_path=int(found[2] or 30) / 100, off_path=int(found[3] or 60) / 100)
+        return CountTree(int(found[2]), FOLLOW.get("counts"), candidates=int(found[5] or 16),
+                         on_path=int(found[3] or 30) / 100, off_path=int(found[4] or 60) / 100, fast=bool(found[1]))
     counted = name.startswith("cbtree")              # cbtree...: the first tree of a btree is a tree with counts
     found = re.fullmatch(r"btree(\d+)f(\d+)t(\d+)(?:c(\d))?(?:b(\d+))?(?:v(\d+))?([nrp])(?:@(.+))?", name[1:] if counted else name)
     if found:
@@ -290,16 +291,17 @@ def make_method(name, ckpt_dir, like=None):
 
             method.second = load_restart_layers(os.path.join(ckpt_dir, f"warm-{second}.pt"), like)[0].merge()
         return method
-    found = re.fullmatch(r"(c?)ptree(\d+)@(.+)", name)
+    found = re.fullmatch(r"(q?)(c?)ptree(\d+)@(.+)", name)
     if found:
         # ptreeB@NAME: a tree of B nodes searched at every depth with the trained scores of pairs of neighbouring tokens
         # pairs-NAME.pt (dflash/pair_scores.py; no pass of a second drafter); cptreeB@NAME: with the counts' lifts too,
-        # as the scores were trained.
+        # as the scores were trained; qptree..., qcptree...: the quick search in tensors of fixed shape (the same tree).
         from dflash.pair_scores import load_pair_scores
         from dflash.redraft import CountTree
 
-        pairs, notes = load_pair_scores(os.path.join(ckpt_dir, f"pairs-{found[3]}.pt"), like.fc.weight.device)
-        method = CountTree(int(found[2]), FOLLOW.get("counts") if found[1] else None, candidates=int(notes.get("candidates", 32)))
+        pairs, notes = load_pair_scores(os.path.join(ckpt_dir, f"pairs-{found[4]}.pt"), like.fc.weight.device)
+        method = CountTree(int(found[3]), FOLLOW.get("counts") if found[2] else None, candidates=int(notes.get("candidates", 32)),
+                           fast=bool(found[1]))
         method.pairs = pairs
         return method
     found = re.fullmatch(r"(c?)stree(\d+)(?:f(\d+))?(?:t(\d+))?(?:g(\d+))?(?:p(\d+))?(x?)@(.+)", name)

@@ -1962,6 +1962,8 @@ def test_names_of_trees_with_counts():
         tree = redraft_long.make_method("ctree63l20_40m8", "/nowhere")
         assert isinstance(tree, CountTree) and (tree.budget, tree.on_path, tree.off_path, tree.candidates) == (63, 0.2, 0.4, 8)
         assert redraft_long.make_method("ctree31", "/nowhere").off_path == 0.6
+        quick = redraft_long.make_method("qctree63m8", "/nowhere")                   # the quick search, the same tree
+        assert quick.fast and quick.candidates == 8 and not tree.fast and redraft_long.with_counts("plain+qctree63")
         both = redraft_long.make_method("cbtree63f40t2n", "/nowhere")
         assert isinstance(both, BranchTree) and isinstance(both.tree, CountTree) and both.tree.budget == 40
         assert not isinstance(redraft_long.make_method("btree63f40t2n", "/nowhere").tree, CountTree)
@@ -2730,3 +2732,87 @@ def test_a_whole_second_drafter_trained_as_the_published_ones(tmp_path):
             teach.learn_from(ids, features, length, 0, learn=False, every=7)
         progress = teach.progress()
         assert progress["second_right"] >= 0 and len(progress["second_right_by_prefix"]) == BLOCK - 1 and progress["first_walk"] >= 0
+
+
+def test_tree_with_counts_searched_in_tensors():
+    """dflash/redraft.py: CountTree(fast=True) searches in tensors of fixed shape on the device and returns one row per
+    node; the tree is the one the search in numpy finds, with counts, with pair scores (told how sure the first run
+    was), and with both."""
+    from dflash.follow import FollowCounts
+    from dflash.pair_scores import PairScores
+    from dflash.redraft import CountTree, DraftTree
+    from dflash.replay import target_features
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids.clone()
+    features, said = target_features(target, draft, ids, top=6)
+    features, said = features.clone(), (said[0].clone(), said[1].clone())
+    torch.manual_seed(0)
+    pairs = PairScores(16, rank=8, hidden=12, sure=True)
+    with torch.no_grad():                                 # scores that change something
+        for part in (pairs.here[2], pairs.sure_before[2], pairs.sure_two[2]):
+            part.weight.normal_(std=0.5)
+        pairs.rest.weight.normal_(std=0.5)
+    follow = FollowCounts.count([(ids[0], length)], target.config.vocab_size)
+
+    def prefixes(rows):
+        found = set()
+        for row in rows.tolist():
+            for end in range(2, len(row) + 1):
+                if row[end - 1] < 0:
+                    break
+                found.add(tuple(row[:end]))
+        return found
+
+    class Kept(Seen):
+        def __call__(self, s):
+            rows = self.inner(s)
+            self.rounds.append((s.start, rows.clone(), self.inner.nodes))
+            return rows
+
+    for counts, scores in ((follow, None), (None, pairs), (follow, pairs)):
+        slow, fast = CountTree(12, counts, candidates=8), CountTree(12, counts, candidates=8, fast=True)
+        slow.pairs = fast.pairs = scores
+        slow, fast = Kept(slow), Kept(fast)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=slow, block_size=BLOCK)
+        replay_decode(draft, target, ids, length, ended=False, features=features, improver=fast, block_size=BLOCK)
+        assert len(slow.rounds) == len(fast.rounds) > 3
+        alike = 0
+        for (_, mine, nodes), (_, theirs, their_nodes) in zip(fast.rounds, slow.rounds):
+            assert mine.shape[0] == 12 and mine.shape[1] == theirs.shape[1]      # one row per node, the block's width
+            assert nodes == their_nodes == len(prefixes(mine)) == len(prefixes(theirs))
+            alike += int(prefixes(mine) == prefixes(theirs))
+        assert alike >= len(slow.rounds) - 1                       # (float32 against float64: an equal score may order otherwise)
+
+    # The search alone, on given tables, in double: exactly the numpy search's nodes and scores.
+    torch.manual_seed(1)
+    places, many = 6, 8
+    likely = (torch.randn(places, many, dtype=torch.float64) * 2).log_softmax(dim=-1).sort(dim=-1, descending=True).values - 0.3
+    rest = 1.0 - likely.exp().sum(dim=-1)
+    lift = torch.randn(places - 1, many, many, many, dtype=torch.float64)
+    extra = (torch.randn(places - 1, many, many, dtype=torch.float64), torch.randn(places - 1, many, many, dtype=torch.float64),
+             torch.rand(places - 1, dtype=torch.float64) + 0.5)
+    tree = CountTree(12, follow, candidates=many)
+    ranks, scores = tree.search_tensors(likely, rest, lift, extra, 0.3, 0.6)
+    import numpy
+    chosen = set()
+    kept = numpy.argsort(-likely[0].numpy(), kind="stable")[:12]
+    score, last, before, on_path = likely[0].numpy()[kept], kept, numpy.zeros_like(kept), kept == 0
+    paths = [(int(r),) for r in last]
+    every = [(-float(v), p) for v, p in zip(score, paths)]
+    for place in range(1, places):
+        raised = likely[place].numpy()[None, :] + numpy.where(on_path, 0.3, 0.6)[:, None] * lift[place - 1].numpy()[before, last]
+        raised = raised + extra[0][place - 1].numpy()[last] + extra[1][place - 1].numpy()[before]
+        others = rest[place].item() * extra[2][place - 1].item()
+        given = raised - numpy.log(others + numpy.exp(raised).sum(axis=-1))[:, None]
+        total = (score[:, None] + given).ravel()
+        keep = numpy.argsort(-total, kind="stable")[:12]
+        parent, candidate = keep // many, keep % many
+        score, before, last, on_path = total[keep], last[parent], candidate, on_path[parent] & (candidate == 0)
+        paths = [paths[p] + (int(c),) for p, c in zip(parent, candidate)]
+        every += [(-float(v), p) for v, p in zip(score, paths)]
+    every.sort(key=lambda entry: (entry[0], len(entry[1])))
+    expected = {path: -negative for negative, path in every[:12]}
+    found = {tuple(r for r in row.tolist() if r >= 0): float(value) for row, value in zip(ranks, scores)}
+    assert set(found) == set(expected) and all(abs(found[p] - expected[p]) < 1e-9 for p in found)

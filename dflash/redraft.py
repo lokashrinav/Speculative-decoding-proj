@@ -1066,13 +1066,17 @@ class CountTree(DraftTree):
     best `budget` of all kept nodes are the tree (a node never scores above its parent, so this is
     exact). Nothing is trained and no pass is added: one lookup in the counts for all places."""
 
-    def __init__(self, budget: int, follow=None, candidates: int = 16, on_path: float = 0.3, off_path: float = 0.6):
+    def __init__(self, budget: int, follow=None, candidates: int = 16, on_path: float = 0.3, off_path: float = 0.6,
+                 fast: bool = False):
         super().__init__(budget)
         self.follow, self.candidates, self.on_path, self.off_path = follow, candidates, on_path, off_path
         self.table = None                              # the last round's lifts [places - 1, a, b, c], where they were computed
         # pairs: trained scores of pairs of neighbouring tokens (dflash/pair_scores.py), added to the counts' lifts
         # or used without counts (follow None). Set by nexus/redraft_long.py for the trees named ptree / cptree.
         self.pairs = None
+        # fast: the search runs on the GPU in tensors of fixed shape (search_tensors) and the rows come back in one
+        # copy; the search on the CPU in numpy costs a few milliseconds a round in small operations and copies.
+        self.fast = fast
 
     def _pair_tables(self, s: SimpleNamespace, tokens: torch.Tensor, values: torch.Tensor):
         """The pair scores of all candidates of all places after the first: [places - 1, before, here],
@@ -1187,6 +1191,99 @@ class CountTree(DraftTree):
             chosen.append(node)
             worth[node] = -negative
         return chosen, worth
+
+    def _pair_tables_tensors(self, s: SimpleNamespace, tokens: torch.Tensor, values: torch.Tensor):
+        """As _pair_tables, but the tables stay on the device, in float32."""
+        pairs, target, drafter = self.pairs, s.target, s.first_drafter
+        scale = float(_draft_value(drafter.config, "input_embedding_scale", 1.0))
+        first = s.block_ids[0, :1].to(tokens.device).expand(tokens.shape[1])[None]
+        embedded = _raw_input_embeddings(target, torch.cat((first, tokens[:-1])), scale)
+        states = self._final_states(s)[2 : tokens.shape[0] + 1]
+        sure_before = sure_two = None
+        if pairs.sure_before is not None:
+            values = values.float()
+            first_choice = torch.zeros_like(values)
+            first_choice[:, 0] = 1.0
+            sure = torch.stack((values, first_choice, values[:, :1].expand_as(values)), dim=-1)
+            given = torch.tensor([0.0, 1.0, 0.0], device=values.device).expand(1, values.shape[1], 3)
+            sure_before, sure_two = sure[:-1], torch.cat((given, sure[:-2]))
+        pair, skip, rest = pairs.tables(states, embedded[1:], embedded[:-1], _output_head(target).weight[tokens[1:]], sure_before, sure_two)
+        return pair.float(), skip.float(), rest.float().exp(), pairs.on_path.float(), pairs.off_path.float()
+
+    def search_tensors(self, likely: torch.Tensor, rest: torch.Tensor, lift, extra, on_weight, off_weight):
+        """The search of `choose` in tensors of fixed shape, on likely's device: likely [places, many] (the first run's
+        log-probabilities of every place's candidates, most probable first), rest [places] (what the other tokens of a
+        place have), lift [places - 1, a, b, c] or None, extra (pair [places - 1, b, c], skip [places - 1, a, c], the
+        factor on the rest [places - 1]) or None, on_weight and off_weight numbers or 0-d tensors. Returns the ranks
+        of the `budget` best nodes [budget, places] (-1 past a node's depth, the shallower of equal scores first) and
+        their scores [budget]. Every depth is searched (nothing to stop early for): the result is the same."""
+        places, many = likely.shape
+        budget, device, dtype = self.budget, likely.device, likely.dtype
+        kept = min(budget, many)
+        minus = torch.finfo(dtype).min
+        on_weight, off_weight = (torch.as_tensor(w, device=device, dtype=dtype) for w in (on_weight, off_weight))
+        # The kept nodes of a depth, padded to `budget` (score minus, no rank): score, the candidate they end in, the
+        # one before it, whether the branch is still the path of first choices, and the ranks of their tokens so far.
+        score = torch.full((budget,), minus, device=device, dtype=dtype)
+        score[:kept] = likely[0, :kept]
+        last = torch.zeros(budget, dtype=torch.long, device=device)
+        last[:kept] = torch.arange(kept, device=device)
+        before = torch.zeros_like(last)
+        on_path = last == 0
+        ranks = torch.full((budget, places), -1, dtype=torch.long, device=device)
+        ranks[:kept, 0] = last[:kept]
+        all_scores, all_ranks = [score], [ranks]
+        for place in range(1, places):
+            raised = likely[place][None, :].expand(budget, many)
+            others = rest[place]
+            if lift is not None:
+                raised = raised + torch.where(on_path, on_weight, off_weight)[:, None] * lift[place - 1][before, last]
+            if extra is not None:
+                raised = raised + extra[0][place - 1][last] + extra[1][place - 1][before]
+                others = others * extra[2][place - 1]
+            given = raised - torch.log(others + raised.exp().sum(dim=-1))[:, None]
+            total = (score[:, None] + given).reshape(-1)
+            keep = total.topk(budget).indices
+            parent, candidate = keep // many, keep % many
+            score, before, last = total[keep], last[parent], candidate
+            on_path = on_path[parent] & (candidate == 0)
+            ranks = ranks[parent].clone()
+            ranks[:, place] = candidate
+            all_scores.append(score)
+            all_ranks.append(ranks)
+        scores = torch.cat(all_scores)                                       # [places * budget], depth-major
+        # The best `budget` of all kept nodes; of equal scores the shallower first (a parent before its child).
+        order = (-scores).argsort(stable=True)[:budget]
+        return torch.cat(all_ranks)[order], scores[order]
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor:
+        if not self.fast or getattr(self, "keep_last", False):
+            return super().__call__(s)
+        if self.follow is None and self.pairs is None:
+            raise ValueError("the tree with counts needs the counts (dflash/follow.py: FollowCounts)")
+        logits = s.draft_logits[0].float()
+        many = min(self.candidates, self.budget, logits.shape[-1])
+        best = logits.log_softmax(dim=-1).topk(many, dim=-1)
+        tokens, likely = best.indices, best.values                         # [places, candidates]
+        places = tokens.shape[0]
+        rest = (1.0 - likely.exp().sum(dim=-1)).clamp(min=0.0)
+        lift, extra, on_weight, off_weight = None, None, self.on_path, self.off_path
+        if places > 1 and self.pairs is not None:
+            *extra, on_weight, off_weight = self._pair_tables_tensors(s, tokens, likely)
+        if places > 1 and self.follow is not None:
+            first = s.block_ids[0, :1].to(tokens.device).expand(many)[None]
+            a = torch.cat((first, tokens[:-2]))[:, :, None, None]
+            lift = self.follow.lift_of_places(a, tokens[:-1][:, None, :, None], tokens[1:][:, None, None, :]).float()
+            self.table = lift
+        ranks, _ = self.search_tensors(likely, rest, lift, extra, on_weight, off_weight)
+        self.nodes = int((ranks[:, 0] >= 0).sum())
+        # One row per node (a node's row is the start of its children's rows: the tree read from the rows is the same).
+        width = s.block_ids.shape[1]
+        chosen = tokens.gather(1, ranks.clamp(min=0).t()).t()                # [budget, places]
+        rows = torch.full((ranks.shape[0], width), -1, dtype=s.block_ids.dtype, device=s.block_ids.device)
+        rows[:, 0] = s.block_ids[0, 0]
+        rows[:, 1 : places + 1] = torch.where(ranks >= 0, chosen, torch.full_like(chosen, -1)).to(rows.dtype)
+        return rows
 
 
 class BranchTree:
