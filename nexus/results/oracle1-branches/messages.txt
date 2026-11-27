@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/oracle1-branches-8595726/nexus/trace_trees.py", line 307, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/oracle1-branches-8595726/nexus/trace_trees.py", line 277, in main
+    trace = Trace({name: make_method(name, args.ckpt_dir, like=draft) for name in names})
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/oracle1-branches-8595726/nexus/redraft_long.py", line 387, in make_method
+    return DraftTree(int(found[1]))
+           ^^^^^^^^^
+UnboundLocalError: cannot access local variable 'DraftTree' where it is not associated with a value
