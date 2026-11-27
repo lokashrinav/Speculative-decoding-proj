@@ -473,6 +473,32 @@ long context, on which DDTree's 63 nodes plus the root sit, so branches must be 
 64 rows rather than added. Open: the oracle room (`oracle1-branches`, running) and, if there is
 room, the early-readout training test.
 
+### C12. Ordering against strength: what the teacher knows (November 27, 08:15 UTC)
+
+Setup: Draft-OPD; thinking on; A5000; 8 validation answers, 7,900 rounds of DDTree, every arm built
+on the same rounds with the same builder and budget and a teacher row for every node (`SecondTree.mix`,
+job `swap1-order`, trace half). Two harness checks: the pair scores rebuilt in the harness reproduce
+their own tree exactly (0 rounds further or less far); the teacher without chains reproduces the
+every-node teacher (differs on 0.4% of rounds).
+Inputs: at every node, the four-layer second drafter's log-probabilities of the 32 candidates and the
+pair scores' (with the flag, `opd-p2s`) of the same candidates, each normalized with its own
+"another token" mass; the arms swap the ORDER of the candidates and the sorted VALUES between the two.
+Metric: tokens per round; rounds further and less far than the pair scores and tokens gained and
+lost there; stop causes.
+Timing: none (an offline diagnostic; the teacher costs 27 ms a pass).
+Evidence: `nexus/results/swap1-order/trace/trace.json`. Pair scores alone 8.665; teacher alone
+8.976; teacher's order with the pair scores' values 8.691 (against the pair scores: further in
+21.9% of rounds gaining 0.41, less far in 17.2% losing 0.38, net +0.03); pair scores' order with the
+teacher's values 8.522. Keeping the best 2 children everywhere, the teacher's order gives 9.10 in
+both arms that use it, against 8.63 for the pair scores' order. With the teacher's order and the
+cheap values, "ranked first but the budget went elsewhere" rises from 12.7% to 19.1% of rounds.
+Conclusion supported: the teacher's value is not its ordering alone (which transfers almost nothing)
+nor its strengths alone (which harm); it is the two together, the probabilities it gives its ordered
+candidates. The calibration explanation of C4's reading is wrong as a mechanism. For distilling the
+teacher into a cheap corrector this rules out a ranking (pairwise) loss and leaves ordinary
+probability-matching KL over the candidates; whether that beats the target's labels at equal data is
+the one open comparison (P7, narrowed).
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -552,10 +578,11 @@ on/off the path on top of `opd-p2s`, fit on training answers; one job.
 P6. The coverage cause (C4's 12.1%): 4 to 8 trigram-proposed candidates at nodes after a fork
 (DForkTree reports they hold 37 to 41% of the missing tokens); one job.
 
-P7. The ranking cause: the four-layer drafter as a teacher for the pair scores at mixing weights
-0, 0.25, 0.5, 1 against target labels alone, equal data (not published anywhere); and the pair
-scores told the first run's probability of the whole branch prefix and the distance from the fork
-rather than two tokens; two jobs.
+P7. The ranking cause, narrowed by C12: the four-layer drafter as a teacher for the pair scores
+with a probability-matching KL over the candidates (not a ranking loss, which C12 rules out), at
+mixing weights 0, 0.25, 0.5, 1 against the target's labels alone, equal data (not published
+anywhere); and the pair scores told the first run's probability of the whole branch prefix and the
+distance from the fork rather than two tokens; two jobs.
 
 P8. A 127-node tree, since the check is flat to the tile (A3); one job.
 
