@@ -449,12 +449,40 @@ real speed (eager), the same picture as on the long thinking answers (+8.7% over
 answers); it loses nothing on code (HumanEval ties DDTree where the count table falls behind).
 Its extra cost is 3.8 ms a round. Open: 10 prompts a benchmark; graphed timing (`cost2-search`).
 
+### C11. What branching inside the drafter would cost (November 27, 08:00 UTC)
+
+Setup: Draft-OPD (5 layers); A5000, eager; 3 validation answers, a round at 1,024, 4,096 and
+8,192 tokens of text; medians of 15 timed calls after warming up; the drafter reading a 2,048-token
+window (a 512 window gives the same within 0.2 ms) (`nexus/branch_cost.py`, job `probe2-cost`).
+Inputs: timing only; the branch tokens come from the untrained readout, which does not affect the
+cost.
+Metric: milliseconds per round of each setting; the target's check by rows; the relative token
+gain each setting needs to break even against DDTree's round (first run + 1.6 ms + the 64-row
+check).
+Evidence: `nexus/results/probe2-cost/status.json`. First run 8.4 to 8.6 ms; first run plus the
+readout and the choice of breaks after layer 2 or 3: 10.0 ms (the readout about 1.5 ms, the head
+over 16 places 1.2 of it); the method, k layers on the block then the rest on five blocks: 11.4 ms
+at either split (+2.9 to +3.0 ms; three layers on 80 positions instead of 16 add about 1.4 ms, so
+positions are cheap but not free in eager mode); first run plus a whole second pass on the
+branches: 16.6 to 16.8 ms (+8.2 ms). The check: 64 rows 48.1 ms at 1k and 4k, 65.1 at 8k; 76 rows
++0 to +1.5 ms at 1k and 4k but +6.5 ms at 8k; 128 rows about 1 ms more than 76. Break-even gain
+for the method: 4.8% (1k), 7.7% (4k), 12.8% (8k) with the branches' rows added; about 5% at every
+length if the branches stay within 64 rows. Conclusion supported: the method's own cost is
+affordable (about 3 ms, a 5% gain needed); there is a cliff in the check right above 64 rows at
+long context, on which DDTree's 63 nodes plus the root sit, so branches must be fitted inside the
+64 rows rather than added. Open: the oracle room (`oracle1-branches`, running) and, if there is
+room, the early-readout training test.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
 with prefix and suffix views, β = 0.7, τ = γ = 7, learning rate 2e-4; D2SD: a separate drafter
 trained the same way, β = 0.85, rate 1e-4, all weights).
-Status: no completed result. The first D2SD training (`loop1-d2sd`) ran 0.5 hours (1,048 answers,
+Status: no completed result. D-Loop ran out of memory three times (all weights, two passes of the
+same drafter backed through, with the target loaded; 24 GB), down to 4 blocks an update and a
+1,024-token window, and is not reproduced here. D2SD fits; its run was stopped at 1.3 hours on
+November 27 to free a GPU for the probes of C9 and C11 and resumes from its saved weights
+(`loop6-d2sd`, `--start-from-drafter`) after them. The first D2SD training (`loop1-d2sd`) ran 0.5 hours (1,048 answers,
 loss falling) and died at its first checkpoint save when the home folder filled; the first
 D-Loop training (`loop2-dloop`) died out of memory and was requeued with smaller groups. Both are
 queued again (`loop3-dloop`, `loop4-d2sd`). Nothing from this entry is evidence yet.
