@@ -577,6 +577,35 @@ target's own labels are as good as or better than the four-layer teacher. With C
 transfers nothing) this closes the distillation route. This is the controlled comparison the
 November 26 reading found unpublished, and its answer is negative.
 
+### C16. The D2SD second drafter made here: the states still limit a trained pass, and it loses on time (November 27, 17:10 UTC)
+
+Setup: Draft-OPD as the first drafter; thinking on; A5000; the D2SD second drafter trained in
+`loop4-d2sd` and `loop6-d2sd` (a separate whole drafter started from Draft-OPD, D2SD's views,
+β = 0.85, 3.7 hours after the resume, 7,690 answers). Probe on 30 validation answers (39,635 rounds
+with a break, `d2sd1-probe/probe`); replay on 8 (`d2sd1-probe/replay`); real speed on 7 long
+answers, the same text in every row (`speed2-d2sd`, eager except the two graphed trees).
+Inputs: the probe restarts at the TRUE break from the RIGHT token (oracles) and varies what the
+second drafter gets for the target's missing states; the replay and the speed run use the four
+likely breaks and the drafter's second choice (no oracle).
+Metric: tokens accepted after the right token (probe); tokens per round; real speed over plain.
+Timing: full rounds in the speed run.
+Evidence: probe, tokens after the right token: the first draft's old tokens 0.66; the trained
+second drafter rewriting the rest with tokens only 1.59 (the original drafter in B3: 0.83); the
+trained drafter restarted with nothing 0.94, with the predictor's states 1.83, with the target's
+real states 3.27 (the original: 0.93, 2.01, 3.65). Replay, 8 answers: plain 5.72; the same drafter
+again at four breaks 6.37 (+11.3%); the trained second drafter at four breaks 6.99 (+22.3%). Real
+speed, 7 answers: plain 5.88 tokens a round at 65.0 ms; drafter again at four breaks 7.00 at 81.0
+ms, −4.4%; the trained second drafter at four breaks 7.19 at 79.0 ms, +0.7%; DDTree 7.72 at 70.3
+ms, +21.3%; the count table as a graph 8.51 at 71.2 ms, +32.3%; the pair network with the flag as
+a graph 8.89 at 72.1 ms, +36.3% (+12.4% over DDTree, +3.0% over the graphed count table).
+Conclusion supported: training the second drafter for the job closes about a third of the gap
+between a token-only ending and one with the target's states (0.83 → 1.59 against 3.27), so the
+missing states limit a trained pass too, not only an untrained one (Experiment 8's question); and
+the trained second pass loses on time here (its 14 ms pass eats its +22% tokens), below DDTree
+alone in both tokens and speed. By P4's rule the main line stays with the pass-free corrector
+(Lane B). D2SD's own paper reports +20% speed for its second pass on a stack where the pass costs
+about 4 ms; on an eager 65 ms round with a 14 ms pass it cannot pay.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -677,7 +706,8 @@ training was done; the two qualifications are in C13.
 
 P7, done: see C15 (the teacher adds nothing; the teacher alone is worse). P2, done: see C14.
 
-P4 is now the next milestone: the D2SD training (`loop6-d2sd`, resumed) and, when it ends, its
+P4, done: see C16; the retrained second drafter does not reach DDTree, so the main line stays with
+the corrector. What was P4: the D2SD training (`loop6-d2sd`, resumed) and, when it ends, its
 acceptance and full decoding speed against the matched baselines on the same answers (plain,
 DDTree, the count table, the corrector). That is the test of whether learned branch continuations
 give enough extra progress to justify their computation.

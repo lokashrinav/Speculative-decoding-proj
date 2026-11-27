@@ -99,7 +99,9 @@ We also asked whether the drafter could write the branches after its likely brea
 
 Experiment 10. Does a retrained drafter do better than a corrector?
 
-D2SD and D-Loop retrain a drafter for the second pass and have no released weights. We trained D2SD's separate second drafter with its recipe on the cluster (D-Loop did not fit in memory). Its probe with no states, predicted states and real states, and its real speed against DDTree, the count table and the network on the same answers: [pending].
+D2SD and D-Loop retrain a drafter for the second pass and have no released weights. We trained D2SD's separate second drafter with its recipe on the cluster, on 7,690 answers (D-Loop did not fit in memory). Then we ran Experiment 2's test with it: at every round where the draft broke, restarted from the right token, we counted the tokens the target accepted after it. With tokens only, the trained second drafter adds 1.59 tokens where the original drafter added 0.83; with the target's real hidden states it adds 3.27 where the original added 3.65. So training the second drafter for the job closes about a third of the gap that the missing states leave, and the states still double what the trained pass gets.
+
+In real decoding on 7 long answers, the trained second drafter at the four likely breaks accepts 7.19 tokens per round, 22% more than the plain draft's 5.88, but its pass costs 14 ms on a 65 ms round, and it is 0.7% faster than plain. DDTree on the same answers is 21.3% faster, the count table as a CUDA graph 32.3%, and the network with the flag as a CUDA graph 36.3% (8.89 tokens per round at 72.1 ms). D2SD's own paper reports a 20% speedup on a serving stack where its second pass costs about 4 ms; on our stack the same tokens cannot pay for a 14 ms pass. The retrained second drafter is below DDTree alone in both tokens and speed, so the pass-free corrector stays the method.
 
 Main results
 
@@ -121,4 +123,4 @@ A second draft helps because it hands the target one more candidate at the break
 
 What is still running
 
-The staleness inputs (how far and how often the branch has left the first draft's path) as a learned strength of the correction [pending]; where the missing tokens sit in the first draft's vocabulary, which decides whether widening the candidates or a token-only proposer recovers the 12% of coverage stops [pending]; a 127-node tree where the target's check is flat [pending]; and the retrained D2SD drafter [pending].
+The staleness inputs (how far and how often the branch has left the first draft's path) as a learned strength of the correction [pending]; where the missing tokens sit in the first draft's vocabulary, which decides whether widening the candidates or a token-only proposer recovers the 12% of coverage stops [pending]; a 127-node tree where the target's check is flat [pending]; and the graphed network on the 40 benchmark prompts [pending].
