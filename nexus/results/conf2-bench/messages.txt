@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/conf2-bench-8592843/nexus/live_speed.py", line 283, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/conf2-bench-8592843/nexus/live_speed.py", line 246, in main
+    dflash_generate_redraft(draft, target, prompt, 96, stops, block_size=16, return_stats=True,
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/conf2-bench-8592843/dflash/redraft.py", line 2287, in dflash_generate_redraft
+    alternative = improver(SimpleNamespace(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/conf2-bench-8592843/dflash/redraft.py", line 1264, in __call__
+    return super().__call__(s)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/conf2-bench-8592843/dflash/redraft.py", line 1040, in __call__
+--
+    raise ValueError("the tree with counts needs the counts (dflash/follow.py: FollowCounts)")
+ValueError: the tree with counts needs the counts (dflash/follow.py: FollowCounts)

@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/tmp/specdec-code-sloka/cost1-search-8592844/nexus/live_speed.py", line 283, in <module>
+    main()
+  File "/tmp/specdec-code-sloka/cost1-search-8592844/nexus/live_speed.py", line 246, in main
+    dflash_generate_redraft(draft, target, prompt, 96, stops, block_size=16, return_stats=True,
+  File "/fs/classhomes/sloka/specdec-env/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/cost1-search-8592844/dflash/redraft.py", line 2287, in dflash_generate_redraft
+    alternative = improver(SimpleNamespace(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/cost1-search-8592844/dflash/redraft.py", line 1268, in __call__
+    rows = self._replayed(s)
+           ^^^^^^^^^^^^^^^^^
+  File "/tmp/specdec-code-sloka/cost1-search-8592844/dflash/redraft.py", line 1289, in _replayed
+--
+RuntimeError: Cannot copy between CPU and CUDA tensors during CUDA graph capture unless the CPU tensor is pinned. Please use tensor.pin_memory() or allocate the tensor with pin_memory=True.
