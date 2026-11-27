@@ -1,0 +1,160 @@
+{
+ "done": true,
+ "answers": 8,
+ "answers_in_this_job": 100,
+ "part": "validation",
+ "hours": 0.039,
+ "draft": "opd",
+ "settings": "ptree63@opd-p2s-k100",
+ "settings_from": "command line",
+ "saved_adapters_used": {},
+ "counts_from": null,
+ "groups": [
+  "0-2k",
+  "2k+",
+  "8k+",
+  "everything",
+  "16k+",
+  "24k+"
+ ],
+ "by_setting": {
+  "ptree63@opd-p2s-k100": {
+   "0-2k": {
+    "rounds": 1793,
+    "tokens_per_round": 8.350250976017847
+   },
+   "2k+": {
+    "rounds": 5238,
+    "tokens_per_round": 8.56758304696449
+   },
+   "8k+": {
+    "rounds": 1631,
+    "tokens_per_round": 7.967504598405886
+   },
+   "everything": {
+    "rounds": 7031,
+    "tokens_per_round": 8.512160432370928
+   },
+   "16k+": {
+    "rounds": 49,
+    "tokens_per_round": 7.816326530612245
+   }
+  }
+ },
+ "in_real_time": {
+  "ptree63@opd-p2s-k100": {
+   "0-2k": {
+    "tokens_per_second": 136.3773824141311,
+    "extra_drafter_ms_per_round": 4.871277189068599,
+    "extra_tokens_checked_per_round": 48.0,
+    "extra_check_ms_per_round": 0.0,
+    "check_and_first_draft_ms_per_round": 56.35772448410485,
+    "redrafts": {
+     "rounds_counted": 1793,
+     "first_draft_broke": 0.9263803680981595,
+     "the_break_was_redrafted_from": 0.0,
+     "that_redraft_got_past_the_break": 0.0,
+     "a_redraft_got_further": 0.7730061349693251,
+     "tokens_added_when_it_did": 3.144300144300144
+    }
+   },
+   "2k+": {
+    "tokens_per_second": 115.37229900740283,
+    "extra_drafter_ms_per_round": 4.853169148529973,
+    "extra_tokens_checked_per_round": 48.00229095074456,
+    "extra_check_ms_per_round": 3.0287552500954567,
+    "check_and_first_draft_ms_per_round": 66.37838869797633,
+    "redrafts": {
+     "rounds_counted": 5236,
+     "first_draft_broke": 0.950916730328495,
+     "the_break_was_redrafted_from": 0.0,
+     "that_redraft_got_past_the_break": 0.0,
+     "a_redraft_got_further": 0.7937356760886173,
+     "tokens_added_when_it_did": 3.115014436958614
+    }
+   },
+   "8k+": {
+    "tokens_per_second": 83.78667544916944,
+    "extra_drafter_ms_per_round": 4.695217657878602,
+    "extra_tokens_checked_per_round": 48.00735744941753,
+    "extra_check_ms_per_round": 6.5972777437155115,
+    "check_and_first_draft_ms_per_round": 83.80024524831393,
+    "redrafts": {
+     "rounds_counted": 1629,
+     "first_draft_broke": 0.9969306322897483,
+     "the_break_was_redrafted_from": 0.0,
+     "that_redraft_got_past_the_break": 0.0,
+     "a_redraft_got_further": 0.8360957642725598,
+     "tokens_added_when_it_did": 3.0491923641703376
+    }
+   },
+   "everything": {
+    "tokens_per_second": 119.99580077854016,
+    "extra_drafter_ms_per_round": 4.857815388991608,
+    "extra_tokens_checked_per_round": 48.0017067273503,
+    "extra_check_ms_per_round": 2.256381738017352,
+    "check_and_first_draft_ms_per_round": 63.822955482861616,
+    "redrafts": {
+     "rounds_counted": 7029,
+     "first_draft_broke": 0.9446578460662968,
+     "the_break_was_redrafted_from": 0.0,
+     "that_redraft_got_past_the_break": 0.0,
+     "a_redraft_got_further": 0.788447858870394,
+     "tokens_added_when_it_did": 3.122338505954529
+    }
+   },
+   "16k+": {
+    "tokens_per_second": 64.22887616236657,
+    "extra_drafter_ms_per_round": 4.728571428571429,
+    "extra_tokens_checked_per_round": 48.244897959183675,
+    "extra_check_ms_per_round": 7.856122448979591,
+    "check_and_first_draft_ms_per_round": 109.11020408163265,
+    "redrafts": {
+     "rounds_counted": 47,
+     "first_draft_broke": 0.9787234042553191,
+     "the_break_was_redrafted_from": 0.0,
+     "that_redraft_got_past_the_break": 0.0,
+     "a_redraft_got_further": 0.8723404255319149,
+     "tokens_added_when_it_did": 3.1707317073170733
+    }
+   }
+  }
+ },
+ "measured_ms": {
+  "tokens_before": [
+   1000,
+   2000,
+   4000,
+   8000,
+   16000,
+   24000,
+   32000
+  ],
+  "target_check": [
+   48.2,
+   48.3,
+   48.6,
+   55.2,
+   97.7,
+   137.0,
+   176.8
+  ],
+  "first_draft": [
+   8.11,
+   8.2,
+   8.3,
+   8.29,
+   8.56,
+   9.49,
+   11.04
+  ]
+ },
+ "timed_in_this_job_ms": [],
+ "replay_ms_per_round": {
+  "ptree63@opd-p2s-k100": {
+   "draft": 8.172159179071683,
+   "improve": 7.237095357758134
+  }
+ },
+ "gpu_memory_peak_gb": 11.9
+}
