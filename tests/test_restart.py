@@ -2935,3 +2935,44 @@ def test_early_readout_of_the_drafters_alternatives(tmp_path):
     # the chain broke at 2). anchor 1: at place 0 (nothing before, second choice right); at place 1 (prefix wrong at 0).
     assert got["own_breaks"]["share_whole_prefix_right"] == 0.5 and got["own_breaks"]["share_real_break_of_this_readouts_chain"] == 0.5
     assert got["tokens_right_in_a_row"] == round((2 + 0) / 2, 3)
+
+
+def test_branching_inside_the_drafter_costs_the_same_parts():
+    """nexus/branch_cost.py: the stages of the method on the small models. The 'draft' setting is the first run itself;
+    split@k runs k layers, the readout, four branches and the rest, with the right shapes; the second pass runs."""
+    from dflash.model import _output_head
+    from dflash.replay import target_features
+    from nexus.branch_cost import Stages, check_cost
+    from nexus.train_every import first_runs
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=120)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids, top=0).clone()
+    start = length + 10
+    with torch.no_grad():
+        stages = Stages(draft, target, features, ids, start, 0, BLOCK, breaks=2, tail=2)
+        logits = stages.setting_draft()
+        final, _ = first_runs(draft, target, features, ids, torch.tensor([start]), 0, 0, BLOCK)
+        expected = draft.compute_logits(final[:, 1:], _output_head(target))
+        assert torch.allclose(logits, expected, atol=1e-3, rtol=1e-3)
+        # k layers, then the rest, is the whole run.
+        states = stages.first_layers(2)
+        rest = stages.rest_layers(2, states, states[:, :0].reshape(1, 0, states.shape[-1]))
+        assert torch.allclose(draft.compute_logits(rest[:, 1:], _output_head(target)), expected, atol=1e-3, rtol=1e-3)
+        first, second, confidence = stages.readout(states)
+        assert first.shape == (BLOCK - 1,) and (first != second).all() and (confidence <= 1).all()
+        branch_states, tokens, breaks = stages.branches_of(states, first, second, confidence)
+        assert branch_states.shape == (1, 2 * BLOCK, states.shape[-1]) and tokens.shape == (2, BLOCK) and breaks.shape == (2,)
+        for b in range(2):
+            j = int(breaks[b])
+            assert tokens[b, 0] == ids[0, start] and (tokens[b, 1 : j + 1] == first[:j]).all() and tokens[b, j + 1] == second[j]
+            assert (tokens[b, j + 2 :] == draft.mask_token_id).all()
+        block_logits, tails = stages.setting_split(2)
+        assert block_logits.shape[1] == BLOCK - 1 and tails.shape[:2] == (2, 2)
+        again, more = stages.setting_draft_second()
+        assert more.shape[1] == 2 * BLOCK - 1
+        out, _ = stages.setting_draft_readout(2)
+        assert torch.allclose(out, expected, atol=1e-3, rtol=1e-3)                 # the readout changes nothing of the draft
+        cost = check_cost(target, ids, start, [4, 8], 2, torch.device("cpu"))
+        assert set(cost) == {"4", "8"} and all(v > 0 for v in cost.values())
