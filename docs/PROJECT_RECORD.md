@@ -378,6 +378,32 @@ Evidence: `nexus/results/next1-trace`, `next2-replay`, `next3-speed`. Fork accur
 better and lose on time; the cheaper corrector wins in speed. Their every-node numbers are the
 practical ceiling for correctors of this family (8.94 against 8.67).
 
+### C8. The ablation of the three numbers: the flag alone does it (November 27, 07:00 UTC)
+
+Setup: Draft-OPD; thinking on; A5000; each variant trained exactly as `opd-p2s` (2 passes, 2
+hours, about 5,260 answers of `long1` train plus `think1`); fork accuracy on 12 validation answers;
+replay on the same 8 validation answers (6,870 to 6,900 rounds). Jobs `abl1-top1`, `abl2-logp`,
+`abl3-scalar`, `abl4-seed`.
+Inputs: as C3, with the three numbers cut down: only "was the token before the first choice"
+(`opd-p2s-t`); that and the token's log-probability (`opd-p2s-tl`); all three but one scale per
+token instead of per rank (`opd-p2s-g`); all three again with seed 1 (`opd-p2s-s1`). No oracle.
+Metric: accuracy right after a fork (true prefix); tokens per round in replay, own rounds.
+Timing: none (the cost is the same for all).
+Evidence: `nexus/results/abl1-top1` to `abl4-seed`, `status.json` and `replay/status.json`.
+Right after a fork: `opd-p2s` 47.5%, flag only 47.2%, flag and log-probability 47.3%, one scale
+per token 47.9%, seed 1 47.0%; without any of them (`opd-p2`) 42.4%. Tokens a round: flag only
+8.674, flag and log-probability 8.681, one scale per token 8.713, seed 1 8.695, against `opd-p2s`
+8.667 (7 answers) and `opd-p2` 8.19 (7 answers). The spread across all four is 0.04 tokens a
+round and the seed-to-seed difference 0.03. Conclusion supported, by the rule fixed in advance
+(flag alone at 8.5 or more): the gain of the three numbers is entirely the yes/no flag "was the
+token before the first run's own first choice", and a single learned scale per token carries it
+as well as a scale per rank. The continuous confidence adds nothing measurable. What stands is
+narrower than the November 27 reading claimed: a learned per-node corrector needs DForkTree's
+on-path/off-path distinction as an input, and with it gains +0.48 tokens a round (+5.9%) over the
+same corrector without it; DForkTree's fixed weights are the same idea in a count table. This is
+not new in kind. Open: whether the flag's gain is the same for other correctors (TreeFlash's head,
+GRAFT's), which would make it a general finding about learned correctors rather than ours.
+
 ### C6. The published second passes made here (D2SD, D-Loop)
 
 Setup: Draft-OPD; thinking on; A5000; `nexus/train_loop.py` (D-Loop: the same drafter retrained
@@ -419,7 +445,8 @@ Ours, as far as the readings found: splitting the second draft's gain into token
 on the same rounds (B1, B2); the per-cause accounting of why a tree's path stops with each
 method's gain attributed to causes (C4); continuous first-run confidence about the token before a
 place as an input to a learned per-node scorer, with its measured gain and its trace reading (C3,
-C4). Whether the last is distinct from DForkTree's on-path flag is P1 below.
+C4). C8 settled the last: it is not distinct from DForkTree's on-path flag; the flag alone gives
+the whole gain.
 
 Withdrawn on November 27: drafting the tree in the drafter's first pass by giving extra positions
 the alternative token at a fork. The alternative token is an output of that pass and cannot be its
@@ -429,14 +456,8 @@ input; any repair is a second pass, which is C1 and C5.
 
 ## Part E. Proposed experiments (not evidence; each with what it must show)
 
-P1. Ablation of the three numbers (running, `abl1-top1`, `abl2-logp`, `abl3-scalar`,
-`abl4-seed`): only "first choice or not" (DForkTree's flag); that and the log-probability; all
-three with one scale per token (a gate, not a shape); all three with another seed (noise). Each
-trained as `opd-p2s` (2 passes, 2 hours) and replayed on the 8 validation answers. Decision rule,
-fixed before the result: flag alone at 8.5 or more of 8.63 tokens a round means the contribution
-is DForkTree's two strengths learned; 8.4 or less means the graded number does the work. Training
-curves at 1.6 hours put the three seed-0 variants within 0.2 points of each other on training
-text, which is a hint and not a result.
+P1, now done (November 27, 07:00 UTC; moved to C8 below). The result: the flag alone does the
+whole job.
 
 P2. Confirmation of C3's speed (queued, `conf1-speed`: up to 30 long validation answers; DDTree,
 count table, `opd-p2`, `opd-p2s`) and on 40 standard-benchmark prompts with thinking off
