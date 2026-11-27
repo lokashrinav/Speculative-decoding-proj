@@ -253,6 +253,14 @@ def make_method(name, ckpt_dir, like=None):
         number = lambda at: None if found[at] is None else int(found[at])
         return Reanchor(number(1), tail=number(4), block=number(5), fixed=bool(found[6]), corrections=bool(found[3]),
                         whole=bool(found[2]))
+    found = re.fullmatch(r"otree(\d+)(?:f(\d+))?(?:b(\d+))?(?:t(\d+))?", name)
+    if found:
+        # otreeB: DDTree with B nodes plus four oracle branches at the drafter's likely breaks (dflash/redraft.py:
+        # OracleBranches, replay only: the answer's own tokens continue each branch); fF: a first tree of F nodes so that
+        # the whole stays near B; bK: K breaks (4); tT: T tokens of continuation (3).
+        from dflash.redraft import DraftTree, OracleBranches
+
+        return OracleBranches(DraftTree(int(found[2] or found[1])), breaks=int(found[3] or 4), tail=int(found[4] or 3))
     found = re.fullmatch(r"([qg]?)ctree(\d+)(?:l(\d+)_(\d+))?(?:m(\d+))?", name)
     if found:
         # ctreeB: DDTree with B nodes whose scores are corrected by counts of which token follows which two

@@ -44,7 +44,7 @@ import time
 import torch
 
 from dflash.benchmark import load_transformers_models, stop_token_ids
-from dflash.redraft import CountTree, DraftTree, SecondTree
+from dflash.redraft import CountTree, DraftTree, OracleBranches, SecondTree
 from dflash.replay import replay_decode, target_features
 from nexus.fit_gate import split_of
 from nexus.probe_memory import stepped_aside, write_json
@@ -82,16 +82,26 @@ class Trace:
     def __init__(self, methods: dict, block: int = 16):
         self.methods, self.block = methods, block
         for method in methods.values():
-            if not isinstance(method, (DraftTree, SecondTree)):
+            if not isinstance(method, (DraftTree, SecondTree, OracleBranches)):
                 raise ValueError("only trees of drafts can be traced")
             method.keep_last = True
-        self.ids = None
+        self.ids = None                                 # the answer (the replay sets it as answer_ids; the methods that read it get it)
         # per round: (tokens, reason, where, forks passed, would, mended, beyond the 32, reach, kept ...)
         self.rounds = {name: [] for name in methods}
         self.first_run = []                             # per round: (first choices right in a row, candidates of 32 right in a row)
 
+    @property
+    def answer_ids(self):
+        return self.ids
+
+    @answer_ids.setter
+    def answer_ids(self, ids):
+        self.ids = ids
+
     def start(self, drafter) -> None:
         for method in self.methods.values():
+            if hasattr(method, "answer_ids"):
+                method.answer_ids = self.ids
             method.start(drafter)
 
     def close(self) -> None:

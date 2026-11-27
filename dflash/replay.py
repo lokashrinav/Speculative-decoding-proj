@@ -96,6 +96,8 @@ def replay_decode(model, target, ids, prompt_length, ended=True, features=None, 
     head = _output_head(target)
     scale = float(_draft_value(model.config, "input_embedding_scale", 1.0))
     if improver is not None:
+        if hasattr(improver, "answer_ids"):                 # (a replay-only oracle may read the answer)
+            improver.answer_ids = ids
         improver.start(model)
     # A plug-in may ask for what the target predicted on each draft (the signal Test-Time Speculation
     # trains on). Then the target does check every draft here too, which costs what decoding costs.

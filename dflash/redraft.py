@@ -1808,6 +1808,60 @@ class SecondTree(BranchTree):
         raise ValueError(f"unknown mix {self.mix!r}")
 
 
+class OracleBranches:
+    """A feasibility check, replay only: DDTree's tree plus four branches at the drafter's likely breaks, each the
+    drafter's second choice at the break followed by the ANSWER's own next tokens (an oracle: perfect continuations of
+    the proposed length). What a method that branches at those breaks could add over DDTree at best, when its
+    continuations are right whenever its alternative token is; nothing it could actually reach.
+
+    The breaks are the `breaks` most likely by the first run's own confidences (break_scores), the tokens before the
+    break are the first run's first choices, the continuation is `tail` tokens of the answer after the alternative (cut
+    at the block's end). The branch rows are added to the tree's rows; with a first tree smaller than the budget
+    (`DraftTree(first)` as `tree`) the whole stays within a budget. Needs `answer_ids` (the replay sets it)."""
+
+    replace = True
+
+    def __init__(self, tree, breaks: int = 4, tail: int = 3):
+        self.tree, self.breaks, self.tail = tree, breaks, tail
+        self.answer_ids = None
+        self.nodes = 0
+        self.counts = {"rounds": 0, "branches": 0, "alternative_right": 0}
+
+    def start(self, drafter) -> None:
+        self.tree.start(drafter)
+        if self.answer_ids is None:
+            raise ValueError("the oracle branches need the answer (answer_ids): replay only")
+
+    def __call__(self, s: SimpleNamespace) -> torch.Tensor:
+        rows = self.tree(s)
+        self.nodes = self.tree.nodes
+        logits = s.draft_logits[0].float()
+        width, device = s.block_ids.shape[1], s.block_ids.device
+        probs = logits.softmax(dim=-1)
+        best = probs.topk(2, dim=-1)
+        places = min(width - 1, logits.shape[0])
+        first, second, confidence = best.indices[:places, 0].tolist(), best.indices[:places, 1].tolist(), best.values[:places, 0]
+        chosen = break_scores(confidence).topk(min(self.breaks, places)).indices.tolist()
+        answer = self.answer_ids[0]
+        start, first_token = s.start, int(s.block_ids[0, 0])
+        extra = []
+        self.counts["rounds"] += 1
+        for j in chosen:                                              # a break right after j accepted places: place j is wrong
+            row = [first_token] + first[:j] + [second[j]]
+            self.counts["branches"] += 1
+            self.counts["alternative_right"] += int(start + 1 + j < answer.shape[0] and second[j] == int(answer[start + 1 + j]))
+            for step in range(self.tail):
+                at = start + 2 + j + step                              # the answer's token at the place after the alternative
+                if len(row) >= width or at >= answer.shape[0]:
+                    break
+                row.append(int(answer[at]))
+            extra.append(row + [-1] * (width - len(row)))
+            self.nodes += len(row) - 1 - j                           # the new nodes: the alternative and its continuation
+        if extra:
+            rows = torch.cat((rows, torch.tensor(extra, dtype=rows.dtype, device=device)))
+        return rows
+
+
 class EchoRows:
     """Tails written from what the target has already said in this answer. No second run of the
     drafter, no predicted states, nothing trained.

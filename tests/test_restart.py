@@ -2976,3 +2976,74 @@ def test_branching_inside_the_drafter_costs_the_same_parts():
         assert torch.allclose(out, expected, atol=1e-3, rtol=1e-3)                 # the readout changes nothing of the draft
         cost = check_cost(target, ids, start, [4, 8], 2, torch.device("cpu"))
         assert set(cost) == {"4", "8"} and all(v > 0 for v in cost.values())
+
+
+def test_oracle_branches_traced_on_the_same_rounds():
+    """nexus/trace_trees.py with OracleBranches: the replay hands the answer through the trace; the oracle gets at
+    least as far as DDTree on every round."""
+    from dflash.redraft import DraftTree, OracleBranches
+    from dflash.replay import target_features
+    from nexus.trace_trees import Trace, summarize
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids).clone()
+    trace = Trace({"tree": DraftTree(12), "oracle": OracleBranches(DraftTree(12), breaks=2, tail=3)}, block=BLOCK)
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=trace, block_size=BLOCK)
+    got = summarize(trace)
+    assert got["trees"]["oracle"]["tokens_per_round"] >= got["trees"]["tree"]["tokens_per_round"]
+    assert got["trees"]["oracle"]["against"]["tree"]["rounds_less_far"] == 0.0
+
+
+def test_oracle_branches_at_the_likely_breaks():
+    """dflash/redraft.py: OracleBranches. DDTree's rows plus branches at the drafter's likely breaks continued by the
+    answer's own tokens; the replay hands over the answer; accepted tokens are never fewer than DDTree's; the name parses."""
+    from dflash.redraft import DraftTree, OracleBranches
+    from dflash.replay import target_features
+    from nexus.redraft_long import make_method
+
+    target, draft = make_models(layers=3)
+    plain, length = answer(target, draft, budget=200)
+    ids = plain.output_ids
+    features = target_features(target, draft, ids).clone()
+    oracle = OracleBranches(DraftTree(12), breaks=2, tail=3)
+    with pytest.raises(ValueError):
+        oracle.start(draft)                                                   # no answer given
+    tree = replay_decode(draft, target, ids, length, ended=False, features=features, improver=DraftTree(12), block_size=BLOCK)
+    more = replay_decode(draft, target, ids, length, ended=False, features=features, improver=oracle, block_size=BLOCK)
+    assert oracle.counts["rounds"] > 3 and oracle.counts["branches"] == 2 * oracle.counts["rounds"]
+    assert sum(more.acceptance_lengths) >= sum(tree.acceptance_lengths)
+    assert len(more.acceptance_lengths) <= len(tree.acceptance_lengths)
+    # The rows: the first token, the first choices up to the break, the second choice, then the answer's tokens.
+    seen = {}
+
+    class Watch(Seen):
+        @property
+        def answer_ids(self):
+            return self.inner.answer_ids
+
+        @answer_ids.setter
+        def answer_ids(self, value):
+            self.inner.answer_ids = value
+
+        def __call__(self, s):
+            rows = self.inner(s)
+            seen.setdefault("rows", (s.start, rows.clone(), s.draft_logits[0].float().topk(2, dim=-1).indices))
+            return rows
+
+    watched = Watch(OracleBranches(DraftTree(12), breaks=2, tail=3))
+    replay_decode(draft, target, ids, length, ended=False, features=features, improver=watched, block_size=BLOCK)
+    start, rows, best = seen["rows"]
+    branch_rows = rows[-2:].tolist()
+    for row in branch_rows:
+        assert row[0] == int(ids[0, start])
+        j = next(i for i, token in enumerate(row[1:]) if token != int(best[i, 0]))      # the first place off the first choices
+        assert row[1 + j] == int(best[j, 1])
+        for step, token in enumerate(row[2 + j :]):
+            if token < 0:
+                break
+            assert token == int(ids[0, start + 2 + j + step])
+    made = make_method("otree63f47b4t3", "/nowhere")
+    assert isinstance(made, OracleBranches) and made.tree.budget == 47 and made.breaks == 4 and made.tail == 3
+    assert make_method("otree63", "/nowhere").tree.budget == 63

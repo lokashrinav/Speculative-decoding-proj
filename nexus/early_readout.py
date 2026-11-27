@@ -86,12 +86,13 @@ class Tally:
         the branch keeps places < i and takes the second choice at i."""
         row = self.by_layer[k]
         anchors = ranks.shape[0]
-        row["places"] += anchors
-        row["top1"] += (ranks == 0).float().sum(dim=0).cpu()
-        row["top2"] += (ranks <= 1).float().sum(dim=0).cpu()
-        row["top8"] += (ranks <= 7).float().sum(dim=0).cpu()
         right_so_far = (ranks == 0).long().cumprod(dim=1)                      # chain of first choices right through the place
-        row["chain"] += right_so_far.float().sum(dim=0).cpu()
+        if own:                                                                # (the ranks are the same for both calls: counted once)
+            row["places"] += anchors
+            row["top1"] += (ranks == 0).float().sum(dim=0).cpu()
+            row["top2"] += (ranks <= 1).float().sum(dim=0).cpu()
+            row["top8"] += (ranks <= 7).float().sum(dim=0).cpu()
+            row["chain"] += right_so_far.float().sum(dim=0).cpu()
         which = row["own_breaks" if own else "last_layers_breaks"]
         for b in range(chosen_breaks.shape[1]):
             i = chosen_breaks[:, b]                                               # [anchors], a place index 0 .. places - 1
