@@ -27,7 +27,7 @@ from torch import nn
 
 class PairScores(nn.Module):
     def __init__(self, size: int, rank: int = 256, hidden: int = 1024, on_path: float = 0.3, off_path: float = 0.6,
-                 sure: bool = False):
+                 sure: bool = False, sure_inputs: str = "all", sure_scalar: bool = False):
         super().__init__()
 
         def code(last_zero: bool = False):
@@ -44,12 +44,26 @@ class PairScores(nn.Module):
         # far than DDTree in 13% of the rounds and shortened the chain of first choices
         # (docs/SECOND_DRAFTER_RESEARCH.md, the diagnosis). The three numbers scale the token's code, by 1 at the
         # start; they are numbers of a place's candidate, so the tables keep their form.
+        # To learn which of the three numbers matter, and whether they matter as a shape (one scale per rank) or
+        # only as a strength (one scale for the whole code): sure_inputs names the numbers kept, "all" or a
+        # comma list of "logp" (log-probability of the token), "top1" (first choice or not), "best" (log-probability
+        # of the first choice); sure_scalar makes the scale a single number per token.
         self.sure_before = self.sure_two = None
+        self.register_buffer("sure_keep", torch.ones(3), persistent=False)
         if sure:
             self.sizes["sure"] = True
+            if sure_inputs != "all":
+                self.sizes["sure_inputs"] = sure_inputs
+                names = {"logp": 0, "top1": 1, "best": 2}
+                keep = torch.zeros(3)
+                for name in sure_inputs.split(","):
+                    keep[names[name.strip()]] = 1.0
+                self.sure_keep = keep
+            if sure_scalar:
+                self.sizes["sure_scalar"] = True
 
             def scale():
-                layers = nn.Sequential(nn.Linear(3, 32), nn.SiLU(), nn.Linear(32, rank))
+                layers = nn.Sequential(nn.Linear(3, 32), nn.SiLU(), nn.Linear(32, 1 if sure_scalar else rank))
                 nn.init.zeros_(layers[2].weight)
                 nn.init.zeros_(layers[2].bias)
                 return layers
@@ -82,8 +96,9 @@ class PairScores(nn.Module):
         if self.sure_before is not None:
             if before_sure is None or two_before_sure is None:
                 raise ValueError("these scores need to be told how sure the first run was of the tokens before a place")
-            code_before = code_before * (1.0 + torch.tanh(self.sure_before(before_sure.float().clamp(min=-20.0))))
-            code_two = code_two * (1.0 + torch.tanh(self.sure_two(two_before_sure.float().clamp(min=-20.0))))
+            keep = self.sure_keep.to(code_before.dtype)
+            code_before = code_before * (1.0 + torch.tanh(self.sure_before(before_sure.float().clamp(min=-20.0) * keep)))
+            code_two = code_two * (1.0 + torch.tanh(self.sure_two(two_before_sure.float().clamp(min=-20.0) * keep)))
         pair = torch.einsum("...br,...cr->...bc", code_before * self.state(states)[..., None, :], coded)
         skip = torch.einsum("...ar,...cr->...ac", code_two * self.state_two(states)[..., None, :], coded)
         return pair, skip, self.rest(states)[..., 0]

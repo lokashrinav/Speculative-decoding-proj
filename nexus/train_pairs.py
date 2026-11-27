@@ -134,6 +134,9 @@ def main():
     parser.add_argument("--hidden", type=int, default=1024)
     parser.add_argument("--sure", action="store_true",
                         help="tell the scores how sure the first run was of the tokens before a place (dflash/pair_scores.py)")
+    parser.add_argument("--sure-inputs", default="all",
+                        help='which of the three numbers the scores see: "all", or a comma list of logp, top1, best')
+    parser.add_argument("--sure-scalar", action="store_true", help="one scale per token instead of one per rank")
     parser.add_argument("--anchors", type=int, default=256, help="rounds per answer")
     parser.add_argument("--group", type=int, default=32, help="rounds per update")
     parser.add_argument("--soft", type=float, default=0.5)
@@ -167,7 +170,8 @@ def main():
     for parameter in list(draft.parameters()) + list(target.parameters()):
         parameter.requires_grad_(False)
     with torch.inference_mode(False):
-        pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden, sure=args.sure).to(device).train()
+        pairs = PairScores(draft.fc.weight.shape[0], args.rank, args.hidden, sure=args.sure,
+                           sure_inputs=args.sure_inputs, sure_scalar=args.sure_scalar).to(device).train()
         optimizer = torch.optim.AdamW(pairs.parameters(), lr=args.rate, weight_decay=0.0)
     teach = TeachPairs(pairs, optimizer, draft, target, args.candidates, args.group, soft=args.soft, window=args.window, seed=args.seed)
     follow, half_of, parts, tokens_counted = None, {}, None, 0
@@ -183,6 +187,7 @@ def main():
         write_json(status_path, {
             "done": done, "answers": learned, "answers_to_learn_from": len(answers), "updates": teach.updates, "rows": teach.rows_seen,
             "draft": args.draft, "what": "pair scores", "rank": args.rank, "hidden": args.hidden, "sure": bool(args.sure),
+            "sure_inputs": args.sure_inputs, "sure_scalar": bool(args.sure_scalar),
             "saved_as": args.save,
             "candidates": args.candidates, "soft": args.soft, "counts": bool(args.counts), "tokens_counted": tokens_counted,
             "trained_numbers": sum(value.numel() for value in pairs.parameters()),

@@ -2416,6 +2416,25 @@ def test_pair_scores_told_how_sure_the_first_run_was(tmp_path):
     with pytest.raises(ValueError):
         pairs.tables(*given)
 
+    # The ablations: scores that see only some of the three numbers, or scale by one number per token. A score that
+    # sees only "first choice or not" gives the same tables whatever the other two numbers are; the choice is saved.
+    torch.manual_seed(1)
+    only = PairScores(16, rank=8, hidden=12, sure=True, sure_inputs="top1", sure_scalar=True)
+    with torch.no_grad():
+        only.here[2].weight.normal_(std=0.3)
+        only.sure_before[2].weight.normal_(std=0.3)
+        only.sure_two[2].weight.normal_(std=0.3)
+    assert only.sure_before[2].out_features == 1 and only.sure_keep.tolist() == [0.0, 1.0, 0.0]
+    other = (how[0] + torch.randn(2, 5, 3) * torch.tensor([1.0, 0.0, 1.0]), how[1] + torch.randn(2, 4, 3) * torch.tensor([1.0, 0.0, 1.0]))
+    same = only.tables(*given, *how)
+    changed = only.tables(*given, how[0] * torch.tensor([1.0, -1.0, 1.0]), how[1])
+    assert all(torch.allclose(mine, theirs, atol=1e-6) for mine, theirs in zip(same, only.tables(*given, *other)))
+    assert not torch.allclose(same[0], changed[0])
+    save_pair_scores(str(tmp_path / "only.pt"), only, {})
+    back, _ = load_pair_scores(str(tmp_path / "only.pt"), "cpu")
+    assert back.sizes["sure_inputs"] == "top1" and back.sizes["sure_scalar"] and back.sure_keep.tolist() == [0.0, 1.0, 0.0]
+    assert all(torch.allclose(mine, theirs, rtol=2e-2, atol=2e-2) for mine, theirs in zip(same, back.tables(*given, *how)))   # saved in half precision
+
     teach = TeachPairs(pairs, torch.optim.AdamW(pairs.parameters(), lr=3e-3), draft, target, candidates=5, group=6, window=64, width=BLOCK, warm=1)
     losses = []
     for _ in range(12):
