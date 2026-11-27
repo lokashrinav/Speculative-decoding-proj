@@ -719,5 +719,31 @@ differ), each trained as `opd-p2s` and replayed on the 8 answers. After these: t
 teacher at α ∈ {0, 0.25, 0.5, 1} against the target's labels alone at equal data; the window at one, two and
 three tokens at equal cost; 4–8 trigram candidates at nodes after a fork (DForkTree: they hold 37–41% of the
 missing tokens) for the 10% of stops whose token is not among the 32; then Qwen3-8B and bootstrap intervals.
-The runner on nexusclass01 went quiet at 00:36 UTC (the Slurm status commands had no time limit; fixed);
-until it is restarted the jobs wait in the queue folder and the four running ones keep their results.
+**What stopped the runner (found 04:15 UTC).** The home folder filled at 00:39 UTC: the D2SD training's first
+checkpoint (1.2 GB) met a 32 GB quota of which 6.6 GB was an old environment (`~/.venvs/specdec-cu128`, October
+20, used by nothing). Every git command of the runner failed from then on, and the four jobs died when they
+could not write (`loop1-d2sd` at 0.5 h with a half-written checkpoint, `next2-replay` after 7 answers,
+`next3-speed` after 3, `next1-trace` had finished). The old environment was removed, the runner recovered,
+the queued jobs were submitted at 04:19 UTC, and the D2SD training is queued again as `loop4-d2sd`.
+
+**Where the partial runs ended.** Replay, own rounds, 7 answers: `opd-p2` 8.19, `opd-p2s` 8.67, `opd-e1m1`
+8.07, `opd-e2` 8.35 (8.71 every node), `opd-e4` 8.48 (8.94 every node). Real speed, 3 answers: plain 5.80
+tokens a round at 64.0 ms; DDTree 7.56 at 68.7 ms, +21.2%; `opd-p1` 8.26 at 72.5 ms, +25.6%; `opd-p2s`
+8.75 at 73.2 ms, +31.8%; `opd-e1` 8.29 at 75.3 ms, +21.3%; `opd-e2` 8.51 at 84.7 ms, +10.7%; `opd-e4` 8.63 at
+95.7 ms, −0.6%. The corrector's cost against DDTree on the same answers: 4.5 ms a round.
+
+**What the trace says the three numbers do (next1-trace, 6,993 rounds of DDTree, 7 answers, read 04:05 UTC).**
+Why the path stops, `opd-p2` against `opd-p2s`: right token ranked 5th or lower 28.3% → 24.9%; ranked 2nd to
+4th 38.4% → 38.6%; ranked first but the node budget went elsewhere 13.5% → 12.5%; block's end 9.9% → 11.9%;
+not among the 32 candidates 9.9% → 12.1%. Against DDTree on the same rounds: `opd-p2` further in 41.9% of
+rounds and less far in 10.3% (gaining 0.87 tokens a round, losing 0.18); `opd-p2s` further in 49.4%, less far
+in 4.5% (gaining 1.16, losing 0.06). Keeping only the corrector's first choice at every node: DDTree 6.00,
+`opd-p2` 6.03, `opd-p2s` 6.39. So the calibration hypothesis above is mostly wrong: the "budget went
+elsewhere" stops hardly moved. About 70% of the gain is better ranking (tokens that were ranked 5th or lower
+now ranked first) and 30% is less damage to DDTree's good rounds. Both fit one mechanism: the numbers set the
+strength of the correction, large after an unexpected token and small after an expected one, where the scores
+without them had to use one average strength. The ablation that decides the claim is `abl1-top1`: if the flag
+alone (two strengths) reaches 8.5 or more of the 8.63, the idea is DForkTree's weights learned; if 8.4 or less,
+the graded number does the work. The 12.5% of stops "ranked first, budget went elsewhere" is untouched by every
+corrector here and would be worth 0.28 tokens a round if mended: a calibration of scores across depths and
+on/off the path, a few learned temperatures on top of `opd-p2s`, is the cheapest next lever.
