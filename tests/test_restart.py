@@ -2989,7 +2989,7 @@ def test_oracle_branches_traced_on_the_same_rounds():
     plain, length = answer(target, draft, budget=200)
     ids = plain.output_ids
     features = target_features(target, draft, ids).clone()
-    trace = Trace({"tree": DraftTree(12), "oracle": OracleBranches(DraftTree(12), breaks=2, tail=3)}, block=BLOCK)
+    trace = Trace({"tree": DraftTree(12), "oracle": OracleBranches(DraftTree(12), breaks=2, tail=BLOCK)}, block=BLOCK)
     replay_decode(draft, target, ids, length, ended=False, features=features, improver=trace, block_size=BLOCK)
     got = summarize(trace)
     assert got["trees"]["oracle"]["tokens_per_round"] >= got["trees"]["tree"]["tokens_per_round"]

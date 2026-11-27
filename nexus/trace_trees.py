@@ -159,7 +159,8 @@ class Trace:
         would = -1
         if got >= places:
             cause = 0
-        elif ranks[got] is None:
+        elif got >= reach or ranks[got] is None:
+            # (got > reach happens only for rows that hold tokens beyond the first run's candidates, the oracle's)
             cause = 1
         else:
             position = positions[got]
