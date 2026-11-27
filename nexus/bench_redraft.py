@@ -38,9 +38,22 @@ _second_models = {}
 _draft_class = None
 
 
+def _class_of(path):
+    """The drafter class of a saved drafter: the one the main drafter has, if this script set it, else from the
+    saved config (as dflash/benchmark.py chooses it), so that other scripts can load a saved second drafter."""
+    if _draft_class is not None:
+        return _draft_class
+    from transformers import AutoConfig
+
+    from dflash.model import DFlash2DraftModel, DFlashDraftModel
+
+    config = AutoConfig.from_pretrained(path)
+    return DFlash2DraftModel if "DFlash2DraftModel" in (config.architectures or []) else DFlashDraftModel
+
+
 def load_second(path):
     if path not in _second_models:
-        _second_models[path] = _draft_class.from_pretrained(
+        _second_models[path] = _class_of(path).from_pretrained(
             path, attn_implementation="sdpa", dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
         ).to("cuda:0" if torch.cuda.is_available() else "cpu").eval()
     return _second_models[path]

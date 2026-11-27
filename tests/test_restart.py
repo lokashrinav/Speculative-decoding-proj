@@ -3113,3 +3113,18 @@ def test_pair_scores_taught_by_a_second_drafter():
     assert all(kl is not None and kl >= 0 for kl in mixed) and mixed[-1] > alone[-1]    # with the labels in the loss it stays further from the teacher
     with pytest.raises(ValueError):
         TeachPairs(PairScores(16, rank=8, hidden=12), None, draft, target, teacher=teacher, teacher_weight=2.0)
+
+
+def test_a_saved_second_drafter_loads_without_the_benchmark_script(tmp_path):
+    """nexus/bench_redraft.py: load_second finds the drafter's class from the saved config when the benchmark script
+    did not set it (the D2SD probe and the speed job died on this)."""
+    import nexus.bench_redraft as bench
+
+    target, draft = make_models(layers=3)
+    folder = str(tmp_path / "drafter-saved")
+    draft.save_pretrained(folder, safe_serialization=True)
+    assert bench._draft_class is None
+    loaded = bench.load_second(folder)
+    assert type(loaded).__name__ == type(draft).__name__
+    assert all(torch.allclose(a.float(), b.float(), atol=1e-2) for a, b in zip(loaded.state_dict().values(), draft.state_dict().values()))
+    bench._second_models.clear()
